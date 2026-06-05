@@ -1,6 +1,9 @@
+import logging
 import unicodedata
 
 from django.contrib import messages
+from django.conf import settings
+from django.contrib.auth import views as auth_views
 from django.contrib.auth import get_user_model
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 from django.db.models import Q
@@ -10,11 +13,49 @@ from django.shortcuts import redirect
 from django.urls import reverse_lazy
 from django.views.generic import CreateView, DeleteView, ListView, UpdateView, View
 
-from .forms import EmployeeCreateForm, EmployeeUpdateForm
+from .forms import EmailAuthenticationForm, EmployeeCreateForm, EmployeeUpdateForm
 from .models import EmployeeRole
 from .utils import sync_user_role_group
+from .security import clear_login_attempt, get_client_ip, get_login_lock, record_failed_login
 
 User = get_user_model()
+logger = logging.getLogger(__name__)
+
+
+class SecureLoginView(auth_views.LoginView):
+    template_name = 'registration/login.html'
+    authentication_form = EmailAuthenticationForm
+
+    def post(self, request, *args, **kwargs):
+        email = (request.POST.get('username') or '').strip().lower()
+        ip_address = get_client_ip(request)
+        lock = get_login_lock(email, ip_address)
+
+        if lock:
+            messages.error(
+                request,
+                'Muitas tentativas de login. Tente novamente mais tarde ou solicite redefinição de senha.',
+            )
+            logger.warning('Tentativa de login bloqueada. email=%s ip=%s', email, ip_address)
+            return redirect('login')
+
+        form = self.get_form()
+        if form.is_valid():
+            return self.form_valid(form)
+
+        attempt = record_failed_login(request, email)
+        remaining = max(settings.LOGIN_ATTEMPT_LIMIT - attempt.failure_count, 0)
+        if remaining and remaining <= 2:
+            messages.warning(request, f'Atenção: restam {remaining} tentativa(s) antes do bloqueio temporário.')
+        elif attempt.is_locked:
+            messages.error(request, 'Login temporariamente bloqueado por excesso de tentativas inválidas.')
+
+        return self.form_invalid(form)
+
+    def form_valid(self, form):
+        clear_login_attempt(self.request, form.cleaned_data.get('username'))
+        logger.info('Login realizado com sucesso. user_id=%s ip=%s', form.get_user().pk, get_client_ip(self.request))
+        return super().form_valid(form)
 
 
 def normalize_search_text(value):

@@ -2,7 +2,7 @@ from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
 
 from .forms import UserAdminChangeForm, UserAdminCreationForm
-from .models import User
+from .models import LoginAttempt, User
 from .utils import sync_user_role_group
 
 
@@ -62,3 +62,17 @@ class UserAdmin(DjangoUserAdmin):
             ),
         }),
     )
+
+
+@admin.register(LoginAttempt)
+class LoginAttemptAdmin(admin.ModelAdmin):
+    list_display = ('email', 'ip_address', 'failure_count', 'locked_until', 'last_failure_at')
+    list_filter = ('locked_until', 'last_failure_at')
+    search_fields = ('email', 'ip_address')
+    readonly_fields = ('email', 'ip_address', 'failure_count', 'first_failure_at', 'last_failure_at', 'locked_until', 'criado_em', 'atualizado_em')
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False

@@ -1,6 +1,7 @@
 from django.contrib.auth.models import AbstractUser
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.utils import timezone
 
 from core.models import PessoaTipo, only_digits
 from .managers import UserManager
@@ -63,3 +64,29 @@ class User(AbstractUser):
 
     def __str__(self):
         return self.email
+
+
+class LoginAttempt(models.Model):
+    email = models.EmailField('Email informado', db_index=True)
+    ip_address = models.GenericIPAddressField('IP', blank=True, null=True, db_index=True)
+    failure_count = models.PositiveIntegerField('Falhas consecutivas', default=0)
+    first_failure_at = models.DateTimeField('Primeira falha da janela', blank=True, null=True)
+    last_failure_at = models.DateTimeField('Última falha', blank=True, null=True)
+    locked_until = models.DateTimeField('Bloqueado até', blank=True, null=True)
+    criado_em = models.DateTimeField('Criado em', auto_now_add=True)
+    atualizado_em = models.DateTimeField('Atualizado em', auto_now=True)
+
+    class Meta:
+        verbose_name = 'Tentativa de login'
+        verbose_name_plural = 'Tentativas de login'
+        ordering = ['-last_failure_at', 'email']
+        constraints = [
+            models.UniqueConstraint(fields=['email', 'ip_address'], name='unique_login_attempt_email_ip'),
+        ]
+
+    @property
+    def is_locked(self):
+        return bool(self.locked_until and self.locked_until > timezone.now())
+
+    def __str__(self):
+        return f'{self.email} - {self.ip_address or "sem IP"}'

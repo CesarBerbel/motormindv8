@@ -36,6 +36,7 @@ class BrandForm(DaisyFormMixin, forms.ModelForm):
 
 class InventoryItemForm(DaisyFormMixin, forms.ModelForm):
     preco_custo = MoneyFormField(label='Preço de custo')
+    preco_venda = MoneyFormField(label='Preço de venda')
 
     class Meta:
         model = InventoryItem
@@ -48,6 +49,7 @@ class InventoryItemForm(DaisyFormMixin, forms.ModelForm):
             'estoque_minimo',
             'unidade',
             'preco_custo',
+            'preco_venda',
         ]
         widgets = {
             'descricao': forms.Textarea(attrs={'rows': 3}),

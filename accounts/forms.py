@@ -1,7 +1,15 @@
 from django import forms
-from django.contrib.auth.forms import AuthenticationForm, ReadOnlyPasswordHashField
+from django.contrib.auth.forms import (
+    AuthenticationForm,
+    PasswordChangeForm,
+    PasswordResetForm,
+    ReadOnlyPasswordHashField,
+    SetPasswordForm,
+)
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError
 
-from core.forms import BASE_CHECKBOX_CLASS, BASE_INPUT_CLASS, BASE_SELECT_CLASS, DaisyFormMixin
+from core.forms import BASE_CHECKBOX_CLASS, BASE_INPUT_CLASS, DaisyFormMixin
 from .models import User
 
 
@@ -10,6 +18,7 @@ class EmailAuthenticationForm(AuthenticationForm):
         label='Email',
         widget=forms.EmailInput(attrs={
             'autofocus': True,
+            'autocomplete': 'email',
             'class': BASE_INPUT_CLASS,
             'placeholder': 'voce@empresa.com',
         }),
@@ -21,6 +30,73 @@ class EmailAuthenticationForm(AuthenticationForm):
             'autocomplete': 'current-password',
             'class': BASE_INPUT_CLASS,
             'placeholder': 'Sua senha',
+        }),
+    )
+
+
+def validate_password_for_user(password, user):
+    try:
+        validate_password(password, user)
+    except ValidationError as exc:
+        raise forms.ValidationError(exc.messages)
+
+
+class StyledPasswordResetForm(PasswordResetForm):
+    email = forms.EmailField(
+        label='Email',
+        max_length=254,
+        widget=forms.EmailInput(attrs={
+            'autocomplete': 'email',
+            'class': BASE_INPUT_CLASS,
+            'placeholder': 'voce@empresa.com',
+        }),
+    )
+
+
+class StyledSetPasswordForm(SetPasswordForm):
+    new_password1 = forms.CharField(
+        label='Nova senha',
+        strip=False,
+        widget=forms.PasswordInput(attrs={
+            'autocomplete': 'new-password',
+            'class': BASE_INPUT_CLASS,
+        }),
+        help_text='Use uma senha forte, diferente de dados pessoais e senhas comuns.',
+    )
+    new_password2 = forms.CharField(
+        label='Confirme a nova senha',
+        strip=False,
+        widget=forms.PasswordInput(attrs={
+            'autocomplete': 'new-password',
+            'class': BASE_INPUT_CLASS,
+        }),
+    )
+
+
+class StyledPasswordChangeForm(PasswordChangeForm):
+    old_password = forms.CharField(
+        label='Senha atual',
+        strip=False,
+        widget=forms.PasswordInput(attrs={
+            'autocomplete': 'current-password',
+            'class': BASE_INPUT_CLASS,
+        }),
+    )
+    new_password1 = forms.CharField(
+        label='Nova senha',
+        strip=False,
+        widget=forms.PasswordInput(attrs={
+            'autocomplete': 'new-password',
+            'class': BASE_INPUT_CLASS,
+        }),
+        help_text='Use uma senha forte, diferente de dados pessoais e senhas comuns.',
+    )
+    new_password2 = forms.CharField(
+        label='Confirme a nova senha',
+        strip=False,
+        widget=forms.PasswordInput(attrs={
+            'autocomplete': 'new-password',
+            'class': BASE_INPUT_CLASS,
         }),
     )
 
@@ -39,6 +115,15 @@ class UserAdminCreationForm(forms.ModelForm):
 
         if password1 and password2 and password1 != password2:
             raise forms.ValidationError('As senhas não conferem.')
+
+        if password2:
+            user = User(
+                email=self.cleaned_data.get('email') or '',
+                nome_razao_social=self.cleaned_data.get('nome_razao_social') or '',
+                role=self.cleaned_data.get('role') or User._meta.get_field('role').default,
+                tipo_pessoa=self.cleaned_data.get('tipo_pessoa') or User._meta.get_field('tipo_pessoa').default,
+            )
+            validate_password_for_user(password2, user)
 
         return password2
 
@@ -86,21 +171,26 @@ class EmployeeBaseForm(DaisyFormMixin, forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.apply_daisy_classes()
+        self.fields['email'].widget.attrs.update({'autocomplete': 'email'})
         self.fields['is_active'].widget.attrs['class'] = BASE_CHECKBOX_CLASS
         self.fields['uf'].widget.attrs['maxlength'] = 2
         self.fields['uf'].widget.attrs['placeholder'] = 'SP'
         self.fields['cep'].widget.attrs['placeholder'] = '00000-000'
         self.fields['whatsapp'].widget.attrs['placeholder'] = '(00) 00000-0000'
 
+    def clean_email(self):
+        return (self.cleaned_data.get('email') or '').strip().lower()
+
 
 class EmployeeCreateForm(EmployeeBaseForm):
     password1 = forms.CharField(
         label='Senha',
-        widget=forms.PasswordInput(attrs={'class': BASE_INPUT_CLASS}),
+        widget=forms.PasswordInput(attrs={'class': BASE_INPUT_CLASS, 'autocomplete': 'new-password'}),
+        help_text='Use uma senha forte, diferente de dados pessoais e senhas comuns.',
     )
     password2 = forms.CharField(
         label='Confirme a senha',
-        widget=forms.PasswordInput(attrs={'class': BASE_INPUT_CLASS}),
+        widget=forms.PasswordInput(attrs={'class': BASE_INPUT_CLASS, 'autocomplete': 'new-password'}),
     )
 
     class Meta(EmployeeBaseForm.Meta):
@@ -112,6 +202,15 @@ class EmployeeCreateForm(EmployeeBaseForm):
 
         if password1 and password2 and password1 != password2:
             raise forms.ValidationError('As senhas não conferem.')
+
+        if password2:
+            user = User(
+                email=self.cleaned_data.get('email') or '',
+                nome_razao_social=self.cleaned_data.get('nome_razao_social') or '',
+                role=self.cleaned_data.get('role') or User._meta.get_field('role').default,
+                tipo_pessoa=self.cleaned_data.get('tipo_pessoa') or User._meta.get_field('tipo_pessoa').default,
+            )
+            validate_password_for_user(password2, user)
 
         return password2
 
@@ -132,12 +231,18 @@ class EmployeeUpdateForm(EmployeeBaseForm):
     nova_senha = forms.CharField(
         label='Nova senha',
         required=False,
-        widget=forms.PasswordInput(attrs={'class': BASE_INPUT_CLASS}),
-        help_text='Deixe em branco para manter a senha atual.',
+        widget=forms.PasswordInput(attrs={'class': BASE_INPUT_CLASS, 'autocomplete': 'new-password'}),
+        help_text='Deixe em branco para manter a senha atual. Ao informar uma nova senha, ela precisa atender à política de segurança.',
     )
 
     class Meta(EmployeeBaseForm.Meta):
         fields = EmployeeBaseForm.Meta.fields + ['nova_senha']
+
+    def clean_nova_senha(self):
+        nova_senha = self.cleaned_data.get('nova_senha')
+        if nova_senha:
+            validate_password_for_user(nova_senha, self.instance)
+        return nova_senha
 
     def save(self, commit=True):
         user = super().save(commit=False)

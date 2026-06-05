@@ -106,6 +106,7 @@ function setupServicePartsModal() {
               <div><span class="block text-xs text-base-content/50">Marca</span>${escapeHtml(item.marca || '-')}</div>
               <div><span class="block text-xs text-base-content/50">Quantidade padrão</span><strong>${escapeHtml(formatQuantity(quantity))} ${escapeHtml(item.unidade || '')}</strong></div>
               <div><span class="block text-xs text-base-content/50">Custo unitário</span>${escapeHtml(item.preco_custo || 'R$ 0,00')}</div>
+              <div><span class="block text-xs text-base-content/50">Venda unitária</span>${escapeHtml(item.preco_venda || item.valor || item.preco_custo || 'R$ 0,00')}</div>
             </div>
             ${errorsHtml ? `<div class="alert alert-error mt-3 text-sm">${errorsHtml}</div>` : ''}
           </div>

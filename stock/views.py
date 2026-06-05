@@ -317,6 +317,7 @@ class InventoryItemAutocompleteView(LoginRequiredMixin, PermissionRequiredMixin,
                 brand_name,
                 f'Estoque: {item.saldo_atual} {item.unidade.sigla}',
                 f'Custo: {format_money_br(item.preco_custo)}',
+                f'Venda: {format_money_br(item.valor_venda)}',
             ]
             results.append({
                 'id': item.pk,

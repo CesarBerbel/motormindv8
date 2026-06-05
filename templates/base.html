@@ -303,6 +303,7 @@
     <div class="navbar-end gap-2">
       {% if request.user.is_authenticated %}
         <span class="hidden max-w-64 truncate text-sm md:inline">{{ request.user.email }}</span>
+        <a href="{% url 'password_change' %}" class="btn btn-ghost btn-sm whitespace-nowrap">Minha senha</a>
         <form action="{% url 'logout' %}" method="post">
           {% csrf_token %}
           <button type="submit" class="btn btn-outline btn-sm whitespace-nowrap">Sair</button>

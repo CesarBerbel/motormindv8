@@ -216,7 +216,7 @@ function setupWorkOrderItems() {
     typeLabel: 'Peça/Insumo',
     listFields: [
       { label: 'Estoque', value: (item) => `${item.estoque_atual || '0'} ${item.unidade || ''}`.trim() },
-      { label: 'Custo unitário', key: 'preco_custo' },
+      { label: 'Venda unitária', value: (item) => item.preco_venda || item.valor || item.preco_custo || 'R$ 0,00' },
       { label: 'Categoria', key: 'categoria' }
     ]
   });

@@ -1,9 +1,11 @@
+import logging
 from django.contrib import messages
 from django.core.exceptions import ValidationError
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin, UserPassesTestMixin
+from django.db import transaction
 from django.db.models import Q
 from django.db.models.functions import Lower
-from django.http import JsonResponse
+from django.http import FileResponse, Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.utils.html import format_html
@@ -31,6 +33,8 @@ from .forms import (
     PdfSettingsForm,
     PdfTemplateSettingsForm,
 )
+logger = logging.getLogger(__name__)
+
 from .models import (
     Service,
     ServiceCategory,
@@ -311,6 +315,7 @@ class ServiceFormsetMixin:
                 'estoque_atual': str(item.estoque_atual),
                 'estoque_minimo': str(item.estoque_minimo),
                 'preco_custo': format_money_br(item.preco_custo),
+                'preco_venda': format_money_br(item.valor_venda),
                 'tipo': item.get_tipo_display(),
                 'label': f'{item.sku or "Sem SKU"} - {item.nome}',
                 'search': ' '.join([
@@ -1037,7 +1042,8 @@ class WorkOrderFormsetMixin:
                 'estoque_atual': str(item.estoque_atual),
                 'estoque_minimo': str(item.estoque_minimo),
                 'preco_custo': format_money_br(item.preco_custo),
-                'valor': format_money_br(item.preco_custo),
+                'preco_venda': format_money_br(item.valor_venda),
+                'valor': format_money_br(item.valor_venda),
                 'tipo': item.get_tipo_display(),
                 'label': f'{item.sku or "Sem SKU"} - {item.nome}',
                 'search': ' '.join([item.sku or '', item.nome or '', item.descricao or '', item.categoria.nome if item.categoria_id else '', item.marca.nome if item.marca_id else '', item.unidade.sigla if item.unidade_id else '', item.get_tipo_display()]).lower(),
@@ -1077,10 +1083,11 @@ class WorkOrderFormsetMixin:
                 parts_formset=parts_formset,
             ))
 
-        self.object = form.save()
-        for formset in (services_formset, combos_formset, parts_formset):
-            formset.instance = self.object
-            formset.save()
+        with transaction.atomic():
+            self.object = form.save()
+            for formset in (services_formset, combos_formset, parts_formset):
+                formset.instance = self.object
+                formset.save()
 
         if self.object.ensure_awaiting_parts_if_needed(self.request.user):
             messages.warning(
@@ -1135,17 +1142,25 @@ class WorkOrderUpdateView(LoginRequiredMixin, PermissionRequiredMixin, WorkOrder
 
     def form_valid(self, form):
         previous_status = WorkOrder.all_objects.get(pk=form.instance.pk).status
+        target_status = form.cleaned_data.get('status') or previous_status
+
+        # A gravação do formulário não deve pular a máquina de estados.
+        # Salvamos os demais campos mantendo o status anterior e, em seguida,
+        # aplicamos a transição pelo serviço de domínio atômico.
+        form.instance.status = previous_status
         response = super().form_valid(form)
-        if previous_status != self.object.status:
-            WorkOrderStatusTransition.objects.create(
-                ordem_servico=self.object,
-                status_anterior=previous_status,
-                status_novo=self.object.status,
-                observacao='Alteração realizada no formulário da OS.',
-                criado_por=self.request.user if self.request.user.is_authenticated else None,
-            )
-            if self.object.status == WorkOrderStatus.AGUARDANDO_APROVACAO:
-                self.object.get_or_create_pending_approval_budget(user=self.request.user, send_email=True, request=self.request)
+
+        if target_status != previous_status:
+            try:
+                self.object.transition_to(
+                    target_status,
+                    user=self.request.user,
+                    observacao='Alteração realizada no formulário da OS.',
+                )
+            except ValidationError as exc:
+                messages.error(self.request, ' '.join(exc.messages) if hasattr(exc, 'messages') else str(exc))
+                return redirect(self.object.get_absolute_url())
+
         messages.success(self.request, 'Ordem de serviço atualizada com sucesso.')
         return response
 
@@ -1652,7 +1667,6 @@ class PublicWorkOrderApprovalView(View):
 
 
 from django.core.mail import EmailMessage
-from django.http import FileResponse
 from .forms import VehicleCheckInForm
 from .models import VehicleCheckIn, VehicleCheckInPhoto
 from .pdf import generate_vehicle_checkin_pdf
@@ -1738,6 +1752,26 @@ class VehicleCheckInAutocompleteView(LoginRequiredMixin, PermissionRequiredMixin
         return JsonResponse({'results': results})
 
 
+class VehicleCheckInPhotoFileView(LoginRequiredMixin, PermissionRequiredMixin, View):
+    permission_required = 'operations.view_vehiclecheckin'
+
+    def get(self, request, pk, *args, **kwargs):
+        import mimetypes
+
+        photo = get_object_or_404(
+            VehicleCheckInPhoto.objects.select_related('checkin'),
+            pk=pk,
+            checkin__ativo=True,
+            checkin__excluido_em__isnull=True,
+        )
+        if not photo.imagem:
+            raise Http404('Foto não encontrada.')
+        content_type = mimetypes.guess_type(photo.imagem.name)[0] or 'application/octet-stream'
+        response = FileResponse(photo.imagem.open('rb'), content_type=content_type, as_attachment=False)
+        response['X-Content-Type-Options'] = 'nosniff'
+        return response
+
+
 class VehicleCheckInDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
     model = VehicleCheckIn
     template_name = 'operations/vehicle_checkin_detail.html'
@@ -1773,7 +1807,7 @@ class VehicleCheckInCreateView(LoginRequiredMixin, PermissionRequiredMixin, Form
                 if order.km_atual is not None:
                     initial['km'] = order.km_atual
             except WorkOrder.DoesNotExist:
-                pass
+                logger.warning('Tentativa de iniciar check-in com OS inexistente: %s.', ordem_servico)
         return initial
 
     def form_valid(self, form):

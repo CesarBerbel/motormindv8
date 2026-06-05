@@ -80,8 +80,8 @@
     <h2 class="card-title">Fotos</h2>
     <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
       {% for foto in checkin.fotos.all %}
-        <a href="{{ foto.imagem.url }}" target="_blank" class="block rounded-box border border-base-300 bg-base-200 p-2 hover:bg-base-300">
-          <img src="{{ foto.imagem.url }}" alt="Foto do check-in" class="h-56 w-full rounded-lg object-cover">
+        <a href="{% url 'vehicle_checkin_photo' foto.pk %}" target="_blank" class="block rounded-box border border-base-300 bg-base-200 p-2 hover:bg-base-300">
+          <img src="{% url 'vehicle_checkin_photo' foto.pk %}" alt="Foto do check-in" class="h-56 w-full rounded-lg object-cover">
         </a>
       {% empty %}
         <p class="text-base-content/60">Nenhuma foto anexada.</p>

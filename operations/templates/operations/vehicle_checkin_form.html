@@ -26,7 +26,7 @@
           <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {% for foto in object.fotos.all %}
               <figure class="rounded-box border border-base-300 bg-base-200 p-2">
-                <img src="{{ foto.imagem.url }}" alt="Foto do check-in" class="h-48 w-full rounded-lg object-cover">
+                <img src="{% url 'vehicle_checkin_photo' foto.pk %}" alt="Foto do check-in" class="h-48 w-full rounded-lg object-cover">
               </figure>
             {% endfor %}
           </div>

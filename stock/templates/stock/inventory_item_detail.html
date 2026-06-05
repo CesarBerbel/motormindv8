@@ -34,6 +34,8 @@
         <div><span class="text-sm text-base-content/60">Marca</span><p class="font-medium">{{ item.marca.nome|default:'-' }}</p></div>
         <div><span class="text-sm text-base-content/60">Unidade</span><p class="font-medium">{{ item.unidade }}</p></div>
         <div><span class="text-sm text-base-content/60">Preço de custo</span><p class="font-medium">{{ item.preco_custo|money_br }}</p></div>
+        <div><span class="text-sm text-base-content/60">Preço de venda</span><p class="font-medium">{{ item.valor_venda|money_br }}</p></div>
+        <div><span class="text-sm text-base-content/60">Margem bruta</span><p class="font-medium">{{ item.margem_bruta|money_br }} ({{ item.margem_percentual }}%)</p></div>
       </div>
       <div class="mt-4">
         <span class="text-sm text-base-content/60">Descrição</span>

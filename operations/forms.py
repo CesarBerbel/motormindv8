@@ -11,6 +11,9 @@ from core.forms import BASE_INPUT_CLASS, BASE_SELECT_CLASS, DaisyFormMixin
 from core.money import MoneyFormField, normalize_money
 from stock.models import InventoryItem, MIN_QUANTITY
 
+MAX_CHECKIN_PHOTO_SIZE_BYTES = 8 * 1024 * 1024
+ALLOWED_CHECKIN_PHOTO_TYPES = {'image/jpeg', 'image/png', 'image/webp'}
+
 from .models import (
     Service,
     ServiceCategory,
@@ -727,6 +730,19 @@ class VehicleCheckInForm(DaisyFormMixin, forms.ModelForm):
         if existing.exists():
             raise forms.ValidationError('Esta OS já possui um check-in cadastrado.')
         return ordem_servico
+
+    def clean_fotos(self):
+        photos = self.cleaned_data.get('fotos') or []
+        errors = []
+        for photo in photos:
+            if getattr(photo, 'size', 0) > MAX_CHECKIN_PHOTO_SIZE_BYTES:
+                errors.append(f'{photo.name}: arquivo maior que 8 MB.')
+            content_type = (getattr(photo, 'content_type', '') or '').lower()
+            if content_type and content_type not in ALLOWED_CHECKIN_PHOTO_TYPES:
+                errors.append(f'{photo.name}: tipo de imagem não permitido. Use JPG, PNG ou WebP.')
+        if errors:
+            raise forms.ValidationError(errors)
+        return photos
 
     def save_photos(self, checkin):
         for photo in self.cleaned_data.get('fotos') or []:

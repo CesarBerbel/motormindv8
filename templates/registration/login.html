@@ -14,7 +14,11 @@
 
         {% if form.non_field_errors %}
           <div class="alert alert-error">
-            <span>{{ form.non_field_errors }}</span>
+            <div>
+              {% for error in form.non_field_errors %}
+                <p>{{ error }}</p>
+              {% endfor %}
+            </div>
           </div>
         {% endif %}
 
@@ -29,6 +33,10 @@
             {% endfor %}
           </div>
         {% endfor %}
+
+        <div class="flex items-center justify-between gap-3 text-sm">
+          <a href="{% url 'password_reset' %}" class="link link-primary">Esqueci minha senha</a>
+        </div>
 
         <button type="submit" class="btn btn-primary w-full">Entrar</button>
       </form>

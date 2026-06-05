@@ -16,6 +16,7 @@ urlpatterns = [
     path('atendimento/checkins/<int:pk>/editar/', views.VehicleCheckInUpdateView.as_view(), name='vehicle_checkin_update'),
     path('atendimento/checkins/<int:pk>/excluir/', views.VehicleCheckInDeleteView.as_view(), name='vehicle_checkin_delete'),
     path('atendimento/checkins/<int:pk>/pdf/', views.VehicleCheckInPdfView.as_view(), name='vehicle_checkin_pdf'),
+    path('atendimento/checkins/fotos/<int:pk>/', views.VehicleCheckInPhotoFileView.as_view(), name='vehicle_checkin_photo'),
     path('atendimento/checkins/<int:pk>/enviar-email/', views.VehicleCheckInSendEmailView.as_view(), name='vehicle_checkin_send_email'),
 
     path('configuracoes/os/', views.WorkOrderSettingsView.as_view(), name='work_order_settings'),

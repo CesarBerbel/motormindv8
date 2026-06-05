@@ -188,7 +188,7 @@ class ReusableSelectModal {
       { label: 'Categoria', value: item.categoria || '-' },
       { label: 'Marca', value: item.marca || '-' },
       { label: 'Estoque', value: `${item.estoque_atual || '0'} ${item.unidade || ''}`.trim() },
-      { label: 'Custo', value: item.preco_custo || 'R$ 0,00' }
+      { label: 'Venda', value: item.preco_venda || item.valor || item.preco_custo || 'R$ 0,00' }
     ];
   }
 
@@ -216,7 +216,7 @@ class ReusableSelectModal {
     if (Array.isArray(item.card_fields) && item.card_fields.length) {
       return item.card_fields.map((field) => field.value).filter(Boolean).join(' | ');
     }
-    const parts = [item.categoria, item.marca, `${item.estoque_atual || '0'} ${item.unidade || ''}`, item.preco_custo];
+    const parts = [item.categoria, item.marca, `${item.estoque_atual || '0'} ${item.unidade || ''}`, item.preco_venda || item.valor || item.preco_custo];
     return parts.filter(Boolean).join(' | ');
   }
 

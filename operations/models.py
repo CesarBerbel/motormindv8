@@ -128,8 +128,17 @@ class Service(SoftDeleteModel):
         return total.quantize(Decimal('0.01'))
 
     @property
+    def valor_pecas_padrao(self):
+        from operations.services.work_order_pricing import inventory_sale_price
+
+        total = Decimal('0.00')
+        for part in self.pecas_associadas.select_related('item'):
+            total += inventory_sale_price(part.item) * part.quantidade
+        return total.quantize(Decimal('0.01'))
+
+    @property
     def valor_estimado_total(self):
-        return ((self.valor or Decimal('0.00')) + self.custo_pecas_padrao).quantize(Decimal('0.01'))
+        return ((self.valor or Decimal('0.00')) + self.valor_pecas_padrao).quantize(Decimal('0.01'))
 
 
 class ServiceDefaultPart(models.Model):
@@ -168,6 +177,12 @@ class ServiceDefaultPart(models.Model):
     @property
     def custo_total(self):
         return ((self.item.preco_custo or Decimal('0.00')) * self.quantidade).quantize(Decimal('0.01'))
+
+    @property
+    def valor_total(self):
+        from operations.services.work_order_pricing import inventory_sale_price
+
+        return (inventory_sale_price(self.item) * self.quantidade).quantize(Decimal('0.01'))
 
 
 class ServiceCombo(SoftDeleteModel):
@@ -622,69 +637,9 @@ class WorkOrder(SoftDeleteModel):
         return WorkOrderStatus.next_statuses(self.status)
 
     def transition_to(self, new_status, user=None, observacao=''):
-        from django.core.exceptions import ValidationError
+        from operations.services.work_order_status import transition_to
 
-        if new_status == self.status:
-            return None
-        if not self.can_transition_to(new_status):
-            current_label = self.get_status_display()
-            new_label = WorkOrderStatus(new_status).label if new_status in WorkOrderStatus.values else new_status
-            raise ValidationError(f'Transição inválida: {current_label} → {new_label}.')
-
-        if (
-            self.status == WorkOrderStatus.AGUARDANDO_APROVACAO
-            and new_status == WorkOrderStatus.APROVADA
-            and self.has_approval_in_progress
-        ):
-            raise ValidationError('Use Registrar aprovação para aprovar uma OS com orçamento pendente.')
-
-        if self.status == WorkOrderStatus.DIAGNOSTICO and not (self.diagnostico or '').strip():
-            raise ValidationError('Preencha o campo Diagnóstico antes de mover a OS para outra coluna.')
-
-        if new_status == WorkOrderStatus.EM_EXECUCAO and not self.checkins.filter(ativo=True, excluido_em__isnull=True).exists():
-            raise ValidationError('Não é possível mover a OS para Em execução sem check-in associado.')
-
-        if new_status == WorkOrderStatus.EM_EXECUCAO and self.has_stock_shortage():
-            raise ValidationError(
-                'Não é possível mover a OS para Em execução porque há peças sem estoque suficiente: '
-                f'{self.stock_shortage_message()}.'
-            )
-
-        previous_status = self.status
-        self.status = new_status
-        if self.status in WorkOrderStatus.completed_statuses() and not self.data_finalizacao:
-            self.data_finalizacao = timezone.now()
-        if self.status not in WorkOrderStatus.completed_statuses():
-            self.data_finalizacao = None
-        self.save(update_fields=['status', 'data_finalizacao', 'atualizado_em'])
-
-        transition = WorkOrderStatusTransition.objects.create(
-            ordem_servico=self,
-            status_anterior=previous_status,
-            status_novo=new_status,
-            observacao=observacao or '',
-            criado_por=user if getattr(user, 'is_authenticated', False) else None,
-        )
-
-        if new_status == WorkOrderStatus.AGUARDANDO_PECA and self.has_stock_shortage():
-            from stock.models import PurchaseOrder
-            PurchaseOrder.create_or_update_from_work_order_shortages(self, user=user)
-
-        if new_status == WorkOrderStatus.AGUARDANDO_APROVACAO:
-            try:
-                self.get_or_create_pending_approval_budget(user=user, send_email=True)
-            except Exception:
-                # A criação/envio do orçamento não deve corromper a transição de status.
-                pass
-
-        try:
-            from communications.services import send_work_order_status_change_message
-            send_work_order_status_change_message(self, transition, user=user)
-        except Exception:
-            # A comunicação não deve impedir a transição de status da OS.
-            pass
-
-        return transition
+        return transition_to(self, new_status, user=user, observacao=observacao)
 
     @property
     def status_badge_class(self):
@@ -710,70 +665,51 @@ class WorkOrder(SoftDeleteModel):
 
     @property
     def subtotal_servicos(self):
-        budget = self.get_effective_approval_budget()
-        if budget:
-            return budget.subtotal_by_type(WorkOrderApprovalItemType.SERVICE)
-        total = Decimal('0.00')
-        for item in self.servicos_os.all():
-            total += item.subtotal
-        return total.quantize(Decimal('0.01'))
+        from operations.services.work_order_totals import subtotal_servicos
+
+        return subtotal_servicos(self)
 
     @property
     def subtotal_combos(self):
-        budget = self.get_effective_approval_budget()
-        if budget:
-            return budget.subtotal_by_type(WorkOrderApprovalItemType.COMBO)
-        total = Decimal('0.00')
-        for item in self.combos_os.all():
-            total += item.subtotal
-        return total.quantize(Decimal('0.01'))
+        from operations.services.work_order_totals import subtotal_combos
+
+        return subtotal_combos(self)
 
     @property
     def subtotal_pecas_avulsas(self):
-        total = Decimal('0.00')
-        for item in self.pecas_os.all():
-            total += item.subtotal
-        return total.quantize(Decimal('0.01'))
+        from operations.services.work_order_totals import subtotal_pecas_avulsas
+
+        return subtotal_pecas_avulsas(self)
 
     @property
     def subtotal_pecas(self):
-        budget = self.get_effective_approval_budget()
-        if budget:
-            return budget.subtotal_by_type(WorkOrderApprovalItemType.PART)
-        total = Decimal('0.00')
-        for row in self.get_stock_requirements():
-            total += row['subtotal']
-        return total.quantize(Decimal('0.01'))
+        from operations.services.work_order_totals import subtotal_pecas
+
+        return subtotal_pecas(self)
 
     @property
     def subtotal(self):
-        budget = self.get_effective_approval_budget()
-        if budget:
-            return budget.subtotal_aprovado
-        return (self.subtotal_servicos + self.subtotal_combos + self.subtotal_pecas).quantize(Decimal('0.01'))
+        from operations.services.work_order_totals import subtotal
+
+        return subtotal(self)
 
     @property
     def valor_desconto(self):
-        budget = self.get_effective_approval_budget()
-        if budget:
-            return budget.valor_desconto_aprovado
-        return (self.subtotal * self.desconto_percentual_normalizado / Decimal('100')).quantize(Decimal('0.01'))
+        from operations.services.work_order_totals import valor_desconto
+
+        return valor_desconto(self)
 
     @property
     def valor_total(self):
-        budget = self.get_effective_approval_budget()
-        if budget:
-            return budget.valor_total_aprovado
-        return (self.subtotal - self.valor_desconto).quantize(Decimal('0.01'))
+        from operations.services.work_order_totals import valor_total
+
+        return valor_total(self)
 
     @property
     def duracao_total_minutos(self):
-        total = 0
-        for item in self.servicos_os.select_related('service'):
-            total += (item.service.duracao_minutos or 0) * item.quantidade
-        for item in self.combos_os.select_related('combo').prefetch_related('combo__servicos_associados__service'):
-            total += (item.combo.duracao_total_minutos or 0) * item.quantidade
-        return total
+        from operations.services.work_order_totals import duracao_total_minutos
+
+        return duracao_total_minutos(self)
 
     @property
     def duracao_formatada(self):
@@ -785,238 +721,54 @@ class WorkOrder(SoftDeleteModel):
         return f'{minutos}min'
 
     def get_stock_requirement_sources(self):
-        budget = self.get_effective_approval_budget()
-        if budget:
-            return budget.get_stock_requirement_sources()
+        from operations.services.work_order_stock import get_stock_requirement_sources
 
-        rows = []
-
-        def add_row(item, quantidade, origem_tipo, origem_nome, origem_codigo='', origem_observacao=''):
-            if not item or not quantidade:
-                return
-            quantidade = int(quantidade)
-            valor_unitario = item.preco_custo or Decimal('0.00')
-            rows.append({
-                'item': item,
-                'quantidade': quantidade,
-                'valor_unitario': valor_unitario.quantize(Decimal('0.01')),
-                'subtotal': (valor_unitario * quantidade).quantize(Decimal('0.01')),
-                'origem_tipo': origem_tipo,
-                'origem_nome': origem_nome,
-                'origem_codigo': origem_codigo or '',
-                'origem_observacao': origem_observacao or '',
-            })
-
-        for part in self.pecas_os.select_related('item', 'item__unidade'):
-            add_row(
-                part.item,
-                part.quantidade,
-                'Peça avulsa',
-                part.item.nome,
-                part.item.sku or '',
-                'Adicionada diretamente na OS.',
-            )
-
-        for service_item in self.servicos_os.select_related('service').prefetch_related('service__pecas_associadas__item__unidade'):
-            service = service_item.service
-            for default_part in service.pecas_associadas.select_related('item', 'item__unidade'):
-                add_row(
-                    default_part.item,
-                    service_item.quantidade * default_part.quantidade,
-                    'Serviço',
-                    service.nome,
-                    service.codigo or '',
-                    f'{service_item.quantidade} x serviço; {default_part.quantidade} x peça padrão.',
-                )
-
-        combo_queryset = self.combos_os.select_related('combo').prefetch_related(
-            'combo__servicos_associados__service__pecas_associadas__item__unidade'
-        )
-        for combo_item in combo_queryset:
-            combo = combo_item.combo
-            for combo_service in combo.servicos_associados.select_related('service').prefetch_related('service__pecas_associadas__item__unidade'):
-                service = combo_service.service
-                for default_part in service.pecas_associadas.select_related('item', 'item__unidade'):
-                    add_row(
-                        default_part.item,
-                        combo_item.quantidade * default_part.quantidade,
-                        'Combo',
-                        f'{combo.nome} / {service.nome}',
-                        combo.codigo or '',
-                        f'{combo_item.quantidade} x combo; {default_part.quantidade} x peça padrão do serviço {service.codigo or service.nome}.',
-                    )
-
-        return sorted(rows, key=lambda row: (row['item'].nome.lower(), row['origem_tipo'], row['origem_nome'].lower()))
+        return get_stock_requirement_sources(self)
 
     def get_base_stock_requirements(self):
-        requirements = {}
+        from operations.services.work_order_stock import get_base_stock_requirements
 
-        for row in self.get_stock_requirement_sources():
-            item = row['item']
-            current = requirements.setdefault(item.pk, {
-                'item': item,
-                'quantidade': 0,
-                'valor_unitario': row['valor_unitario'],
-                'subtotal': Decimal('0.00'),
-            })
-            current['quantidade'] += int(row['quantidade'])
-            current['subtotal'] += row['subtotal']
-
-        for row in requirements.values():
-            row['subtotal'] = row['subtotal'].quantize(Decimal('0.01'))
-
-        return sorted(requirements.values(), key=lambda row: row['item'].nome.lower())
+        return get_base_stock_requirements(self)
 
     def get_stock_requirement_overrides_map(self):
-        if not self.pk:
-            return {}
-        return {
-            override.item_id: override
-            for override in self.ajustes_pecas_previstas.select_related('item')
-        }
+        from operations.services.work_order_stock import get_stock_requirement_overrides_map
+
+        return get_stock_requirement_overrides_map(self)
 
     def get_stock_requirements(self):
-        overrides = self.get_stock_requirement_overrides_map()
-        requirements = []
+        from operations.services.work_order_stock import get_stock_requirements
 
-        for row in self.get_base_stock_requirements():
-            item = row['item']
-            quantidade_base = int(row['quantidade'] or 0)
-            override = overrides.get(item.pk)
-            quantidade = int(override.quantidade if override else quantidade_base)
-            valor_unitario = row['valor_unitario']
-            requirements.append({
-                'item': item,
-                'quantidade_base': quantidade_base,
-                'quantidade': quantidade,
-                'valor_unitario': valor_unitario,
-                'subtotal_base': row['subtotal'],
-                'subtotal': (valor_unitario * quantidade).quantize(Decimal('0.01')),
-                'ajustada': bool(override),
-                'override': override,
-            })
-
-        return sorted(requirements, key=lambda row: row['item'].nome.lower())
+        return get_stock_requirements(self)
 
     def update_stock_requirement_overrides(self, quantities):
-        if self.estoque_baixado:
-            from django.core.exceptions import ValidationError
-            raise ValidationError('Não é possível ajustar peças previstas de uma OS com estoque já baixado.')
+        from operations.services.work_order_stock import update_stock_requirement_overrides
 
-        base_requirements = {row['item'].pk: int(row['quantidade'] or 0) for row in self.get_base_stock_requirements()}
-        valid_item_ids = set(base_requirements)
-
-        # Remove ajustes de peças que não são mais previstas pela OS.
-        self.ajustes_pecas_previstas.exclude(item_id__in=valid_item_ids).delete()
-
-        for item_id, quantidade in quantities.items():
-            if item_id not in valid_item_ids:
-                continue
-            quantidade = int(quantidade)
-            quantidade_base = base_requirements[item_id]
-            if quantidade == quantidade_base:
-                self.ajustes_pecas_previstas.filter(item_id=item_id).delete()
-            else:
-                WorkOrderStockRequirementOverride.objects.update_or_create(
-                    ordem_servico=self,
-                    item_id=item_id,
-                    defaults={'quantidade': quantidade},
-                )
+        return update_stock_requirement_overrides(self, quantities)
 
     def get_stock_shortages(self):
-        shortages = []
-        for row in self.get_stock_requirements():
-            item = row['item']
-            required = int(row['quantidade'] or 0)
-            current = int(item.estoque_atual or 0)
-            if current < required:
-                shortages.append({
-                    'item': item,
-                    'quantidade': required,
-                    'estoque_atual': current,
-                    'faltante': required - current,
-                })
-        return shortages
+        from operations.services.work_order_stock import get_stock_shortages
+
+        return get_stock_shortages(self)
 
     def has_stock_shortage(self):
-        return bool(self.get_stock_shortages())
+        from operations.services.work_order_stock import has_stock_shortage
+
+        return has_stock_shortage(self)
 
     def stock_shortage_message(self):
-        shortages = self.get_stock_shortages()
-        if not shortages:
-            return ''
-        parts = []
-        for row in shortages[:5]:
-            item = row['item']
-            unidade = item.unidade.sigla if item.unidade_id else ''
-            parts.append(
-                f'{item.sku or "Sem SKU"} - {item.nome}: necessário {row["quantidade"]} {unidade}, disponível {row["estoque_atual"]} {unidade}'
-            )
-        suffix = ''
-        if len(shortages) > 5:
-            suffix = f' e mais {len(shortages) - 5} item(ns)'
-        return '; '.join(parts) + suffix
+        from operations.services.work_order_stock import stock_shortage_message
+
+        return stock_shortage_message(self)
 
     def ensure_awaiting_parts_if_needed(self, user=None, observacao=''):
-        if self.status == WorkOrderStatus.AGUARDANDO_PECA and self.has_stock_shortage():
-            from stock.models import PurchaseOrder
-            PurchaseOrder.create_or_update_from_work_order_shortages(self, user=user)
-            return None
-        if self.status not in {WorkOrderStatus.APROVADA, WorkOrderStatus.EM_EXECUCAO, WorkOrderStatus.EM_TESTE}:
-            return None
-        if not self.has_stock_shortage():
-            return None
-        return self.transition_to(
-            WorkOrderStatus.AGUARDANDO_PECA,
-            user=user,
-            observacao=observacao or 'OS movida automaticamente para Aguardando peça por estoque insuficiente.',
-        )
+        from operations.services.work_order_stock import ensure_awaiting_parts_if_needed
+
+        return ensure_awaiting_parts_if_needed(self, user=user, observacao=observacao)
 
     def baixar_estoque(self, user=None):
-        from django.core.exceptions import ValidationError
-        from django.db import transaction
-        from stock.models import StockMovement, StockMovementType
+        from operations.services.work_order_stock import baixar_estoque
 
-        if self.estoque_baixado:
-            raise ValidationError('O estoque desta OS já foi baixado.')
-        if self.status == WorkOrderStatus.CANCELADA:
-            raise ValidationError('Não é possível baixar estoque de uma OS cancelada.')
-        if self.status == WorkOrderStatus.ARQUIVADA:
-            raise ValidationError('Não é possível baixar estoque de uma OS arquivada.')
-        if self.status not in WorkOrderStatus.stock_out_statuses():
-            raise ValidationError('A baixa de estoque só pode ser feita quando a OS estiver em execução, aguardando peça, em teste, pronta, pronto para retirar ou entregue.')
-
-        requirements = self.get_stock_requirements()
-        if not requirements:
-            self.estoque_baixado = True
-            self.estoque_baixado_em = timezone.now()
-            self.estoque_baixado_por = user if getattr(user, 'is_authenticated', False) else None
-            self.save(update_fields=['estoque_baixado', 'estoque_baixado_em', 'estoque_baixado_por', 'atualizado_em'])
-            return []
-
-        movements = []
-        with transaction.atomic():
-            for row in requirements:
-                item = row['item']
-                quantidade = row['quantidade']
-                movement = StockMovement(
-                    item=item,
-                    tipo=StockMovementType.SAIDA,
-                    quantidade=quantidade,
-                    custo_unitario=item.preco_custo,
-                    observacao=f'Baixa automática da {self.codigo}',
-                    criado_por=user if getattr(user, 'is_authenticated', False) else None,
-                )
-                movement.full_clean()
-                movement.save()
-                movements.append(movement)
-
-            self.estoque_baixado = True
-            self.estoque_baixado_em = timezone.now()
-            self.estoque_baixado_por = user if getattr(user, 'is_authenticated', False) else None
-            self.save(update_fields=['estoque_baixado', 'estoque_baixado_em', 'estoque_baixado_por', 'atualizado_em'])
-
-        return movements
+        return baixar_estoque(self, user=user)
 
 
 class WorkOrderStockRequirementOverride(models.Model):
@@ -1184,7 +936,9 @@ class WorkOrderPartItem(models.Model):
 
     def save(self, *args, **kwargs):
         if self.valor_unitario is None and self.item_id:
-            self.valor_unitario = self.item.preco_custo
+            from operations.services.work_order_pricing import inventory_sale_price
+
+            self.valor_unitario = inventory_sale_price(self.item)
         super().save(*args, **kwargs)
 
     @property
@@ -1291,43 +1045,9 @@ class WorkOrderApprovalBudget(models.Model):
 
     @classmethod
     def create_from_work_order(cls, order, user=None):
-        latest = order.orcamentos_aprovacao.order_by('-versao', '-pk').first()
-        if latest and latest.status == WorkOrderApprovalStatus.PENDING:
-            latest.status = WorkOrderApprovalStatus.SUPERSEDED
-            latest.save(update_fields=['status', 'atualizado_em'])
-        next_version = (latest.versao + 1) if latest else 1
-        subtotal = (order.subtotal_servicos + order.subtotal_combos + order.subtotal_pecas).quantize(Decimal('0.01'))
-        discount_percent = order.desconto_percentual_normalizado
-        discount_value = (subtotal * discount_percent / Decimal('100')).quantize(Decimal('0.01'))
-        total_value = (subtotal - discount_value).quantize(Decimal('0.01'))
-        vehicle = order.veiculo
-        budget = cls.objects.create(
-            ordem_servico=order,
-            versao=next_version,
-            status=WorkOrderApprovalStatus.PENDING,
-            desconto_percentual=discount_percent,
-            subtotal_snapshot=subtotal,
-            valor_desconto_snapshot=discount_value,
-            valor_total_snapshot=total_value,
-            criado_por=user if getattr(user, 'is_authenticated', False) else None,
-            snapshot={
-                'ordem_servico_id': order.pk,
-                'ordem_servico_codigo': order.codigo,
-                'cliente_id': order.cliente_id,
-                'cliente_nome': order.cliente.nome_razao_social,
-                'cliente_email': order.cliente.email,
-                'veiculo_id': order.veiculo_id,
-                'veiculo': f'{vehicle.placa} - {vehicle.marca} {vehicle.modelo}' if vehicle else '',
-                'status_os': order.status,
-                'desconto_percentual': str(discount_percent),
-                'subtotal': str(subtotal),
-                'valor_desconto': str(discount_value),
-                'valor_total': str(total_value),
-                'criado_em': timezone.now().isoformat(),
-            },
-        )
-        budget.snapshot_current_items(order)
-        return budget
+        from operations.services.work_order_approval import create_budget_from_work_order
+
+        return create_budget_from_work_order(cls, order, user=user)
 
     def snapshot_current_items(self, order):
         items = []
@@ -1437,71 +1157,23 @@ class WorkOrderApprovalBudget(models.Model):
         return rows
 
     def apply_decision(self, decision, approved_item_ids=None, method=WorkOrderApprovalMethod.EMAIL, responsible_name='', document='', observation='Aprovado', ip='', user_agent='', location='', internal_user=None, signature_data='', signature_name=''):
-        from django.db import transaction
+        from operations.services.work_order_approval import apply_approval_decision
 
-        approved_item_ids = {int(item_id) for item_id in (approved_item_ids or []) if str(item_id).isdigit()}
-        with transaction.atomic():
-            items = list(self.itens.select_for_update().order_by('pk'))
-            if decision == WorkOrderApprovalDecision.APPROVE_ALL:
-                for item in items:
-                    item.aprovado = True
-                    item.respondido_em = timezone.now()
-                    item.save(update_fields=['aprovado', 'respondido_em', 'atualizado_em'])
-                self.status = WorkOrderApprovalStatus.APPROVED
-            elif decision == WorkOrderApprovalDecision.REJECT_ALL:
-                for item in items:
-                    item.aprovado = False
-                    item.respondido_em = timezone.now()
-                    item.save(update_fields=['aprovado', 'respondido_em', 'atualizado_em'])
-                self.status = WorkOrderApprovalStatus.REJECTED
-            else:
-                if not approved_item_ids:
-                    raise ValueError('Selecione ao menos um item para aprovação parcial.')
-                for item in items:
-                    item.aprovado = item.pk in approved_item_ids
-                    item.respondido_em = timezone.now()
-                    item.save(update_fields=['aprovado', 'respondido_em', 'atualizado_em'])
-                self.status = WorkOrderApprovalStatus.PARTIALLY_APPROVED
-
-            self.save(update_fields=['status', 'atualizado_em'])
-
-            approved_snapshot = [item.to_snapshot_dict() for item in items if item.aprovado is True]
-            rejected_snapshot = [item.to_snapshot_dict() for item in items if item.aprovado is False]
-            audit = WorkOrderApprovalAudit.objects.create(
-                orcamento=self,
-                decisao=decision,
-                metodo=method,
-                nome_responsavel=responsible_name,
-                documento=document,
-                documento_valido=bool(document),
-                observacao=observation or '',
-                ip=ip or '',
-                user_agent=user_agent or '',
-                local=location or '',
-                usuario_interno=internal_user if getattr(internal_user, 'is_authenticated', False) else None,
-                assinatura_base64=signature_data or '',
-                assinatura_nome=signature_name or '',
-                itens_aprovados_snapshot=approved_snapshot,
-                itens_rejeitados_snapshot=rejected_snapshot,
-            )
-
-        approved_statuses = {WorkOrderApprovalStatus.APPROVED, WorkOrderApprovalStatus.PARTIALLY_APPROVED}
-        target_status = WorkOrderStatus.APROVADA if self.status in approved_statuses else WorkOrderStatus.ORCAMENTO
-        if self.ordem_servico.status != target_status:
-            self.ordem_servico.transition_to(
-                target_status,
-                user=internal_user,
-                observacao=f'Resposta do orçamento {self.codigo}: {self.get_status_display()}.',
-            )
-
-        if self.status in approved_statuses:
-            try:
-                from stock.models import PurchaseOrder
-                PurchaseOrder.create_or_update_from_work_order_shortages(self.ordem_servico, user=internal_user)
-            except Exception:
-                # A criação automática do pedido de compra não deve impedir o registro da aprovação.
-                pass
-        return audit
+        return apply_approval_decision(
+            self,
+            decision=decision,
+            approved_item_ids=approved_item_ids,
+            method=method,
+            responsible_name=responsible_name,
+            document=document,
+            observation=observation,
+            ip=ip,
+            user_agent=user_agent,
+            location=location,
+            internal_user=internal_user,
+            signature_data=signature_data,
+            signature_name=signature_name,
+        )
 
     def supersede(self, user=None, observacao=''):
         if self.status == WorkOrderApprovalStatus.SUPERSEDED:

@@ -40,7 +40,7 @@ class UnitOfMeasureAdmin(admin.ModelAdmin):
 
 @admin.register(InventoryItem)
 class InventoryItemAdmin(admin.ModelAdmin):
-    list_display = ('sku', 'nome', 'tipo', 'categoria', 'marca', 'unidade', 'estoque_minimo', 'preco_custo')
+    list_display = ('sku', 'nome', 'tipo', 'categoria', 'marca', 'unidade', 'estoque_minimo', 'preco_custo', 'preco_venda', 'margem_percentual')
     list_filter = ('tipo', 'categoria', 'marca', 'unidade')
     search_fields = ('sku', 'nome', 'descricao')
     readonly_fields = ('sku',)

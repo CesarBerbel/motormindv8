@@ -140,6 +140,7 @@ class InventoryItem(SoftDeleteModel):
         related_name='itens',
     )
     preco_custo = MoneyField('Preço de custo', default=Decimal('0.00'))
+    preco_venda = MoneyField('Preço de venda', default=Decimal('0.00'))
 
     class Meta:
         verbose_name = 'Peça/Insumo'
@@ -179,6 +180,24 @@ class InventoryItem(SoftDeleteModel):
     @property
     def abaixo_estoque_minimo(self):
         return self.estoque_atual < self.estoque_minimo
+
+    @property
+    def valor_venda(self):
+        from operations.services.work_order_pricing import inventory_sale_price
+
+        return inventory_sale_price(self)
+
+    @property
+    def margem_bruta(self):
+        from operations.services.work_order_pricing import inventory_margin_value
+
+        return inventory_margin_value(self)
+
+    @property
+    def margem_percentual(self):
+        from operations.services.work_order_pricing import inventory_margin_percent
+
+        return inventory_margin_percent(self)
 
 
 class StockMovementType(models.TextChoices):

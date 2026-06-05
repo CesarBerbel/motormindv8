@@ -1,4 +1,5 @@
 from io import BytesIO
+import logging
 from pathlib import Path
 from xml.sax.saxutils import escape
 
@@ -10,6 +11,8 @@ from reportlab.lib.units import cm
 from reportlab.platypus import Image, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
 from .models import PdfSettings, PdfTemplateSettings, PdfTemplateType
+
+logger = logging.getLogger(__name__)
 
 
 def _text(value):
@@ -41,7 +44,7 @@ def _add_configured_header(story, styles, settings, template):
                 story.append(img)
                 story.append(Spacer(1, 0.15 * cm))
         except Exception:
-            pass
+            logger.exception('Erro ao renderizar logo no PDF.')
     if settings.cabecalho_global:
         story.append(_paragraph(settings.cabecalho_global, styles['SmallMuted']))
         story.append(Spacer(1, 0.15 * cm))
@@ -174,6 +177,7 @@ def generate_vehicle_checkin_pdf(checkin):
                 story.append(Paragraph(escape(photo.legenda or path.name), styles['SmallMuted']))
                 story.append(Spacer(1, 0.25 * cm))
             except Exception:
+                logger.exception('Erro ao renderizar foto %s no PDF de check-in.', photo.pk)
                 story.append(Paragraph(f'Foto não pôde ser renderizada no PDF: {escape(path.name)}', styles['SmallMuted']))
 
     if template_settings.mostrar_assinatura_cliente or template_settings.mostrar_assinatura_oficina:

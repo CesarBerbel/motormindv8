@@ -230,3 +230,36 @@ Antes de liberar para uso real:
 - superusuario criado;
 - `python manage.py check --deploy` revisado;
 - permissao de escrita em `media/` e no banco SQLite, se estiver usando SQLite.
+
+
+## PostgreSQL recomendado para produção
+
+Para novas instalações em produção, use PostgreSQL em vez de SQLite:
+
+```bash
+cd /var/www/motormind/current
+sudo DB_PASSWORD='troque-por-uma-senha-forte' bash deploy/scripts/setup_postgres.sh
+```
+
+No `.env`, configure:
+
+```env
+DB_ENGINE=django.db.backends.postgresql
+DB_NAME=motormind
+DB_USER=motormind
+DB_PASSWORD=troque-por-uma-senha-forte
+DB_HOST=127.0.0.1
+DB_PORT=5432
+```
+
+Depois execute:
+
+```bash
+source .venv/bin/activate
+pip install -r requirements.txt
+python manage.py migrate
+python manage.py setup_roles
+sudo systemctl restart motormind
+```
+
+Para migrar dados de uma instalação SQLite existente, siga `docs/POSTGRESQL_PRODUCAO.md`.
