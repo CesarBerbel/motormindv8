@@ -1,0 +1,160 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ title }} | MotorMind{% endblock %}
+
+{% block content %}
+<div class="mb-6 flex items-center justify-between gap-4">
+  <div>
+    <h1 class="page-title">{{ title }}</h1>
+    <p class="text-base-content/70">Vincule o veículo a um cliente e use a consulta FIPE para preencher marca, modelo e versão.</p>
+  </div>
+  <a href="{{ cancel_url }}" class="btn btn-ghost whitespace-nowrap">Cancelar</a>
+</div>
+
+<form method="post" class="space-y-6" data-vehicle-form>
+  {% csrf_token %}
+
+  {% if form.non_field_errors %}
+    <div class="alert alert-error">
+      <div>{% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}</div>
+    </div>
+  {% endif %}
+
+  {{ form.fipe_marca_codigo }}
+  {{ form.fipe_modelo_codigo }}
+  {{ form.fipe_ano_codigo }}
+  {{ form.codigo_fipe }}
+  {{ form.mes_referencia_fipe }}
+
+  <section class="card-section">
+    <div class="card-body">
+      <h2 class="card-title">Dados principais</h2>
+      <div class="form-grid">
+        <div class="form-control md:col-span-2">
+          <label class="label" for="{{ form.cliente.id_for_label }}"><span class="label-text">{{ form.cliente.label }} <span class="text-error">*</span></span></label>
+          {{ form.cliente }}
+          {% for error in form.cliente.errors %}<span class="label-text-alt text-error">{{ error }}</span>{% endfor %}
+        </div>
+        <div class="form-control">
+          <label class="label" for="{{ form.placa.id_for_label }}"><span class="label-text">{{ form.placa.label }} <span class="text-error">*</span></span></label>
+          {{ form.placa }}
+          {% for error in form.placa.errors %}<span class="label-text-alt text-error">{{ error }}</span>{% endfor %}
+        </div>
+        <div class="form-control">
+          <label class="label" for="{{ form.km.id_for_label }}"><span class="label-text">{{ form.km.label }}</span></label>
+          {{ form.km }}
+          {% for error in form.km.errors %}<span class="label-text-alt text-error">{{ error }}</span>{% endfor %}
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="card-section">
+    <div class="card-body">
+      <div class="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+        <div>
+          <h2 class="card-title">Consulta FIPE</h2>
+          <p class="text-sm text-base-content/70">Escolha tipo, marca, modelo e ano/versão para preencher os campos do veículo.</p>
+        </div>
+        <span class="badge badge-outline whitespace-nowrap" data-fipe-status>FIPE pronta</span>
+      </div>
+
+      <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-4" data-fipe-widget
+        data-brands-url="{% url 'vehicle_fipe_brands' %}"
+        data-models-url="{% url 'vehicle_fipe_models' %}"
+        data-years-url="{% url 'vehicle_fipe_years' %}"
+        data-value-url="{% url 'vehicle_fipe_value' %}">
+        <div class="form-control">
+          <label class="label" for="{{ form.fipe_tipo.id_for_label }}"><span class="label-text">Tipo</span></label>
+          {{ form.fipe_tipo }}
+          {% for error in form.fipe_tipo.errors %}<span class="label-text-alt text-error">{{ error }}</span>{% endfor %}
+        </div>
+        <div class="form-control">
+          <label class="label" for="id_fipe_brand_select"><span class="label-text">Marca FIPE</span></label>
+          <select id="id_fipe_brand_select" class="select select-bordered w-full" data-fipe-brand-select data-current="{{ form.fipe_marca_codigo.value|default:'' }}">
+            <option value="">Selecione</option>
+          </select>
+        </div>
+        <div class="form-control">
+          <label class="label" for="id_fipe_model_select"><span class="label-text">Modelo FIPE</span></label>
+          <select id="id_fipe_model_select" class="select select-bordered w-full" data-fipe-model-select data-current="{{ form.fipe_modelo_codigo.value|default:'' }}" disabled>
+            <option value="">Selecione</option>
+          </select>
+        </div>
+        <div class="form-control">
+          <label class="label" for="id_fipe_year_select"><span class="label-text">Ano/versão FIPE</span></label>
+          <select id="id_fipe_year_select" class="select select-bordered w-full" data-fipe-year-select data-current="{{ form.fipe_ano_codigo.value|default:'' }}" disabled>
+            <option value="">Selecione</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="alert alert-info mt-4 hidden" data-fipe-result></div>
+    </div>
+  </section>
+
+  <section class="card-section">
+    <div class="card-body">
+      <h2 class="card-title">Dados técnicos</h2>
+      <div class="form-grid">
+        <div class="form-control">
+          <label class="label" for="{{ form.marca.id_for_label }}"><span class="label-text">{{ form.marca.label }} <span class="text-error">*</span></span></label>
+          {{ form.marca }}
+          {% for error in form.marca.errors %}<span class="label-text-alt text-error">{{ error }}</span>{% endfor %}
+        </div>
+        <div class="form-control">
+          <label class="label" for="{{ form.modelo.id_for_label }}"><span class="label-text">{{ form.modelo.label }} <span class="text-error">*</span></span></label>
+          {{ form.modelo }}
+          {% for error in form.modelo.errors %}<span class="label-text-alt text-error">{{ error }}</span>{% endfor %}
+        </div>
+        <div class="form-control md:col-span-2">
+          <label class="label" for="{{ form.versao.id_for_label }}"><span class="label-text">{{ form.versao.label }}</span></label>
+          {{ form.versao }}
+          {% for error in form.versao.errors %}<span class="label-text-alt text-error">{{ error }}</span>{% endfor %}
+        </div>
+        <div class="form-control">
+          <label class="label" for="{{ form.qtd_portas.id_for_label }}"><span class="label-text">{{ form.qtd_portas.label }}</span></label>
+          {{ form.qtd_portas }}
+          {% for error in form.qtd_portas.errors %}<span class="label-text-alt text-error">{{ error }}</span>{% endfor %}
+        </div>
+        <div class="form-control">
+          <label class="label" for="{{ form.combustivel.id_for_label }}"><span class="label-text">{{ form.combustivel.label }}</span></label>
+          {{ form.combustivel }}
+          {% for error in form.combustivel.errors %}<span class="label-text-alt text-error">{{ error }}</span>{% endfor %}
+        </div>
+        <div class="form-control">
+          <label class="label" for="{{ form.tipo_direcao.id_for_label }}"><span class="label-text">{{ form.tipo_direcao.label }}</span></label>
+          {{ form.tipo_direcao }}
+          {% for error in form.tipo_direcao.errors %}<span class="label-text-alt text-error">{{ error }}</span>{% endfor %}
+        </div>
+        <div class="form-control">
+          <label class="label" for="{{ form.chassi.id_for_label }}"><span class="label-text">{{ form.chassi.label }}</span></label>
+          {{ form.chassi }}
+          {% for error in form.chassi.errors %}<span class="label-text-alt text-error">{{ error }}</span>{% endfor %}
+        </div>
+        <div class="form-control md:col-span-2">
+          <label class="label cursor-pointer justify-start gap-3" for="{{ form.ar_condicionado.id_for_label }}">{{ form.ar_condicionado }}<span class="label-text">{{ form.ar_condicionado.label }}</span></label>
+        </div>
+        <div class="form-control md:col-span-2">
+          <label class="label cursor-pointer justify-start gap-3" for="{{ form.modificado.id_for_label }}">{{ form.modificado }}<span class="label-text">{{ form.modificado.label }}</span></label>
+        </div>
+        <div class="form-control md:col-span-2">
+          <label class="label" for="{{ form.observacao.id_for_label }}"><span class="label-text">{{ form.observacao.label }}</span></label>
+          {{ form.observacao }}
+          {% for error in form.observacao.errors %}<span class="label-text-alt text-error">{{ error }}</span>{% endfor %}
+        </div>
+      </div>
+
+      <div class="card-actions justify-end mt-6">
+        <a href="{{ cancel_url }}" class="btn btn-ghost whitespace-nowrap">Voltar</a>
+        <button type="submit" class="btn btn-primary whitespace-nowrap">Salvar</button>
+      </div>
+    </div>
+  </section>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+  <script src="{% static 'js/vehicle-form.js' %}"></script>
+{% endblock %}

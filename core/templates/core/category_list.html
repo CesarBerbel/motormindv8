@@ -1,0 +1,106 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Categorias | MotorMind{% endblock %}
+
+{% block content %}
+<div class="mb-6 flex items-center justify-between gap-4">
+  <div>
+    <h1 class="page-title">Categorias</h1>
+    <p class="text-base-content/70">Cada categoria é aplicada a clientes ou fornecedores.</p>
+  </div>
+  {% if perms.core.add_category %}
+    <a href="{% url 'category_create' %}" class="btn btn-primary whitespace-nowrap">Nova categoria</a>
+  {% endif %}
+</div>
+
+<div class="mb-6 rounded-box bg-base-100 p-4 shadow">
+  <form method="get" class="space-y-4" data-advanced-search-form>
+    <div class="grid grid-cols-1 gap-4 lg:grid-cols-4">
+      <div class="lg:col-span-3">
+        <label class="label" for="id_q">
+          <span class="label-text">Busca</span>
+        </label>
+        <div class="relative" data-autocomplete-wrapper>
+          <input
+            id="id_q"
+            name="q"
+            type="search"
+            value="{{ filters.q }}"
+            placeholder="Nome ou aplicação da categoria"
+            class="input input-bordered w-full"
+            autocomplete="off"
+            data-autocomplete-url="{% url 'category_autocomplete' %}"
+            aria-autocomplete="list"
+            aria-expanded="false"
+          >
+          <div
+            class="absolute left-0 right-0 top-full z-40 mt-1 hidden max-h-72 overflow-y-auto rounded-box border border-base-300 bg-base-100 shadow-xl"
+            data-autocomplete-results
+          ></div>
+        </div>
+      </div>
+
+      <div class="flex items-end gap-2">
+        <button type="submit" class="btn btn-primary flex-1 whitespace-nowrap">Buscar</button>
+        <a href="{% url 'category_list' %}" class="btn btn-outline whitespace-nowrap">Limpar</a>
+      </div>
+    </div>
+
+    {% if has_active_filters %}
+      <div class="text-sm text-base-content/70">
+        Filtro ativo. Resultado ordenado por aplicação e nome em ordem alfabética crescente.
+      </div>
+    {% else %}
+      <div class="text-sm text-base-content/70">
+        Use a busca com autocomplete para localizar categorias por nome ou aplicação.
+      </div>
+    {% endif %}
+  </form>
+</div>
+
+<div class="mb-3 flex flex-col gap-1 text-sm text-base-content/70 md:flex-row md:items-center md:justify-between">
+  <span>{{ page_obj.paginator.count }} categoria(s) encontrada(s).</span>
+  <span>Ordenação: A-Z por aplicação e nome.</span>
+</div>
+
+<div class="overflow-x-auto rounded-box bg-base-100 shadow">
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Nome</th>
+        <th>Aplicação</th>
+        <th class="text-right whitespace-nowrap">Ações</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for category in categories %}
+        <tr>
+          <td class="whitespace-nowrap">{{ category.nome }}</td>
+          <td class="whitespace-nowrap">{{ category.get_aplicacao_display }}</td>
+          <td class="text-right whitespace-nowrap">
+            <div class="inline-flex flex-nowrap items-center justify-end gap-1 whitespace-nowrap">
+              {% if perms.core.change_category %}
+                <a href="{% url 'category_update' category.pk %}" class="btn btn-xs btn-outline whitespace-nowrap">Editar</a>
+              {% endif %}
+              {% if perms.core.delete_category %}
+                <a href="{% url 'category_delete' category.pk %}" class="btn btn-xs btn-error btn-outline whitespace-nowrap">Excluir</a>
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+      {% empty %}
+        <tr>
+          <td colspan="3" class="text-center">Nenhuma categoria cadastrada.</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% include 'includes/pagination.html' %}
+{% endblock %}
+
+{% block extra_js %}
+  <script src="{% static 'js/advanced-search.js' %}"></script>
+{% endblock %}

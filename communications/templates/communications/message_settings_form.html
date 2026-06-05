@@ -1,0 +1,195 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ title }} | MotorMind{% endblock %}
+
+{% block content %}
+<div class="mx-auto max-w-6xl">
+  <div class="mb-6">
+    <h1 class="page-title">{{ title }}</h1>
+    <p class="text-base-content/70">Controle automações de mensagens, aniversário/fundação, notificações por status e orçamento/aprovação da OS.</p>
+  </div>
+
+  <form method="post" class="space-y-6">
+    {% csrf_token %}
+
+    <div class="card-section">
+      <div class="card-body space-y-6">
+        {% if form.non_field_errors %}
+          <div class="alert alert-error">
+            <div>
+              {% for error in form.non_field_errors %}
+                <p>{{ error }}</p>
+              {% endfor %}
+            </div>
+          </div>
+        {% endif %}
+
+        <div>
+          <h2 class="card-title">Aniversário e fundação</h2>
+          <p class="text-sm text-base-content/70">As opções são independentes: você pode habilitar somente pessoa física, somente pessoa jurídica, ambas ou nenhuma.</p>
+        </div>
+
+        <div class="grid gap-4 md:grid-cols-2">
+          <div class="rounded-box border border-base-300 bg-base-100 p-4">
+            <label class="label cursor-pointer justify-start gap-3" for="{{ form.enviar_aniversario_pessoa_fisica.id_for_label }}">
+              {{ form.enviar_aniversario_pessoa_fisica }}
+              <span class="label-text font-medium">{{ form.enviar_aniversario_pessoa_fisica.label }}</span>
+            </label>
+            {% if form.enviar_aniversario_pessoa_fisica.help_text %}
+              <p class="mt-2 text-sm text-base-content/70">{{ form.enviar_aniversario_pessoa_fisica.help_text }}</p>
+            {% endif %}
+            {% for error in form.enviar_aniversario_pessoa_fisica.errors %}
+              <span class="label-text-alt text-error">{{ error }}</span>
+            {% endfor %}
+          </div>
+
+          <div class="rounded-box border border-base-300 bg-base-100 p-4">
+            <label class="label cursor-pointer justify-start gap-3" for="{{ form.enviar_fundacao_pessoa_juridica.id_for_label }}">
+              {{ form.enviar_fundacao_pessoa_juridica }}
+              <span class="label-text font-medium">{{ form.enviar_fundacao_pessoa_juridica.label }}</span>
+            </label>
+            {% if form.enviar_fundacao_pessoa_juridica.help_text %}
+              <p class="mt-2 text-sm text-base-content/70">{{ form.enviar_fundacao_pessoa_juridica.help_text }}</p>
+            {% endif %}
+            {% for error in form.enviar_fundacao_pessoa_juridica.errors %}
+              <span class="label-text-alt text-error">{{ error }}</span>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card-section">
+      <div class="card-body space-y-6">
+        <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <h2 class="card-title">Mudança de status da OS</h2>
+            <p class="text-sm text-base-content/70">Habilite a automação global e depois escolha em quais status o cliente deve receber email.</p>
+          </div>
+          <a href="{% url 'message_template_create' %}" class="btn btn-ghost btn-sm whitespace-nowrap">Criar template</a>
+        </div>
+
+        <div class="rounded-box border border-base-300 bg-base-100 p-4">
+          <label class="label cursor-pointer justify-start gap-3" for="{{ form.enviar_status_os.id_for_label }}">
+            {{ form.enviar_status_os }}
+            <span class="label-text font-medium">{{ form.enviar_status_os.label }}</span>
+          </label>
+          {% if form.enviar_status_os.help_text %}
+            <p class="mt-2 text-sm text-base-content/70">{{ form.enviar_status_os.help_text }}</p>
+          {% endif %}
+          {% for error in form.enviar_status_os.errors %}
+            <span class="label-text-alt text-error">{{ error }}</span>
+          {% endfor %}
+        </div>
+
+        <div class="alert alert-info text-sm">
+          <span>Use templates do tipo <strong>Mudança de status da OS</strong>. Variáveis disponíveis: {% templatetag openvariable %} nome {% templatetag closevariable %}, {% templatetag openvariable %} ordem_servico.codigo {% templatetag closevariable %}, {% templatetag openvariable %} status_anterior_label {% templatetag closevariable %}, {% templatetag openvariable %} status_novo_label {% templatetag closevariable %}, {% templatetag openvariable %} veiculo {% templatetag closevariable %}, {% templatetag openvariable %} mensagem_status {% templatetag closevariable %}.</span>
+        </div>
+
+        {{ rule_formset.management_form }}
+        {% if rule_formset.non_form_errors %}
+          <div class="alert alert-error">
+            <div>
+              {% for error in rule_formset.non_form_errors %}<p>{{ error }}</p>{% endfor %}
+            </div>
+          </div>
+        {% endif %}
+
+        <div class="overflow-x-auto rounded-box border border-base-300">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Status da OS</th>
+                <th>Enviar</th>
+                <th>Template</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for rule_form in rule_formset %}
+                <tr>
+                  <td class="whitespace-nowrap font-medium">
+                    {{ rule_form.id }}
+                    {{ rule_form.instance.get_status_display }}
+                    {% if rule_form.instance.status == 'pronto_para_retirar' or rule_form.instance.status == 'aguardando_aprovacao' or rule_form.instance.status == 'aguardando_peca' %}
+                      <span class="badge badge-warning badge-sm ml-2">recomendado</span>
+                    {% endif %}
+                    {% for error in rule_form.non_field_errors %}<p class="text-error text-sm">{{ error }}</p>{% endfor %}
+                  </td>
+                  <td class="whitespace-nowrap">
+                    <label class="label cursor-pointer justify-start gap-2">
+                      {{ rule_form.enviar_email }}
+                      <span class="label-text">Enviar email</span>
+                    </label>
+                    {% for error in rule_form.enviar_email.errors %}<span class="label-text-alt text-error">{{ error }}</span>{% endfor %}
+                  </td>
+                  <td class="min-w-72">
+                    {{ rule_form.template }}
+                    {% for error in rule_form.template.errors %}<span class="label-text-alt text-error">{{ error }}</span>{% endfor %}
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="card-section">
+      <div class="card-body space-y-6">
+        <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <h2 class="card-title">Orçamento / aprovação da OS</h2>
+            <p class="text-sm text-base-content/70">Configure o template usado no envio do orçamento versionado para aprovação do cliente.</p>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <a href="{% url 'message_template_create' %}?tipo=work_order_approval" class="btn btn-ghost btn-sm whitespace-nowrap">Criar template de orçamento</a>
+            {% if object.template_orcamento_os %}
+              <a href="{% url 'message_template_update' object.template_orcamento_os.pk %}" class="btn btn-outline btn-sm whitespace-nowrap">Editar template selecionado</a>
+            {% endif %}
+          </div>
+        </div>
+
+        <div class="rounded-box border border-base-300 bg-base-100 p-4">
+          <div class="form-control">
+            <label class="label" for="{{ form.template_orcamento_os.id_for_label }}">
+              <span class="label-text font-medium">{{ form.template_orcamento_os.label }}</span>
+            </label>
+            {{ form.template_orcamento_os }}
+            {% if form.template_orcamento_os.help_text %}
+              <p class="mt-2 text-sm text-base-content/70">{{ form.template_orcamento_os.help_text }}</p>
+            {% endif %}
+            {% for error in form.template_orcamento_os.errors %}
+              <span class="label-text-alt text-error">{{ error }}</span>
+            {% endfor %}
+          </div>
+
+          <div class="mt-4 flex flex-wrap items-center gap-2 text-sm">
+            <span class="badge badge-outline">{{ approval_templates_count }} template(s) de orçamento</span>
+            {% if not approval_templates_count %}
+              <span class="text-warning">Nenhum template de orçamento/aprovação foi encontrado. Crie um template ou execute as migrations.</span>
+            {% endif %}
+          </div>
+        </div>
+
+        <div class="alert alert-info text-sm">
+          <span>Use templates do tipo <strong>Orçamento / aprovação da OS</strong>. Variáveis disponíveis: {% templatetag openvariable %} nome {% templatetag closevariable %}, {% templatetag openvariable %} ordem_servico.codigo {% templatetag closevariable %}, {% templatetag openvariable %} orcamento.codigo {% templatetag closevariable %}, {% templatetag openvariable %} valor_total {% templatetag closevariable %}, {% templatetag openvariable %} link_aprovacao {% templatetag closevariable %}, {% templatetag openvariable %} veiculo {% templatetag closevariable %} e {% templatetag openvariable %} placa {% templatetag closevariable %}.</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card-section">
+      <div class="card-body">
+        <div class="rounded-box border border-warning/30 bg-warning/10 p-4 text-sm">
+          <p class="font-semibold">Comportamento</p>
+          <p class="mt-1 text-base-content/70">Ao mudar o status da OS, o sistema verifica a flag global, a regra daquele novo status, o template configurado e o email do cliente. Ao enviar orçamento, o sistema usa o template de orçamento/aprovação configurado acima ou o padrão ativo desse tipo. Os envios ficam registrados no histórico de mensagens com status enviado ou erro.</p>
+        </div>
+
+        <div class="card-actions justify-end">
+          <a href="{% url 'dashboard' %}" class="btn btn-ghost whitespace-nowrap">Cancelar</a>
+          <button type="submit" class="btn btn-primary whitespace-nowrap">Salvar configurações</button>
+        </div>
+      </div>
+    </div>
+  </form>
+</div>
+{% endblock %}

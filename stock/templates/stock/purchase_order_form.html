@@ -1,0 +1,81 @@
+{% extends 'base.html' %}
+{% load money %}
+
+{% block title %}{{ title }} | MotorMind{% endblock %}
+
+{% block content %}
+<div class="mb-6 flex items-center justify-between gap-4">
+  <div>
+    <h1 class="page-title">{{ title }}</h1>
+    <p class="text-base-content/70">Informe os dados do pedido e os itens de compra.</p>
+  </div>
+  <a href="{{ cancel_url }}" class="btn btn-ghost whitespace-nowrap">Cancelar</a>
+</div>
+
+<form method="post" class="space-y-6">
+  {% csrf_token %}
+  <div class="card bg-base-100 shadow">
+    <div class="card-body">
+      <h2 class="card-title">Dados do pedido</h2>
+      {% if form.non_field_errors %}
+        <div class="alert alert-error">{{ form.non_field_errors }}</div>
+      {% endif %}
+      <div class="form-grid">
+        {% include 'includes/form_fields.html' %}
+      </div>
+    </div>
+  </div>
+
+  <div class="card bg-base-100 shadow">
+    <div class="card-body">
+      <h2 class="card-title">Itens do pedido</h2>
+      {{ formset.management_form }}
+      {% if formset.non_form_errors %}
+        <div class="alert alert-error">{{ formset.non_form_errors }}</div>
+      {% endif %}
+      <div class="overflow-x-auto">
+        <table class="table">
+          <thead><tr><th>Peça/Insumo</th><th>Quantidade</th><th>Custo unitário</th><th>Observação</th><th>Excluir</th></tr></thead>
+          <tbody>
+            {% for item_form in formset.forms %}
+              <tr>
+                <td>
+                  {{ item_form.id }}
+                  {{ item_form.item }}
+                  {% for error in item_form.item.errors %}<div class="text-error text-xs mt-1">{{ error }}</div>{% endfor %}
+                </td>
+                <td>
+                  {{ item_form.quantidade }}
+                  {% for error in item_form.quantidade.errors %}<div class="text-error text-xs mt-1">{{ error }}</div>{% endfor %}
+                </td>
+                <td>
+                  {{ item_form.custo_unitario }}
+                  {% for error in item_form.custo_unitario.errors %}<div class="text-error text-xs mt-1">{{ error }}</div>{% endfor %}
+                </td>
+                <td>
+                  {{ item_form.observacao }}
+                  {% for error in item_form.observacao.errors %}<div class="text-error text-xs mt-1">{{ error }}</div>{% endfor %}
+                </td>
+                <td class="text-center">
+                  {% if item_form.DELETE %}
+                    {{ item_form.DELETE }}
+                  {% endif %}
+                </td>
+              </tr>
+              {% if item_form.non_field_errors %}
+                <tr><td colspan="5"><div class="alert alert-error">{{ item_form.non_field_errors }}</div></td></tr>
+              {% endif %}
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <p class="text-sm text-base-content/60">Use as linhas disponíveis para informar mais de um item. Linhas vazias são ignoradas.</p>
+    </div>
+  </div>
+
+  <div class="flex justify-end gap-2">
+    <a href="{{ cancel_url }}" class="btn btn-ghost whitespace-nowrap">Voltar</a>
+    <button type="submit" class="btn btn-primary whitespace-nowrap">Salvar</button>
+  </div>
+</form>
+{% endblock %}

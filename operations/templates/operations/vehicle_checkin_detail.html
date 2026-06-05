@@ -1,0 +1,92 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ checkin.codigo }} | MotorMind{% endblock %}
+
+{% block content %}
+<div class="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+  <div>
+    <h1 class="page-title">{{ checkin.codigo }}</h1>
+    <p class="text-base-content/70">Check-in da {{ checkin.ordem_servico.codigo }} · {{ checkin.cliente.nome_razao_social }}</p>
+  </div>
+  <div class="flex flex-wrap gap-2">
+    <a href="{% url 'vehicle_checkin_list' %}" class="btn btn-ghost whitespace-nowrap">Voltar</a>
+    <a href="{% url 'vehicle_checkin_pdf' checkin.pk %}" target="_blank" class="btn btn-outline whitespace-nowrap">Gerar PDF</a>
+    {% if can_send_email %}
+      <form method="post" action="{% url 'vehicle_checkin_send_email' checkin.pk %}">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-primary whitespace-nowrap">Enviar por email</button>
+      </form>
+    {% endif %}
+    {% if can_change %}<a href="{% url 'vehicle_checkin_update' checkin.pk %}" class="btn btn-outline whitespace-nowrap">Editar</a>{% endif %}
+    {% if can_delete %}<a href="{% url 'vehicle_checkin_delete' checkin.pk %}" class="btn btn-error btn-outline whitespace-nowrap">Excluir</a>{% endif %}
+  </div>
+</div>
+
+<div class="grid gap-6 lg:grid-cols-3">
+  <div class="card bg-base-100 shadow lg:col-span-2">
+    <div class="card-body">
+      <h2 class="card-title">Dados do check-in</h2>
+      <div class="grid gap-4 md:grid-cols-2">
+        <div><span class="text-sm text-base-content/60">Código</span><p class="font-mono font-medium">{{ checkin.codigo }}</p></div>
+        <div><span class="text-sm text-base-content/60">OS</span><p><a href="{% url 'work_order_detail' checkin.ordem_servico.pk %}" class="link link-primary">{{ checkin.ordem_servico.codigo }}</a></p></div>
+        <div><span class="text-sm text-base-content/60">Cliente</span><p><a href="{% url 'customer_detail' checkin.cliente.pk %}" class="link link-primary">{{ checkin.cliente.nome_razao_social }}</a></p></div>
+        <div><span class="text-sm text-base-content/60">Veículo</span><p><a href="{% url 'vehicle_detail' checkin.veiculo.pk %}" class="link link-primary">{{ checkin.veiculo.placa }} - {{ checkin.veiculo.marca }} {{ checkin.veiculo.modelo }}</a></p></div>
+        <div><span class="text-sm text-base-content/60">Data</span><p>{{ checkin.data_checkin|date:'d/m/Y H:i' }}</p></div>
+        <div><span class="text-sm text-base-content/60">KM</span><p>{{ checkin.km|default:'-' }}</p></div>
+        <div><span class="text-sm text-base-content/60">Combustível</span><p>{{ checkin.get_nivel_combustivel_display|default:'-' }}</p></div>
+        <div><span class="text-sm text-base-content/60">Criado por</span><p>{{ checkin.criado_por.email|default:'-' }}</p></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card bg-base-100 shadow">
+    <div class="card-body">
+      <h2 class="card-title">Envio ao cliente</h2>
+      <p>{% if checkin.email_enviado %}<span class="badge badge-success">PDF enviado</span>{% else %}<span class="badge badge-warning">Pendente</span>{% endif %}</p>
+      <p class="text-sm text-base-content/70">Email: {{ checkin.cliente.email|default:'-' }}</p>
+      {% if checkin.email_enviado_em %}<p class="text-sm text-base-content/70">Enviado em {{ checkin.email_enviado_em|date:'d/m/Y H:i' }}</p>{% endif %}
+      {% if checkin.email_erro %}<div class="alert alert-error mt-3"><span>{{ checkin.email_erro }}</span></div>{% endif %}
+    </div>
+  </div>
+</div>
+
+<div class="mt-6 grid gap-6 lg:grid-cols-2">
+  <div class="card bg-base-100 shadow">
+    <div class="card-body">
+      <h2 class="card-title">Itens conferidos</h2>
+      <div class="grid gap-3 sm:grid-cols-2">
+        <div class="rounded-box bg-base-200 p-3">Estepe: <strong>{% if checkin.possui_estepe %}Sim{% else %}Não{% endif %}</strong></div>
+        <div class="rounded-box bg-base-200 p-3">Macaco: <strong>{% if checkin.possui_macaco %}Sim{% else %}Não{% endif %}</strong></div>
+        <div class="rounded-box bg-base-200 p-3">Chave de roda: <strong>{% if checkin.possui_chave_roda %}Sim{% else %}Não{% endif %}</strong></div>
+        <div class="rounded-box bg-base-200 p-3">Documento: <strong>{% if checkin.possui_documento %}Sim{% else %}Não{% endif %}</strong></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card bg-base-100 shadow">
+    <div class="card-body">
+      <h2 class="card-title">Observações</h2>
+      <div class="space-y-4">
+        <div><span class="text-sm text-base-content/60">Objetos deixados</span><p class="whitespace-pre-line">{{ checkin.objetos_deixados|default:'-' }}</p></div>
+        <div><span class="text-sm text-base-content/60">Avarias observadas</span><p class="whitespace-pre-line">{{ checkin.avarias_observadas|default:'-' }}</p></div>
+        <div><span class="text-sm text-base-content/60">Observações gerais</span><p class="whitespace-pre-line">{{ checkin.observacoes|default:'-' }}</p></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="mt-6 card bg-base-100 shadow">
+  <div class="card-body">
+    <h2 class="card-title">Fotos</h2>
+    <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      {% for foto in checkin.fotos.all %}
+        <a href="{{ foto.imagem.url }}" target="_blank" class="block rounded-box border border-base-300 bg-base-200 p-2 hover:bg-base-300">
+          <img src="{{ foto.imagem.url }}" alt="Foto do check-in" class="h-56 w-full rounded-lg object-cover">
+        </a>
+      {% empty %}
+        <p class="text-base-content/60">Nenhuma foto anexada.</p>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endblock %}

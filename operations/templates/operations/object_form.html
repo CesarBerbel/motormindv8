@@ -1,0 +1,26 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ title }} | MotorMind{% endblock %}
+
+{% block content %}
+<div class="mb-6 flex items-center justify-between gap-4">
+  <div>
+    <h1 class="page-title">{{ title }}</h1>
+    <p class="text-base-content/70">Preencha os dados do cadastro.</p>
+  </div>
+  <a href="{{ cancel_url }}" class="btn btn-ghost whitespace-nowrap">Cancelar</a>
+</div>
+
+<form method="post" class="card-section">
+  {% csrf_token %}
+  <div class="card-body">
+    <div class="form-grid">
+      {% include 'includes/form_fields.html' %}
+    </div>
+    <div class="card-actions justify-end mt-6">
+      <a href="{{ cancel_url }}" class="btn btn-ghost whitespace-nowrap">Voltar</a>
+      <button type="submit" class="btn btn-primary whitespace-nowrap">Salvar</button>
+    </div>
+  </div>
+</form>
+{% endblock %}

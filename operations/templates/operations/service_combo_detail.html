@@ -1,0 +1,107 @@
+{% extends 'base.html' %}
+{% load money %}
+
+{% block title %}{{ combo.nome }} | MotorMind{% endblock %}
+
+{% block content %}
+<div class="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+  <div>
+    <h1 class="page-title">{{ combo.nome }}</h1>
+    <p class="text-base-content/70">{{ combo.codigo }} · {{ combo.duracao_formatada }}</p>
+  </div>
+  <div class="flex flex-wrap gap-2">
+    <a href="{% url 'service_combo_list' %}" class="btn btn-ghost whitespace-nowrap">Voltar</a>
+    {% if can_change %}
+      <a href="{% url 'service_combo_update' combo.pk %}" class="btn btn-outline whitespace-nowrap">Editar</a>
+    {% endif %}
+    {% if can_delete %}
+      <a href="{% url 'service_combo_delete' combo.pk %}" class="btn btn-error btn-outline whitespace-nowrap">Excluir</a>
+    {% endif %}
+  </div>
+</div>
+
+<div class="grid gap-6 lg:grid-cols-3">
+  <div class="card bg-base-100 shadow lg:col-span-2">
+    <div class="card-body">
+      <h2 class="card-title">Dados do combo</h2>
+      <div class="grid gap-4 md:grid-cols-2">
+        <div><span class="text-sm text-base-content/60">Código</span><p class="font-mono font-medium">{{ combo.codigo }}</p></div>
+        <div><span class="text-sm text-base-content/60">Duração total</span><p class="font-medium">{{ combo.duracao_formatada }} <span class="text-base-content/60">({{ combo.duracao_total_minutos }} min)</span></p></div>
+        <div><span class="text-sm text-base-content/60">Subtotal dos serviços</span><p class="font-medium">{{ combo.subtotal_servicos|money_br }}</p></div>
+        <div><span class="text-sm text-base-content/60">Desconto</span><p class="font-medium">{{ combo.desconto_percentual|default:'0,00' }}%</p></div>
+      </div>
+      <div class="mt-4">
+        <span class="text-sm text-base-content/60">Descrição</span>
+        <p class="mt-1 whitespace-pre-line">{{ combo.descricao|default:'-' }}</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="card bg-base-100 shadow">
+    <div class="card-body">
+      <h2 class="card-title">Resumo financeiro</h2>
+      <div class="stats stats-vertical shadow-none">
+        <div class="stat px-0">
+          <div class="stat-title">Subtotal</div>
+          <div class="stat-value text-2xl">{{ combo.subtotal_servicos|money_br }}</div>
+        </div>
+        <div class="stat px-0">
+          <div class="stat-title">Desconto</div>
+          <div class="stat-value text-2xl">{{ combo.valor_desconto|money_br }}</div>
+        </div>
+        <div class="stat px-0">
+          <div class="stat-title">Total do combo</div>
+          <div class="stat-value text-2xl">{{ combo.valor_total|money_br }}</div>
+        </div>
+      </div>
+      <p class="text-sm text-base-content/60">O total é calculado com base nos valores atuais dos serviços associados.</p>
+    </div>
+  </div>
+</div>
+
+<div class="mt-6 card bg-base-100 shadow">
+  <div class="card-body">
+    <h2 class="card-title">Serviços associados</h2>
+    <div class="overflow-x-auto">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Código</th>
+            <th>Serviço</th>
+            <th>Duração</th>
+            <th>Valor</th>
+            <th>Peças padrão</th>
+            <th>Descrição</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in combo.servicos_associados.all %}
+            <tr>
+              <td class="font-mono whitespace-nowrap">{{ item.service.codigo }}</td>
+              <td class="whitespace-nowrap">
+                <a href="{% url 'service_detail' item.service.pk %}" class="link link-primary">{{ item.service.nome }}</a>
+              </td>
+              <td class="whitespace-nowrap">{{ item.service.duracao_formatada }}</td>
+              <td class="whitespace-nowrap">{{ item.service.valor|money_br }}</td>
+              <td>
+                <div class="flex max-w-md flex-wrap gap-1">
+                  {% for part in item.service.pecas_associadas.all %}
+                    <span class="badge badge-outline whitespace-nowrap">{{ part.item.sku }} - {{ part.item.nome }} · {{ part.quantidade }} {{ part.item.unidade.sigla }}</span>
+                  {% empty %}
+                    <span class="text-base-content/60">-</span>
+                  {% endfor %}
+                </div>
+              </td>
+              <td>{{ item.service.descricao|default:'-'|truncatechars:120 }}</td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="6" class="text-center">Nenhum serviço associado.</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

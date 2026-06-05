@@ -1,0 +1,47 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ title }} | MotorMind{% endblock %}
+
+{% block content %}
+<div class="mx-auto max-w-5xl">
+  <div class="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+    <div>
+      <h1 class="page-title">{{ title }}</h1>
+      <p class="text-base-content/70">Registre a recepção do veículo, KM, observações e fotos tiradas no celular/tablet.</p>
+    </div>
+    <a href="{{ cancel_url }}" class="btn btn-ghost whitespace-nowrap">Voltar</a>
+  </div>
+
+  <form method="post" enctype="multipart/form-data" class="card bg-base-100 shadow-xl">
+    {% csrf_token %}
+    <div class="card-body">
+      <div class="grid gap-4 md:grid-cols-2">
+        {% include 'includes/form_fields.html' %}
+      </div>
+
+      {% if object and object.fotos.exists %}
+        <div class="mt-6">
+          <h2 class="card-title mb-3">Fotos já anexadas</h2>
+          <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {% for foto in object.fotos.all %}
+              <figure class="rounded-box border border-base-300 bg-base-200 p-2">
+                <img src="{{ foto.imagem.url }}" alt="Foto do check-in" class="h-48 w-full rounded-lg object-cover">
+              </figure>
+            {% endfor %}
+          </div>
+        </div>
+      {% endif %}
+
+      <div class="card-actions mt-6 justify-end">
+        <a href="{{ cancel_url }}" class="btn btn-ghost whitespace-nowrap">Cancelar</a>
+        <button type="submit" class="btn btn-primary whitespace-nowrap">Salvar</button>
+      </div>
+    </div>
+  </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+  <script src="{% static 'js/checkin-photos.js' %}"></script>
+{% endblock %}

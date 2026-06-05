@@ -1,0 +1,58 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ vehicle.placa }} | MotorMind{% endblock %}
+
+{% block content %}
+<div class="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+  <div>
+    <h1 class="page-title">{{ vehicle.placa }}</h1>
+    <p class="text-base-content/70">{{ vehicle.marca }} {{ vehicle.modelo }}</p>
+  </div>
+  <div class="flex flex-wrap gap-2">
+    <a href="{% url 'vehicle_list' %}" class="btn btn-ghost whitespace-nowrap">Voltar</a>
+    {% if can_change %}<a href="{% url 'vehicle_update' vehicle.pk %}" class="btn btn-primary whitespace-nowrap">Editar</a>{% endif %}
+    {% if can_delete %}<a href="{% url 'vehicle_delete' vehicle.pk %}" class="btn btn-error btn-outline whitespace-nowrap">Excluir</a>{% endif %}
+  </div>
+</div>
+
+<div class="grid gap-6 lg:grid-cols-3">
+  <section class="card-section lg:col-span-2">
+    <div class="card-body">
+      <h2 class="card-title">Dados do veículo</h2>
+      <dl class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div><dt class="text-sm text-base-content/60">Cliente</dt><dd class="font-medium"><a href="{% url 'customer_detail' vehicle.cliente.pk %}" class="link link-primary">{{ vehicle.cliente.nome_razao_social }}</a></dd></div>
+        <div><dt class="text-sm text-base-content/60">Placa</dt><dd class="font-mono font-medium">{{ vehicle.placa }}</dd></div>
+        <div><dt class="text-sm text-base-content/60">Marca</dt><dd class="font-medium">{{ vehicle.marca }}</dd></div>
+        <div><dt class="text-sm text-base-content/60">Modelo</dt><dd class="font-medium">{{ vehicle.modelo }}</dd></div>
+        <div><dt class="text-sm text-base-content/60">Versão</dt><dd class="font-medium">{{ vehicle.versao|default:'-' }}</dd></div>
+        <div><dt class="text-sm text-base-content/60">Combustível</dt><dd class="font-medium">{% if vehicle.combustivel %}{{ vehicle.get_combustivel_display }}{% else %}-{% endif %}</dd></div>
+        <div><dt class="text-sm text-base-content/60">Quantidade de portas</dt><dd class="font-medium">{{ vehicle.qtd_portas|default:'-' }}</dd></div>
+        <div><dt class="text-sm text-base-content/60">KM</dt><dd class="font-medium">{{ vehicle.km }} km</dd></div>
+        <div><dt class="text-sm text-base-content/60">Chassi</dt><dd class="font-mono font-medium">{{ vehicle.chassi|default:'-' }}</dd></div>
+        <div><dt class="text-sm text-base-content/60">Tipo de direção</dt><dd class="font-medium">{% if vehicle.tipo_direcao %}{{ vehicle.get_tipo_direcao_display }}{% else %}-{% endif %}</dd></div>
+        <div><dt class="text-sm text-base-content/60">Ar condicionado</dt><dd class="font-medium">{% if vehicle.ar_condicionado %}Sim{% else %}Não{% endif %}</dd></div>
+        <div><dt class="text-sm text-base-content/60">Modificado</dt><dd class="font-medium">{% if vehicle.modificado %}Sim{% else %}Não{% endif %}</dd></div>
+      </dl>
+    </div>
+  </section>
+
+  <section class="card-section">
+    <div class="card-body">
+      <h2 class="card-title">FIPE</h2>
+      <dl class="space-y-3">
+        <div><dt class="text-sm text-base-content/60">Tipo</dt><dd class="font-medium">{{ vehicle.get_fipe_tipo_display }}</dd></div>
+        <div><dt class="text-sm text-base-content/60">Código FIPE</dt><dd class="font-mono font-medium">{{ vehicle.codigo_fipe|default:'-' }}</dd></div>
+        <div><dt class="text-sm text-base-content/60">Mês de referência</dt><dd class="font-medium">{{ vehicle.mes_referencia_fipe|default:'-' }}</dd></div>
+        <div><dt class="text-sm text-base-content/60">Marca / modelo / ano FIPE</dt><dd class="font-medium">{{ vehicle.fipe_marca_codigo|default:'-' }} / {{ vehicle.fipe_modelo_codigo|default:'-' }} / {{ vehicle.fipe_ano_codigo|default:'-' }}</dd></div>
+      </dl>
+    </div>
+  </section>
+
+  <section class="card-section lg:col-span-3">
+    <div class="card-body">
+      <h2 class="card-title">Observação</h2>
+      <p class="whitespace-pre-line">{{ vehicle.observacao|default:'Sem observação.' }}</p>
+    </div>
+  </section>
+</div>
+{% endblock %}

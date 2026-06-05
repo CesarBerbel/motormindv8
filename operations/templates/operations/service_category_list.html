@@ -1,0 +1,71 @@
+{% extends 'base.html' %}
+
+{% block title %}Categorias de serviços | MotorMind{% endblock %}
+
+{% block content %}
+<div class="mb-6 flex items-center justify-between gap-4">
+  <div>
+    <h1 class="page-title">Categorias de serviços</h1>
+    <p class="text-base-content/70">Organize os serviços por grupos operacionais, como revisão, freios, suspensão, motor e elétrica.</p>
+  </div>
+  {% if perms.operations.add_servicecategory %}
+    <a href="{% url 'service_category_create' %}" class="btn btn-primary whitespace-nowrap">Nova categoria</a>
+  {% endif %}
+</div>
+
+<div class="mb-6 rounded-box bg-base-100 p-4 shadow">
+  <form method="get" class="flex flex-col gap-3 md:flex-row md:items-end">
+    <div class="flex-1">
+      <label class="label" for="id_q">
+        <span class="label-text">Busca</span>
+      </label>
+      <input id="id_q" name="q" type="search" value="{{ filters.q }}" class="input input-bordered w-full" placeholder="Nome ou descrição">
+    </div>
+    <div class="flex gap-2">
+      <button type="submit" class="btn btn-primary whitespace-nowrap">Buscar</button>
+      <a href="{% url 'service_category_list' %}" class="btn btn-outline whitespace-nowrap">Limpar</a>
+    </div>
+  </form>
+</div>
+
+<div class="mb-3 flex flex-col gap-1 text-sm text-base-content/70 md:flex-row md:items-center md:justify-between">
+  <span>{{ page_obj.paginator.count }} categoria(s) encontrada(s).</span>
+  <span>Ordenação: A-Z por nome.</span>
+</div>
+
+<div class="overflow-x-auto rounded-box bg-base-100 shadow">
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Nome</th>
+        <th>Descrição</th>
+        <th class="text-right whitespace-nowrap">Ações</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for category in categories %}
+        <tr>
+          <td class="font-medium whitespace-nowrap">{{ category.nome }}</td>
+          <td>{{ category.descricao|default:'-' }}</td>
+          <td class="text-right whitespace-nowrap">
+            <div class="inline-flex flex-nowrap items-center justify-end gap-1 whitespace-nowrap">
+              {% if perms.operations.change_servicecategory %}
+                <a href="{% url 'service_category_update' category.pk %}" class="btn btn-xs btn-outline whitespace-nowrap">Editar</a>
+              {% endif %}
+              {% if perms.operations.delete_servicecategory %}
+                <a href="{% url 'service_category_delete' category.pk %}" class="btn btn-xs btn-error btn-outline whitespace-nowrap">Excluir</a>
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+      {% empty %}
+        <tr>
+          <td colspan="3" class="text-center">Nenhuma categoria de serviço cadastrada.</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% include 'includes/pagination.html' %}
+{% endblock %}

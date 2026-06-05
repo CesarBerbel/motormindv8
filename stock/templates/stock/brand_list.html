@@ -1,0 +1,57 @@
+{% extends 'base.html' %}
+
+{% block title %}Marcas | MotorMind{% endblock %}
+
+{% block content %}
+<div class="mb-6 flex items-center justify-between gap-4">
+  <div>
+    <h1 class="page-title">Marcas</h1>
+    <p class="text-base-content/70">Cadastro global de marcas para peças e insumos.</p>
+  </div>
+  {% if perms.stock.add_brand %}
+    <a href="{% url 'brand_create' %}" class="btn btn-primary whitespace-nowrap">Nova marca</a>
+  {% endif %}
+</div>
+
+{% url 'brand_list' as clear_url %}
+{% include 'stock/includes/simple_search.html' with clear_url=clear_url %}
+
+<div class="mb-3 flex flex-col gap-1 text-sm text-base-content/70 md:flex-row md:items-center md:justify-between">
+  <span>{{ page_obj.paginator.count }} marca(s) encontrada(s).</span>
+  <span>Ordenação: A-Z por nome.</span>
+</div>
+
+<div class="overflow-x-auto rounded-box bg-base-100 shadow">
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Nome</th>
+        <th class="text-right whitespace-nowrap">Ações</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for brand in brands %}
+        <tr>
+          <td class="font-medium whitespace-nowrap">{{ brand.nome }}</td>
+          <td class="text-right whitespace-nowrap">
+            <div class="inline-flex flex-nowrap items-center justify-end gap-1 whitespace-nowrap">
+              {% if perms.stock.change_brand %}
+                <a href="{% url 'brand_update' brand.pk %}" class="btn btn-xs btn-outline whitespace-nowrap">Editar</a>
+              {% endif %}
+              {% if perms.stock.delete_brand %}
+                <a href="{% url 'brand_delete' brand.pk %}" class="btn btn-xs btn-error btn-outline whitespace-nowrap">Excluir</a>
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+      {% empty %}
+        <tr>
+          <td colspan="2" class="text-center">Nenhuma marca cadastrada.</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% include 'includes/pagination.html' %}
+{% endblock %}

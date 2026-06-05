@@ -1,0 +1,124 @@
+{% extends 'base.html' %}
+{% load static money %}
+
+{% block title %}Pedidos de compra | MotorMind{% endblock %}
+
+{% block content %}
+<div class="mb-6 flex items-center justify-between gap-4">
+  <div>
+    <h1 class="page-title">Pedidos de compra</h1>
+    <p class="text-base-content/70">Pedidos manuais ou criados automaticamente por falta de peças/insumos na OS.</p>
+  </div>
+  {% if perms.stock.add_purchaseorder %}
+    <a href="{% url 'purchase_order_create' %}" class="btn btn-primary whitespace-nowrap">Novo pedido</a>
+  {% endif %}
+</div>
+
+<div class="mb-6 rounded-box bg-base-100 p-4 shadow">
+  <form method="get" class="space-y-4" data-advanced-search-form>
+    <div class="grid grid-cols-1 gap-4 xl:grid-cols-6">
+      <div class="xl:col-span-2">
+        <label class="label" for="id_q"><span class="label-text">Busca geral</span></label>
+        <div class="relative" data-autocomplete-wrapper>
+          <input id="id_q" name="q" type="search" value="{{ filters.q }}" placeholder="Código, OS, fornecedor ou peça" class="input input-bordered w-full" autocomplete="off" data-autocomplete-url="{% url 'purchase_order_autocomplete' %}" aria-autocomplete="list" aria-expanded="false">
+          <div class="absolute left-0 right-0 top-full z-40 mt-1 hidden max-h-72 overflow-y-auto rounded-box border border-base-300 bg-base-100 shadow-xl" data-autocomplete-results></div>
+        </div>
+      </div>
+      <div>
+        <label class="label" for="id_status"><span class="label-text">Status</span></label>
+        <select id="id_status" name="status" class="select select-bordered w-full">
+          <option value="">Todos</option>
+          {% for value, label in status_choices %}
+            <option value="{{ value }}" {% if filters.status == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="label" for="id_origem"><span class="label-text">Origem</span></label>
+        <select id="id_origem" name="origem" class="select select-bordered w-full">
+          <option value="">Todas</option>
+          {% for value, label in source_choices %}
+            <option value="{{ value }}" {% if filters.origem == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="xl:col-span-2">
+        <label class="label" for="id_fornecedor"><span class="label-text">Fornecedor</span></label>
+        <select id="id_fornecedor" name="fornecedor" class="select select-bordered w-full">
+          <option value="">Todos</option>
+          {% for supplier in supplier_choices %}
+            <option value="{{ supplier.pk }}" {% if filters.fornecedor == supplier.pk|stringformat:'s' %}selected{% endif %}>{{ supplier.nome_razao_social }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="label" for="id_data_inicio"><span class="label-text">Data inicial</span></label>
+        <input id="id_data_inicio" name="data_inicio" type="date" value="{{ filters.data_inicio }}" class="input input-bordered w-full">
+      </div>
+      <div>
+        <label class="label" for="id_data_fim"><span class="label-text">Data final</span></label>
+        <input id="id_data_fim" name="data_fim" type="date" value="{{ filters.data_fim }}" class="input input-bordered w-full">
+      </div>
+      <div class="flex items-end gap-2 xl:col-span-2">
+        <button type="submit" class="btn btn-primary flex-1 whitespace-nowrap">Buscar</button>
+        <a href="{% url 'purchase_order_list' %}" class="btn btn-outline whitespace-nowrap">Limpar</a>
+      </div>
+    </div>
+  </form>
+</div>
+
+<div class="mb-3 flex flex-col gap-1 text-sm text-base-content/70 md:flex-row md:items-center md:justify-between">
+  <span>{{ page_obj.paginator.count }} pedido(s) encontrado(s).</span>
+  <span>Ordenação: mais recentes primeiro.</span>
+</div>
+
+<div class="overflow-x-auto rounded-box bg-base-100 shadow">
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Código</th>
+        <th>Status</th>
+        <th>Origem</th>
+        <th>Fornecedor</th>
+        <th>OS</th>
+        <th>Itens</th>
+        <th>Quantidade</th>
+        <th>Total</th>
+        <th>Criado em</th>
+        <th class="text-right whitespace-nowrap">Ações</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for order in orders %}
+        <tr>
+          <td class="font-mono whitespace-nowrap"><a href="{% url 'purchase_order_detail' order.pk %}" class="link link-primary">{{ order.codigo }}</a></td>
+          <td class="whitespace-nowrap"><span class="badge badge-outline">{{ order.get_status_display }}</span></td>
+          <td class="whitespace-nowrap">{{ order.get_origem_display }}</td>
+          <td class="whitespace-nowrap">{{ order.fornecedor.nome_razao_social|default:'-' }}</td>
+          <td class="whitespace-nowrap">{% if order.ordem_servico_id %}<a href="{% url 'work_order_detail' order.ordem_servico.pk %}" class="link link-primary">{{ order.ordem_servico.codigo }}</a>{% else %}-{% endif %}</td>
+          <td class="whitespace-nowrap">{{ order.total_itens }}</td>
+          <td class="whitespace-nowrap">{{ order.quantidade_total }}</td>
+          <td class="whitespace-nowrap">{{ order.valor_total|money_br }}</td>
+          <td class="whitespace-nowrap">{{ order.criado_em|date:'d/m/Y H:i' }}</td>
+          <td class="text-right whitespace-nowrap">
+            <div class="inline-flex gap-1 whitespace-nowrap">
+              <a href="{% url 'purchase_order_detail' order.pk %}" class="btn btn-xs btn-ghost whitespace-nowrap">Ver</a>
+              {% if perms.stock.change_purchaseorder and order.is_editable %}
+                <a href="{% url 'purchase_order_update' order.pk %}" class="btn btn-xs btn-outline whitespace-nowrap">Editar</a>
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="10" class="text-center">Nenhum pedido de compra encontrado.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% include 'includes/pagination.html' %}
+{% endblock %}
+
+{% block extra_js %}
+  <script src="{% static 'js/advanced-search.js' %}"></script>
+{% endblock %}

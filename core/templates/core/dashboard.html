@@ -1,0 +1,57 @@
+{% extends 'base.html' %}
+
+{% block title %}Dashboard | MotorMind{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+  <h1 class="page-title">Dashboard</h1>
+  <p class="text-base-content/70">Bem-vindo ao painel interno do MotorMind.</p>
+</div>
+
+<div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+  {% if perms.core.view_customer %}
+    <a href="{% url 'customer_list' %}" class="card bg-base-100 shadow hover:shadow-xl transition">
+      <div class="card-body">
+        <h2 class="card-title">Clientes</h2>
+        <p>Cadastros de clientes sem acesso ao sistema.</p>
+      </div>
+    </a>
+  {% endif %}
+
+  {% if perms.core.view_vehicle %}
+    <a href="{% url 'vehicle_list' %}" class="card bg-base-100 shadow hover:shadow-xl transition">
+      <div class="card-body">
+        <h2 class="card-title">Veículos</h2>
+        <p>Veículos vinculados aos clientes, com dados FIPE.</p>
+      </div>
+    </a>
+  {% endif %}
+
+  {% if perms.core.view_supplier %}
+    <a href="{% url 'supplier_list' %}" class="card bg-base-100 shadow hover:shadow-xl transition">
+      <div class="card-body">
+        <h2 class="card-title">Fornecedores</h2>
+        <p>Cadastros de fornecedores sem usuário de login.</p>
+      </div>
+    </a>
+  {% endif %}
+
+  {% if perms.core.view_category %}
+    <a href="{% url 'category_list' %}" class="card bg-base-100 shadow hover:shadow-xl transition">
+      <div class="card-body">
+        <h2 class="card-title">Categorias</h2>
+        <p>Categorias separadas para clientes ou fornecedores.</p>
+      </div>
+    </a>
+  {% endif %}
+
+  {% if perms.accounts.view_user %}
+    <a href="{% url 'employee_list' %}" class="card bg-base-100 shadow hover:shadow-xl transition">
+      <div class="card-body">
+        <h2 class="card-title">Funcionários</h2>
+        <p>Usuários internos com login por email e permissões por função.</p>
+      </div>
+    </a>
+  {% endif %}
+</div>
+{% endblock %}

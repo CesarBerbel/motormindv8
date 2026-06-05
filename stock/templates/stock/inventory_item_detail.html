@@ -1,0 +1,107 @@
+{% extends 'base.html' %}
+{% load money %}
+
+{% block title %}{{ item.nome }} | MotorMind{% endblock %}
+
+{% block content %}
+<div class="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+  <div>
+    <h1 class="page-title">{{ item.nome }}</h1>
+    <p class="text-base-content/70">{{ item.sku }} · {{ item.get_tipo_display }}</p>
+  </div>
+  <div class="flex flex-wrap gap-2">
+    <a href="{% url 'inventory_item_list' %}" class="btn btn-ghost whitespace-nowrap">Voltar</a>
+    {% if can_add_movement %}
+      <a href="{% url 'stock_movement_create' %}?item={{ item.pk }}" class="btn btn-secondary whitespace-nowrap">Movimentar estoque</a>
+    {% endif %}
+    {% if can_change %}
+      <a href="{% url 'inventory_item_update' item.pk %}" class="btn btn-outline whitespace-nowrap">Editar</a>
+    {% endif %}
+    {% if can_delete %}
+      <a href="{% url 'inventory_item_delete' item.pk %}" class="btn btn-error btn-outline whitespace-nowrap">Excluir</a>
+    {% endif %}
+  </div>
+</div>
+
+<div class="grid gap-6 lg:grid-cols-3">
+  <div class="card bg-base-100 shadow lg:col-span-2">
+    <div class="card-body">
+      <h2 class="card-title">Dados do item</h2>
+      <div class="grid gap-4 md:grid-cols-2">
+        <div><span class="text-sm text-base-content/60">SKU</span><p class="font-medium">{{ item.sku }}</p></div>
+        <div><span class="text-sm text-base-content/60">Tipo</span><p class="font-medium">{{ item.get_tipo_display }}</p></div>
+        <div><span class="text-sm text-base-content/60">Categoria</span><p class="font-medium">{{ item.categoria.nome }}</p></div>
+        <div><span class="text-sm text-base-content/60">Marca</span><p class="font-medium">{{ item.marca.nome|default:'-' }}</p></div>
+        <div><span class="text-sm text-base-content/60">Unidade</span><p class="font-medium">{{ item.unidade }}</p></div>
+        <div><span class="text-sm text-base-content/60">Preço de custo</span><p class="font-medium">{{ item.preco_custo|money_br }}</p></div>
+      </div>
+      <div class="mt-4">
+        <span class="text-sm text-base-content/60">Descrição</span>
+        <p class="mt-1 whitespace-pre-line">{{ item.descricao|default:'-' }}</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="card bg-base-100 shadow">
+    <div class="card-body">
+      <h2 class="card-title">Estoque</h2>
+      <div class="stats stats-vertical shadow-none">
+        <div class="stat px-0">
+          <div class="stat-title">Atual</div>
+          <div class="stat-value text-3xl {% if item.abaixo_estoque_minimo %}text-error{% endif %}">{{ item.estoque_atual }}</div>
+          <div class="stat-desc">{{ item.unidade.sigla }}</div>
+        </div>
+        <div class="stat px-0">
+          <div class="stat-title">Mínimo</div>
+          <div class="stat-value text-3xl">{{ item.estoque_minimo }}</div>
+          <div class="stat-desc">{{ item.unidade.sigla }}</div>
+        </div>
+      </div>
+      {% if item.abaixo_estoque_minimo %}
+        <div class="alert alert-warning mt-4">Estoque abaixo do mínimo.</div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<div class="mt-6 card bg-base-100 shadow">
+  <div class="card-body">
+    <div class="flex items-center justify-between gap-4">
+      <h2 class="card-title">Últimas movimentações</h2>
+      <a href="{% url 'stock_movement_list' %}?item={{ item.pk }}" class="btn btn-sm btn-ghost whitespace-nowrap">Ver histórico</a>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Data</th>
+            <th>Tipo</th>
+            <th>Fornecedor</th>
+            <th>Quantidade</th>
+            <th>Saldo</th>
+            <th>Custo unitário</th>
+            <th>Usuário</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for movement in movements %}
+            <tr>
+              <td class="whitespace-nowrap">{{ movement.criado_em|date:'d/m/Y H:i' }}</td>
+              <td class="whitespace-nowrap">{{ movement.get_tipo_display }}</td>
+              <td class="whitespace-nowrap">{{ movement.fornecedor.nome_razao_social|default:'-' }}</td>
+              <td class="whitespace-nowrap">{{ movement.quantidade_assinada }}</td>
+              <td class="whitespace-nowrap">{{ movement.saldo_apos_movimentacao }}</td>
+              <td class="whitespace-nowrap">{{ movement.custo_unitario|money_br }}</td>
+              <td class="whitespace-nowrap">{{ movement.criado_por.email|default:'-' }}</td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="7" class="text-center">Nenhuma movimentação registrada.</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,96 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ title }} | MotorMind{% endblock %}
+
+{% block content %}
+<div class="mx-auto max-w-4xl">
+  <div class="mb-6">
+    <h1 class="page-title">{{ title }}</h1>
+    <p class="text-base-content/70">Configure o prazo padrão usado para preencher automaticamente a previsão de entrega e a capacidade física da oficina.</p>
+  </div>
+
+  <div class="mb-6 grid gap-4 md:grid-cols-3">
+    <div class="stat rounded-box bg-base-100 shadow">
+      <div class="stat-title">Vagas configuradas</div>
+      <div class="stat-value text-3xl">{{ form.instance.vagas_oficina }}</div>
+      <div class="stat-desc">Capacidade total da oficina</div>
+    </div>
+    <div class="stat rounded-box bg-base-100 shadow">
+      <div class="stat-title">Vagas ocupadas</div>
+      <div class="stat-value text-3xl">{{ vagas_ocupadas }}</div>
+      <div class="stat-desc">OS ainda dentro da oficina</div>
+    </div>
+    <div class="stat rounded-box bg-base-100 shadow">
+      <div class="stat-title">Vagas disponíveis</div>
+      <div class="stat-value text-3xl {% if vagas_disponiveis == 0 %}text-error{% else %}text-success{% endif %}">{{ vagas_disponiveis }}</div>
+      <div class="stat-desc">Livre para novas OS</div>
+    </div>
+  </div>
+
+  <form method="post" class="card-section">
+    {% csrf_token %}
+    <div class="card-body space-y-6">
+      {% if form.non_field_errors %}
+        <div class="alert alert-error">
+          <div>
+            {% for error in form.non_field_errors %}
+              <p>{{ error }}</p>
+            {% endfor %}
+          </div>
+        </div>
+      {% endif %}
+
+      <div class="alert alert-info">
+        <span>O prazo soma dias à data atual e mantém a hora do momento. A capacidade limita a abertura de novas OS quando todas as vagas estiverem ocupadas.</span>
+      </div>
+
+      <div class="grid gap-4 md:grid-cols-2">
+        <div class="form-control">
+          <label class="label" for="{{ form.prazo_estimativa_dias.id_for_label }}">
+            <span class="label-text font-medium">{{ form.prazo_estimativa_dias.label }}</span>
+          </label>
+          {{ form.prazo_estimativa_dias }}
+          {% if form.prazo_estimativa_dias.help_text %}
+            <span class="label-text-alt mt-2 text-base-content/70">{{ form.prazo_estimativa_dias.help_text }}</span>
+          {% endif %}
+          {% for error in form.prazo_estimativa_dias.errors %}
+            <span class="label-text-alt text-error">{{ error }}</span>
+          {% endfor %}
+        </div>
+
+        <div class="form-control">
+          <label class="label" for="{{ form.vagas_oficina.id_for_label }}">
+            <span class="label-text font-medium">{{ form.vagas_oficina.label }}</span>
+          </label>
+          {{ form.vagas_oficina }}
+          {% if form.vagas_oficina.help_text %}
+            <span class="label-text-alt mt-2 text-base-content/70">{{ form.vagas_oficina.help_text }}</span>
+          {% endif %}
+          {% for error in form.vagas_oficina.errors %}
+            <span class="label-text-alt text-error">{{ error }}</span>
+          {% endfor %}
+        </div>
+      </div>
+
+      <div class="rounded-box border border-base-300 bg-base-100 p-4 text-sm text-base-content/70">
+        <p><strong>Estados que ocupam vaga:</strong></p>
+        <div class="mt-2 flex flex-wrap gap-2">
+          {% for status_label in capacity_statuses %}
+            <span class="badge badge-outline whitespace-nowrap">{{ status_label }}</span>
+          {% endfor %}
+        </div>
+        <p class="mt-3"><strong>Não ocupam vaga:</strong> Entregue, Cancelada e Arquivada.</p>
+      </div>
+
+      <div class="rounded-box border border-base-300 bg-base-100 p-4 text-sm text-base-content/70">
+        <p><strong>Comportamento:</strong> o prazo afeta apenas novas OS. A capacidade é validada ao criar uma nova OS; se a oficina estiver cheia, o cadastro é bloqueado até uma OS sair dos estados que ocupam vaga.</p>
+      </div>
+
+      <div class="card-actions justify-end">
+        <a href="{% url 'dashboard' %}" class="btn btn-ghost whitespace-nowrap">Cancelar</a>
+        <button type="submit" class="btn btn-primary whitespace-nowrap">Salvar configurações</button>
+      </div>
+    </div>
+  </form>
+</div>
+{% endblock %}

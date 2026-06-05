@@ -1,0 +1,80 @@
+{% extends 'base.html' %}
+{% load money %}
+
+{% block title %}{{ budget.codigo }} | MotorMind{% endblock %}
+
+{% block content %}
+<div class="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+  <div>
+    <h1 class="page-title">{{ budget.codigo }}</h1>
+    <p class="text-base-content/70">{{ budget.ordem_servico.codigo }} · {{ budget.ordem_servico.cliente.nome_razao_social }} · {{ budget.get_status_display }}</p>
+  </div>
+  <a href="{{ budget.ordem_servico.get_absolute_url }}" class="btn btn-ghost">Voltar para OS</a>
+</div>
+
+<div class="grid gap-6 lg:grid-cols-4">
+  <div class="card bg-base-100 shadow">
+    <div class="card-body"><span class="text-sm text-base-content/60">Subtotal snapshot</span><p class="text-2xl font-semibold">{{ budget.subtotal_snapshot|money_br }}</p></div>
+  </div>
+  <div class="card bg-base-100 shadow">
+    <div class="card-body"><span class="text-sm text-base-content/60">Desconto snapshot</span><p class="text-2xl font-semibold">{{ budget.valor_desconto_snapshot|money_br }}</p></div>
+  </div>
+  <div class="card bg-base-100 shadow">
+    <div class="card-body"><span class="text-sm text-base-content/60">Total snapshot</span><p class="text-2xl font-semibold">{{ budget.valor_total_snapshot|money_br }}</p></div>
+  </div>
+  <div class="card bg-base-100 shadow">
+    <div class="card-body"><span class="text-sm text-base-content/60">Total aprovado</span><p class="text-2xl font-semibold">{{ budget.valor_total_aprovado|money_br }}</p></div>
+  </div>
+</div>
+
+<div class="card bg-base-100 shadow mt-6">
+  <div class="card-body">
+    <h2 class="card-title">Itens do snapshot</h2>
+    <div class="overflow-x-auto">
+      <table class="table">
+        <thead><tr><th>Tipo</th><th>Item</th><th>Qtd</th><th>Valor unit.</th><th>Subtotal</th><th>Resposta</th></tr></thead>
+        <tbody>
+          {% for item in budget.itens.all %}
+            <tr>
+              <td><span class="badge badge-outline">{{ item.get_tipo_display }}</span></td>
+              <td><span class="font-mono text-xs">{{ item.codigo|default:'-' }}</span><br>{{ item.nome }}</td>
+              <td>{{ item.quantidade }}</td>
+              <td>{{ item.valor_unitario|money_br }}</td>
+              <td>{{ item.subtotal|money_br }}</td>
+              <td>{% if item.aprovado is True %}<span class="badge badge-success">Aprovado</span>{% elif item.aprovado is False %}<span class="badge badge-error">Rejeitado</span>{% else %}<span class="badge badge-warning">Pendente</span>{% endif %}</td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="6" class="text-center">Nenhum item.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="card bg-base-100 shadow mt-6">
+  <div class="card-body">
+    <h2 class="card-title">Trilha de auditoria</h2>
+    <div class="space-y-3">
+      {% for audit in budget.auditorias.all %}
+        <div class="rounded-box border border-base-300 p-4 text-sm">
+          <p><strong>{{ audit.get_decisao_display }}</strong> via {{ audit.get_metodo_display }}</p>
+          <p class="text-base-content/70">Responsável: {{ audit.nome_responsavel }} · Documento válido: {% if audit.documento_valido %}sim{% else %}não{% endif %}</p>
+          <p class="text-base-content/70">Quando: {{ audit.criado_em|date:'d/m/Y H:i' }} · Onde: {{ audit.local|default:'-' }} · IP: {{ audit.ip|default:'-' }}</p>
+          <p class="text-base-content/70">User agent: {{ audit.user_agent|default:'-' }}</p>
+          {% if audit.usuario_interno %}<p class="text-base-content/70">Usuário interno: {{ audit.usuario_interno.email }}</p>{% endif %}
+          {% if audit.observacao %}<p class="mt-2 whitespace-pre-line">{{ audit.observacao }}</p>{% endif %}
+          {% if audit.assinatura_base64 %}
+            <div class="mt-3 rounded-box border border-base-300 bg-base-200 p-3">
+              <p class="mb-2 text-xs font-semibold uppercase tracking-wide text-base-content/60">Assinatura digital{% if audit.assinatura_nome %}: {{ audit.assinatura_nome }}{% endif %}</p>
+              <img src="{{ audit.assinatura_base64 }}" alt="Assinatura digital" class="max-h-40 rounded-box bg-white object-contain">
+            </div>
+          {% endif %}
+        </div>
+      {% empty %}
+        <p class="text-sm text-base-content/60">Nenhuma resposta registrada.</p>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endblock %}

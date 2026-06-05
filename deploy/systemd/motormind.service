@@ -1,0 +1,17 @@
+# Copie para /etc/systemd/system/motormind.service
+
+[Unit]
+Description=MotorMind Django Gunicorn
+After=network.target
+
+[Service]
+User=motormind
+Group=www-data
+WorkingDirectory=/var/www/motormind/current
+EnvironmentFile=/var/www/motormind/current/.env
+ExecStart=/var/www/motormind/current/.venv/bin/gunicorn config.wsgi:application --bind 127.0.0.1:8001 --workers 3 --timeout 90 --access-logfile /var/log/motormind/access.log --error-logfile /var/log/motormind/error.log
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

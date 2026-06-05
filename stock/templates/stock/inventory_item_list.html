@@ -1,0 +1,225 @@
+{% extends 'base.html' %}
+{% load static money %}
+
+{% block title %}Peças e insumos | MotorMind{% endblock %}
+
+{% block content %}
+<div class="mb-6 flex items-center justify-between gap-4">
+  <div>
+    <h1 class="page-title">Peças e insumos</h1>
+    <p class="text-base-content/70">Cadastro de itens de estoque com SKU automático.</p>
+  </div>
+  {% if perms.stock.add_inventoryitem %}
+    <a href="{% url 'inventory_item_create' %}" class="btn btn-primary whitespace-nowrap">Novo item</a>
+  {% endif %}
+</div>
+
+<div class="mb-6 rounded-box bg-base-100 p-4 shadow">
+  <form method="get" class="space-y-4" data-advanced-search-form>
+    <div class="grid grid-cols-1 gap-4 xl:grid-cols-6">
+      <div class="xl:col-span-2">
+        <label class="label" for="id_q">
+          <span class="label-text">Busca geral</span>
+        </label>
+        <div class="relative" data-autocomplete-wrapper>
+          <input
+            id="id_q"
+            name="q"
+            type="search"
+            value="{{ filters.q }}"
+            placeholder="SKU, nome, descrição, marca, categoria ou unidade"
+            class="input input-bordered w-full"
+            autocomplete="off"
+            data-autocomplete-url="{% url 'inventory_item_autocomplete' %}"
+            aria-autocomplete="list"
+            aria-expanded="false"
+          >
+          <div
+            class="absolute left-0 right-0 top-full z-40 mt-1 hidden max-h-72 overflow-y-auto rounded-box border border-base-300 bg-base-100 shadow-xl"
+            data-autocomplete-results
+          ></div>
+        </div>
+      </div>
+
+      <div>
+        <label class="label" for="id_tipo_filter">
+          <span class="label-text">Tipo</span>
+        </label>
+        <select id="id_tipo_filter" name="tipo" class="select select-bordered w-full">
+          <option value="">Todos</option>
+          {% for value, label in tipo_choices %}
+            <option value="{{ value }}" {% if filters.tipo == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div>
+        <label class="label" for="id_categoria_filter">
+          <span class="label-text">Categoria</span>
+        </label>
+        <select id="id_categoria_filter" name="categoria" class="select select-bordered w-full">
+          <option value="">Todas</option>
+          {% for category in category_choices %}
+            <option value="{{ category.pk }}" {% if filters.categoria == category.pk|stringformat:'s' %}selected{% endif %}>{{ category.nome }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div>
+        <label class="label" for="id_marca_filter">
+          <span class="label-text">Marca</span>
+        </label>
+        <select id="id_marca_filter" name="marca" class="select select-bordered w-full">
+          <option value="">Todas</option>
+          {% for brand in brand_choices %}
+            <option value="{{ brand.pk }}" {% if filters.marca == brand.pk|stringformat:'s' %}selected{% endif %}>{{ brand.nome }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div>
+        <label class="label" for="id_unidade_filter">
+          <span class="label-text">Unidade</span>
+        </label>
+        <select id="id_unidade_filter" name="unidade" class="select select-bordered w-full">
+          <option value="">Todas</option>
+          {% for unit in unit_choices %}
+            <option value="{{ unit.pk }}" {% if filters.unidade == unit.pk|stringformat:'s' %}selected{% endif %}>{{ unit.nome }} ({{ unit.sigla }})</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="xl:col-span-2">
+        <label class="label" for="id_estoque_filter">
+          <span class="label-text">Situação do estoque</span>
+        </label>
+        <select id="id_estoque_filter" name="estoque" class="select select-bordered w-full">
+          <option value="">Todas</option>
+          {% for value, label in stock_status_choices %}
+            <option value="{{ value }}" {% if filters.estoque == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div>
+        <label class="label" for="id_custo_min_filter">
+          <span class="label-text">Custo mínimo</span>
+        </label>
+        <input
+          id="id_custo_min_filter"
+          name="custo_min"
+          type="text"
+          value="{{ filters.custo_min }}"
+          class="input input-bordered w-full"
+          placeholder="0,00"
+          inputmode="decimal"
+          data-mask="money"
+        >
+      </div>
+
+      <div>
+        <label class="label" for="id_custo_max_filter">
+          <span class="label-text">Custo máximo</span>
+        </label>
+        <input
+          id="id_custo_max_filter"
+          name="custo_max"
+          type="text"
+          value="{{ filters.custo_max }}"
+          class="input input-bordered w-full"
+          placeholder="999,99"
+          inputmode="decimal"
+          data-mask="money"
+        >
+      </div>
+
+      <div class="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:col-span-2 xl:self-end">
+        <button type="submit" class="btn btn-primary w-full whitespace-nowrap">Buscar</button>
+        <a href="{% url 'inventory_item_list' %}" class="btn btn-outline w-full whitespace-nowrap">Limpar</a>
+      </div>
+    </div>
+
+    {% if has_active_filters %}
+      <div class="text-sm text-base-content/70">
+        Filtros ativos. Resultado ordenado por nome em ordem alfabética crescente.
+      </div>
+    {% else %}
+      <div class="text-sm text-base-content/70">
+        Use a busca geral com autocomplete ou combine filtros por tipo, categoria, marca, unidade, situação de estoque e custo.
+      </div>
+    {% endif %}
+  </form>
+</div>
+
+<div class="mb-3 flex flex-col gap-1 text-sm text-base-content/70 md:flex-row md:items-center md:justify-between">
+  <span>{{ page_obj.paginator.count }} item(ns) encontrado(s).</span>
+  <span>Ordenação: A-Z por nome.</span>
+</div>
+
+<div class="overflow-x-auto rounded-box bg-base-100 shadow">
+  <table class="table">
+    <thead>
+      <tr>
+        <th>SKU</th>
+        <th>Nome</th>
+        <th>Tipo</th>
+        <th>Categoria</th>
+        <th>Marca</th>
+        <th>Estoque</th>
+        <th>Mínimo</th>
+        <th>Unidade</th>
+        <th>Preço de custo</th>
+        <th class="text-right whitespace-nowrap">Ações</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in items %}
+        <tr>
+          <td class="font-mono whitespace-nowrap">{{ item.sku }}</td>
+          <td>
+            <a href="{% url 'inventory_item_detail' item.pk %}" class="link link-primary font-medium whitespace-nowrap">
+              {{ item.nome }}
+            </a>
+          </td>
+          <td class="whitespace-nowrap">{{ item.get_tipo_display }}</td>
+          <td class="whitespace-nowrap">{{ item.categoria.nome }}</td>
+          <td class="whitespace-nowrap">{{ item.marca.nome|default:'-' }}</td>
+          <td class="whitespace-nowrap">
+            <span class="{% if item.estoque_abaixo_minimo %}text-error font-semibold{% endif %}">{{ item.saldo_atual }}</span>
+          </td>
+          <td class="whitespace-nowrap">{{ item.estoque_minimo }}</td>
+          <td class="whitespace-nowrap">{{ item.unidade.sigla }}</td>
+          <td class="whitespace-nowrap">{{ item.preco_custo|money_br }}</td>
+          <td class="text-right whitespace-nowrap">
+            <div class="dropdown dropdown-end">
+              <button type="button" tabindex="0" class="btn btn-xs btn-outline whitespace-nowrap">Ações</button>
+              <ul tabindex="0" class="dropdown-content menu z-[60] mt-1 w-48 rounded-box border border-base-300 bg-base-100 p-2 text-left shadow-xl">
+                <li><a href="{% url 'inventory_item_detail' item.pk %}">Ver detalhes</a></li>
+                {% if perms.stock.add_stockmovement %}
+                  <li><a href="{% url 'stock_movement_create' %}?item={{ item.pk }}">Movimentar estoque</a></li>
+                {% endif %}
+                {% if perms.stock.change_inventoryitem %}
+                  <li><a href="{% url 'inventory_item_update' item.pk %}">Editar item</a></li>
+                {% endif %}
+                {% if perms.stock.delete_inventoryitem %}
+                  <li><a class="text-error" href="{% url 'inventory_item_delete' item.pk %}">Excluir item</a></li>
+                {% endif %}
+              </ul>
+            </div>
+          </td>
+        </tr>
+      {% empty %}
+        <tr>
+          <td colspan="10" class="text-center">Nenhuma peça/insumo encontrada.</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% include 'includes/pagination.html' %}
+{% endblock %}
+
+{% block extra_js %}
+  <script src="{% static 'js/advanced-search.js' %}"></script>
+{% endblock %}

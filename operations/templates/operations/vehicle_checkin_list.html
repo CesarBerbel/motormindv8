@@ -1,0 +1,127 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Check-ins | MotorMind{% endblock %}
+
+{% block content %}
+<div class="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+  <div>
+    <h1 class="page-title">Check-ins</h1>
+    <p class="text-base-content/70">Recepção de veículos com fotos, PDF e envio ao cliente.</p>
+  </div>
+  {% if perms.operations.add_vehiclecheckin %}
+    <a href="{% url 'vehicle_checkin_create' %}" class="btn btn-primary whitespace-nowrap">Novo check-in</a>
+  {% endif %}
+</div>
+
+<div class="card mb-6 bg-base-100 shadow">
+  <div class="card-body p-4 sm:p-6">
+    <form method="get" class="space-y-5" data-advanced-search-form>
+      <div class="grid grid-cols-1 gap-4 lg:grid-cols-12">
+        <div class="lg:col-span-5" data-autocomplete-wrapper>
+          <label class="label" for="id_q"><span class="label-text">Busca geral</span></label>
+          <div class="relative">
+            <input
+              id="id_q"
+              name="q"
+              type="search"
+              value="{{ filters.q }}"
+              class="input input-bordered w-full"
+              placeholder="Código, OS, cliente, placa ou veículo"
+              data-autocomplete-url="{% url 'vehicle_checkin_autocomplete' %}"
+              autocomplete="off"
+              aria-autocomplete="list"
+              aria-expanded="false"
+            >
+            <div class="absolute left-0 right-0 top-full z-40 mt-1 hidden max-h-72 overflow-y-auto rounded-box border border-base-300 bg-base-100 shadow-xl" data-autocomplete-results></div>
+          </div>
+        </div>
+
+        <div class="lg:col-span-3">
+          <label class="label" for="id_status_email"><span class="label-text">Status do e-mail</span></label>
+          <select id="id_status_email" name="status_email" class="select select-bordered w-full">
+            <option value="">Todos</option>
+            <option value="enviado" {% if filters.status_email == 'enviado' %}selected{% endif %}>Enviado</option>
+            <option value="pendente" {% if filters.status_email == 'pendente' %}selected{% endif %}>Pendente</option>
+          </select>
+        </div>
+
+        <div class="lg:col-span-2">
+          <label class="label" for="id_data_inicial"><span class="label-text">Data inicial</span></label>
+          <input type="date" id="id_data_inicial" name="data_inicial" value="{{ filters.data_inicial }}" class="input input-bordered w-full">
+        </div>
+
+        <div class="lg:col-span-2">
+          <label class="label" for="id_data_final"><span class="label-text">Data final</span></label>
+          <input type="date" id="id_data_final" name="data_final" value="{{ filters.data_final }}" class="input input-bordered w-full">
+        </div>
+      </div>
+
+      <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        {% if has_active_filters %}
+          <div class="rounded-box bg-base-200/70 px-4 py-3 text-sm text-base-content/70 sm:flex-1">Filtros ativos. Resultado ordenado pelos check-ins mais recentes.</div>
+        {% else %}
+          <div class="rounded-box bg-base-200/70 px-4 py-3 text-sm text-base-content/70 sm:flex-1">Use a busca geral com autocomplete ou filtre por status do e-mail e período.</div>
+        {% endif %}
+        <div class="flex flex-col gap-2 sm:flex-row sm:justify-end">
+          <button type="submit" class="btn btn-primary w-full whitespace-nowrap sm:w-36">Buscar</button>
+          <a href="{% url 'vehicle_checkin_list' %}" class="btn btn-outline w-full whitespace-nowrap sm:w-36">Limpar</a>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="mb-3 flex flex-col gap-1 text-sm text-base-content/70 md:flex-row md:items-center md:justify-between">
+  <span>{{ page_obj.paginator.count }} check-in(s) encontrado(s).</span>
+  <span>Ordenação: mais recentes primeiro.</span>
+</div>
+
+<div class="card bg-base-100 shadow-xl">
+  <div class="card-body p-0">
+    <div class="overflow-x-auto">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Código</th>
+            <th>OS</th>
+            <th>Cliente</th>
+            <th>Veículo</th>
+            <th>KM</th>
+            <th>Email</th>
+            <th>Data</th>
+            <th class="text-right">Ações</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for checkin in checkins %}
+            <tr>
+              <td class="font-mono whitespace-nowrap">{{ checkin.codigo }}</td>
+              <td class="font-mono whitespace-nowrap"><a href="{% url 'work_order_detail' checkin.ordem_servico.pk %}" class="link link-primary">{{ checkin.ordem_servico.codigo }}</a></td>
+              <td>{{ checkin.cliente.nome_razao_social }}</td>
+              <td class="whitespace-nowrap">{{ checkin.veiculo.placa }} - {{ checkin.veiculo.marca }} {{ checkin.veiculo.modelo }}</td>
+              <td>{{ checkin.km|default:'-' }}</td>
+              <td>{% if checkin.email_enviado %}<span class="badge badge-success">Enviado</span>{% else %}<span class="badge badge-warning">Pendente</span>{% endif %}</td>
+              <td class="whitespace-nowrap">{{ checkin.data_checkin|date:'d/m/Y H:i' }}</td>
+              <td>
+                <div class="flex justify-end gap-2 whitespace-nowrap">
+                  <a href="{% url 'vehicle_checkin_detail' checkin.pk %}" class="btn btn-xs btn-outline">Ver</a>
+                  {% if perms.operations.change_vehiclecheckin %}<a href="{% url 'vehicle_checkin_update' checkin.pk %}" class="btn btn-xs btn-outline">Editar</a>{% endif %}
+                  <a href="{% url 'vehicle_checkin_pdf' checkin.pk %}" class="btn btn-xs btn-outline" target="_blank">PDF</a>
+                </div>
+              </td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="8" class="py-8 text-center text-base-content/60">Nenhum check-in encontrado.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% include 'includes/pagination.html' %}
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+  <script src="{% static 'js/advanced-search.js' %}"></script>
+{% endblock %}

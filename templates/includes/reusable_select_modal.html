@@ -1,0 +1,85 @@
+<dialog
+  id="{{ modal_id }}"
+  class="modal"
+  data-reusable-select-modal
+  data-modal-empty-message="{{ empty_message|default:'Nenhum resultado encontrado.' }}"
+  data-picker-require-quantity="{% if hide_quantity %}false{% else %}true{% endif %}"
+>
+  <div class="modal-box max-w-4xl">
+    <form method="dialog">
+      <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2" aria-label="Fechar">✕</button>
+    </form>
+
+    <div class="mb-4">
+      <h3 class="text-lg font-bold">{{ modal_title }}</h3>
+      {% if modal_description %}
+        <p class="mt-1 text-sm text-base-content/70">{{ modal_description }}</p>
+      {% endif %}
+    </div>
+
+    <div class="grid gap-4 lg:grid-cols-3">
+      <div class="lg:col-span-2">
+        <label class="label" for="{{ modal_id }}_search">
+          <span class="label-text">{{ search_label|default:'Buscar' }}</span>
+        </label>
+        <div class="relative">
+          <input
+            id="{{ modal_id }}_search"
+            type="search"
+            class="input input-bordered w-full"
+            placeholder="{{ search_placeholder|default:'Digite para buscar' }}"
+            autocomplete="off"
+            data-picker-search
+            aria-autocomplete="list"
+            aria-expanded="false"
+          >
+          <div
+            class="absolute left-0 right-0 top-full z-50 mt-1 hidden max-h-64 overflow-y-auto rounded-box border border-base-300 bg-base-100 shadow-xl"
+            data-picker-dropdown
+          ></div>
+        </div>
+
+        <div class="mt-4">
+          <div class="mb-2 flex items-center justify-between gap-2">
+            <span class="text-sm font-medium text-base-content/80">Sugestões</span>
+            <span class="text-xs text-base-content/50">Clique em um card para selecionar</span>
+          </div>
+          <div class="grid max-h-80 gap-3 overflow-y-auto pr-1 sm:grid-cols-2" data-picker-cards></div>
+        </div>
+      </div>
+
+      <div class="space-y-4">
+        <div class="rounded-box border border-base-300 bg-base-200 p-4" data-picker-selected-card>
+          <p class="text-sm text-base-content/60">Nenhum item selecionado.</p>
+        </div>
+
+        {% if not hide_quantity %}
+          <div>
+            <label class="label" for="{{ modal_id }}_quantity">
+              <span class="label-text">{{ quantity_label|default:'Quantidade' }}</span>
+            </label>
+            <input
+              id="{{ modal_id }}_quantity"
+              type="text"
+              class="input input-bordered w-full"
+              inputmode="numeric"
+              placeholder="{{ quantity_placeholder|default:'1' }}"
+              data-picker-quantity
+            >
+            <p class="mt-1 text-xs text-base-content/60">Informe apenas números inteiros.</p>
+          </div>
+        {% endif %}
+
+        <div class="alert alert-error hidden text-sm" data-picker-error></div>
+
+        <div class="flex justify-end gap-2 pt-2">
+          <button type="button" class="btn btn-ghost whitespace-nowrap" data-picker-cancel>Cancelar</button>
+          <button type="button" class="btn btn-primary whitespace-nowrap" data-picker-save>Salvar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <form method="dialog" class="modal-backdrop">
+    <button>Fechar</button>
+  </form>
+</dialog>

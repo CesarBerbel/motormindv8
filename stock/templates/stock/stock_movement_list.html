@@ -1,0 +1,228 @@
+{% extends 'base.html' %}
+{% load static money %}
+
+{% block title %}Movimentações de estoque | MotorMind{% endblock %}
+
+{% block content %}
+<div class="mb-6 flex items-center justify-between gap-4">
+  <div>
+    <h1 class="page-title">Movimentações de estoque</h1>
+    <p class="text-base-content/70">Entradas, saídas e ajustes de peças/insumos.</p>
+  </div>
+  {% if perms.stock.add_stockmovement %}
+    <a href="{% url 'stock_movement_create' %}" class="btn btn-primary whitespace-nowrap">Nova movimentação</a>
+  {% endif %}
+</div>
+
+<div class="mb-6 rounded-box bg-base-100 p-4 shadow">
+  <form method="get" class="space-y-4" data-advanced-search-form>
+    <div class="grid grid-cols-1 gap-4 xl:grid-cols-6">
+      <div class="xl:col-span-2">
+        <label class="label" for="id_q">
+          <span class="label-text">Busca geral</span>
+        </label>
+        <div class="relative" data-autocomplete-wrapper>
+          <input
+            id="id_q"
+            name="q"
+            type="search"
+            value="{{ filters.q }}"
+            placeholder="SKU, item, fornecedor, usuário ou observação"
+            class="input input-bordered w-full"
+            autocomplete="off"
+            data-autocomplete-url="{% url 'stock_movement_autocomplete' %}"
+            aria-autocomplete="list"
+            aria-expanded="false"
+          >
+          <div
+            class="absolute left-0 right-0 top-full z-40 mt-1 hidden max-h-72 overflow-y-auto rounded-box border border-base-300 bg-base-100 shadow-xl"
+            data-autocomplete-results
+          ></div>
+        </div>
+      </div>
+
+      <div>
+        <label class="label" for="id_tipo_filter">
+          <span class="label-text">Tipo</span>
+        </label>
+        <select id="id_tipo_filter" name="tipo" class="select select-bordered w-full">
+          <option value="">Todos</option>
+          {% for value, label in movement_type_choices %}
+            <option value="{{ value }}" {% if filters.tipo == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="xl:col-span-2">
+        <label class="label" for="id_item_filter">
+          <span class="label-text">Peça/Insumo</span>
+        </label>
+        <select id="id_item_filter" name="item" class="select select-bordered w-full">
+          <option value="">Todos</option>
+          {% for item in item_choices %}
+            <option value="{{ item.pk }}" {% if filters.item == item.pk|stringformat:'s' %}selected{% endif %}>{{ item.nome }} — {{ item.sku }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div>
+        <label class="label" for="id_fornecedor_filter">
+          <span class="label-text">Fornecedor</span>
+        </label>
+        <select id="id_fornecedor_filter" name="fornecedor" class="select select-bordered w-full">
+          <option value="">Todos</option>
+          {% for supplier in supplier_choices %}
+            <option value="{{ supplier.pk }}" {% if filters.fornecedor == supplier.pk|stringformat:'s' %}selected{% endif %}>{{ supplier.nome_razao_social }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div>
+        <label class="label" for="id_usuario_filter">
+          <span class="label-text">Usuário</span>
+        </label>
+        <select id="id_usuario_filter" name="usuario" class="select select-bordered w-full">
+          <option value="">Todos</option>
+          {% for user in user_choices %}
+            <option value="{{ user.pk }}" {% if filters.usuario == user.pk|stringformat:'s' %}selected{% endif %}>{{ user.email }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div>
+        <label class="label" for="id_data_inicio_filter">
+          <span class="label-text">Data inicial</span>
+        </label>
+        <input id="id_data_inicio_filter" name="data_inicio" type="date" value="{{ filters.data_inicio }}" class="input input-bordered w-full">
+      </div>
+
+      <div>
+        <label class="label" for="id_data_fim_filter">
+          <span class="label-text">Data final</span>
+        </label>
+        <input id="id_data_fim_filter" name="data_fim" type="date" value="{{ filters.data_fim }}" class="input input-bordered w-full">
+      </div>
+
+      <div>
+        <label class="label" for="id_quantidade_min_filter">
+          <span class="label-text">Qtd. mínima</span>
+        </label>
+        <input id="id_quantidade_min_filter" name="quantidade_min" type="text" value="{{ filters.quantidade_min }}" class="input input-bordered w-full" placeholder="1" inputmode="numeric">
+      </div>
+
+      <div>
+        <label class="label" for="id_quantidade_max_filter">
+          <span class="label-text">Qtd. máxima</span>
+        </label>
+        <input id="id_quantidade_max_filter" name="quantidade_max" type="text" value="{{ filters.quantidade_max }}" class="input input-bordered w-full" placeholder="999" inputmode="numeric">
+      </div>
+
+      <div>
+        <label class="label" for="id_custo_min_filter">
+          <span class="label-text">Custo unit. mín.</span>
+        </label>
+        <input id="id_custo_min_filter" name="custo_min" type="text" value="{{ filters.custo_min }}" class="input input-bordered w-full" placeholder="0,00" inputmode="decimal" data-mask="money">
+      </div>
+
+      <div>
+        <label class="label" for="id_custo_max_filter">
+          <span class="label-text">Custo unit. máx.</span>
+        </label>
+        <input id="id_custo_max_filter" name="custo_max" type="text" value="{{ filters.custo_max }}" class="input input-bordered w-full" placeholder="999,99" inputmode="decimal" data-mask="money">
+      </div>
+
+      <div>
+        <label class="label" for="id_total_min_filter">
+          <span class="label-text">Total mínimo</span>
+        </label>
+        <input id="id_total_min_filter" name="total_min" type="text" value="{{ filters.total_min }}" class="input input-bordered w-full" placeholder="0,00" inputmode="decimal" data-mask="money">
+      </div>
+
+      <div>
+        <label class="label" for="id_total_max_filter">
+          <span class="label-text">Total máximo</span>
+        </label>
+        <input id="id_total_max_filter" name="total_max" type="text" value="{{ filters.total_max }}" class="input input-bordered w-full" placeholder="999,99" inputmode="decimal" data-mask="money">
+      </div>
+
+      <div class="flex items-end gap-2 xl:col-span-2">
+        <button type="submit" class="btn btn-primary flex-1 whitespace-nowrap">Buscar</button>
+        <a href="{% url 'stock_movement_list' %}" class="btn btn-outline whitespace-nowrap">Limpar</a>
+      </div>
+    </div>
+
+    {% if has_active_filters %}
+      <div class="text-sm text-base-content/70">
+        Filtros ativos. Resultado ordenado pelas movimentações mais recentes primeiro.
+      </div>
+    {% else %}
+      <div class="text-sm text-base-content/70">
+        Use a busca geral com autocomplete ou combine filtros por tipo, item, fornecedor, usuário, período, quantidade, custo e total.
+      </div>
+    {% endif %}
+  </form>
+</div>
+
+<div class="mb-3 flex flex-col gap-1 text-sm text-base-content/70 md:flex-row md:items-center md:justify-between">
+  <span>{{ page_obj.paginator.count }} movimentação(ões) encontrada(s).</span>
+  <span>Ordenação: mais recentes primeiro.</span>
+</div>
+
+<div class="overflow-x-auto rounded-box bg-base-100 shadow">
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Data</th>
+        <th>Item</th>
+        <th>Fornecedor</th>
+        <th>Tipo</th>
+        <th>Quantidade</th>
+        <th>Saldo após</th>
+        <th>Custo unitário</th>
+        <th>Total</th>
+        <th>Usuário</th>
+        <th class="text-right whitespace-nowrap">Ações</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for movement in movements %}
+        <tr>
+          <td class="whitespace-nowrap">{{ movement.criado_em|date:'d/m/Y H:i' }}</td>
+          <td>
+            <a href="{% url 'inventory_item_detail' movement.item.pk %}" class="link link-primary font-medium whitespace-nowrap">
+              {{ movement.item.nome }}
+            </a>
+            <div class="text-xs text-base-content/60 whitespace-nowrap">{{ movement.item.sku }}</div>
+          </td>
+          <td class="whitespace-nowrap">
+            {% if movement.fornecedor_id %}
+              <a href="{% url 'supplier_detail' movement.fornecedor.pk %}" class="link link-primary">{{ movement.fornecedor.nome_razao_social }}</a>
+            {% else %}
+              -
+            {% endif %}
+          </td>
+          <td class="whitespace-nowrap">{{ movement.get_tipo_display }}</td>
+          <td class="whitespace-nowrap">{{ movement.quantidade_assinada }} {{ movement.item.unidade.sigla }}</td>
+          <td class="whitespace-nowrap">{{ movement.saldo_apos_movimentacao }} {{ movement.item.unidade.sigla }}</td>
+          <td class="whitespace-nowrap">{{ movement.custo_unitario|money_br }}</td>
+          <td class="whitespace-nowrap">{{ movement.valor_total|money_br }}</td>
+          <td class="whitespace-nowrap">{{ movement.criado_por.email|default:'-' }}</td>
+          <td class="text-right whitespace-nowrap">
+            <a href="{% url 'stock_movement_detail' movement.pk %}" class="btn btn-xs btn-ghost whitespace-nowrap">Ver</a>
+          </td>
+        </tr>
+      {% empty %}
+        <tr>
+          <td colspan="10" class="text-center">Nenhuma movimentação encontrada.</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% include 'includes/pagination.html' %}
+{% endblock %}
+
+{% block extra_js %}
+  <script src="{% static 'js/advanced-search.js' %}"></script>
+{% endblock %}

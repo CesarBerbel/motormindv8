@@ -1,0 +1,57 @@
+{% extends 'base.html' %}
+{% load money %}
+
+{% block title %}Fila da mecânica | MotorMind{% endblock %}
+
+{% block content %}
+<div class="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+  <div>
+    <h1 class="page-title">Fila da mecânica</h1>
+    <p class="text-base-content/70">OS abertas, em diagnóstico, aprovadas, em execução, em teste ou aguardando peça.</p>
+  </div>
+</div>
+
+<div class="card bg-base-100 shadow">
+  <div class="card-body">
+    <div class="overflow-x-auto">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>OS</th>
+            <th>Cliente</th>
+            <th>Veículo</th>
+            <th>Status</th>
+            <th>Previsão</th>
+            <th>Estoque</th>
+            <th class="text-right">Ações</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for order in orders %}
+            <tr>
+              <td class="font-mono whitespace-nowrap">{{ order.codigo }}</td>
+              <td>{{ order.cliente.nome_razao_social }}</td>
+              <td>{% if order.veiculo %}{{ order.veiculo.placa }} - {{ order.veiculo.marca }} {{ order.veiculo.modelo }}{% else %}-{% endif %}</td>
+              <td><span class="badge {{ order.status_badge_class }} whitespace-nowrap">{{ order.get_status_display }}</span></td>
+              <td class="whitespace-nowrap">{{ order.previsao_entrega|date:'d/m/Y H:i'|default:'-' }}</td>
+              <td>
+                {% if order.stock_shortages_cached %}
+                  <span class="badge badge-warning whitespace-nowrap">Aguardando peça</span>
+                {% else %}
+                  <span class="badge badge-success whitespace-nowrap">Disponível</span>
+                {% endif %}
+              </td>
+              <td class="text-right">
+                <a href="{% url 'mechanic_work_order_detail' order.pk %}" class="btn btn-sm btn-outline whitespace-nowrap">Abrir</a>
+              </td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="7" class="text-center">Nenhuma OS na fila da mecânica.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% include 'includes/pagination.html' %}
+  </div>
+</div>
+{% endblock %}

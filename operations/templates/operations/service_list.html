@@ -1,0 +1,178 @@
+{% extends 'base.html' %}
+{% load static money %}
+
+{% block title %}Serviços | MotorMind{% endblock %}
+
+{% block content %}
+<div class="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+  <div>
+    <h1 class="page-title">Serviços</h1>
+    <p class="text-base-content/70">Cadastro operacional de serviços com código automático, duração, valor e peças padrão.</p>
+  </div>
+  <div class="flex flex-wrap gap-2 lg:justify-end">
+    {% if perms.operations.view_servicecategory %}
+      <a href="{% url 'service_category_list' %}" class="btn btn-outline whitespace-nowrap">Categorias</a>
+    {% endif %}
+    {% if perms.operations.add_service %}
+      <a href="{% url 'service_create' %}" class="btn btn-primary whitespace-nowrap">Novo serviço</a>
+    {% endif %}
+  </div>
+</div>
+
+<div class="card mb-6 bg-base-100 shadow">
+  <div class="card-body p-4 sm:p-6">
+    <form method="get" class="space-y-5" data-advanced-search-form>
+      <div class="grid grid-cols-1 gap-4 lg:grid-cols-12">
+        <div class="lg:col-span-4" data-autocomplete-wrapper>
+          <label class="label" for="id_q">
+            <span class="label-text">Busca geral</span>
+          </label>
+          <div class="relative">
+            <input
+              id="id_q"
+              name="q"
+              type="search"
+              value="{{ filters.q }}"
+              placeholder="Código, nome ou descrição"
+              class="input input-bordered w-full"
+              autocomplete="off"
+              data-autocomplete-url="{% url 'service_autocomplete' %}"
+              aria-autocomplete="list"
+              aria-expanded="false"
+            >
+            <div
+              class="absolute left-0 right-0 top-full z-40 mt-1 hidden max-h-72 overflow-y-auto rounded-box border border-base-300 bg-base-100 shadow-xl"
+              data-autocomplete-results
+            ></div>
+          </div>
+        </div>
+
+        <div class="lg:col-span-3">
+          <label class="label" for="id_categoria_filter">
+            <span class="label-text">Categoria</span>
+          </label>
+          <select id="id_categoria_filter" name="categoria" class="select select-bordered w-full">
+            <option value="">Todas</option>
+            {% for category in category_choices %}
+              <option value="{{ category.pk }}" {% if filters.categoria == category.pk|stringformat:'s' %}selected{% endif %}>{{ category.nome }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="lg:col-span-5">
+          <label class="label" for="id_peca_filter">
+            <span class="label-text">Peça padrão</span>
+          </label>
+          <select id="id_peca_filter" name="peca" class="select select-bordered w-full">
+            <option value="">Todas</option>
+            {% for item in item_choices %}
+              <option value="{{ item.pk }}" {% if filters.peca == item.pk|stringformat:'s' %}selected{% endif %}>{{ item.sku }} - {{ item.nome }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-12 lg:items-end">
+        <div class="lg:col-span-2">
+          <label class="label" for="id_duracao_min_filter">
+            <span class="label-text">Duração mínima</span>
+          </label>
+          <input id="id_duracao_min_filter" name="duracao_min" type="number" min="1" step="1" value="{{ filters.duracao_min }}" class="input input-bordered w-full" placeholder="Minutos">
+        </div>
+
+        <div class="lg:col-span-2">
+          <label class="label" for="id_duracao_max_filter">
+            <span class="label-text">Duração máxima</span>
+          </label>
+          <input id="id_duracao_max_filter" name="duracao_max" type="number" min="1" step="1" value="{{ filters.duracao_max }}" class="input input-bordered w-full" placeholder="Minutos">
+        </div>
+
+        <div class="lg:col-span-2">
+          <label class="label" for="id_valor_min_filter">
+            <span class="label-text">Valor mínimo</span>
+          </label>
+          <input id="id_valor_min_filter" name="valor_min" type="text" value="{{ filters.valor_min }}" class="input input-bordered w-full" placeholder="0,00" inputmode="decimal" data-mask="money">
+        </div>
+
+        <div class="lg:col-span-2">
+          <label class="label" for="id_valor_max_filter">
+            <span class="label-text">Valor máximo</span>
+          </label>
+          <input id="id_valor_max_filter" name="valor_max" type="text" value="{{ filters.valor_max }}" class="input input-bordered w-full" placeholder="999,99" inputmode="decimal" data-mask="money">
+        </div>
+
+        <div class="flex flex-col gap-2 sm:col-span-2 sm:flex-row sm:justify-end lg:col-span-4">
+          <button type="submit" class="btn btn-primary w-full whitespace-nowrap sm:w-36">Buscar</button>
+          <a href="{% url 'service_list' %}" class="btn btn-outline w-full whitespace-nowrap sm:w-36">Limpar</a>
+        </div>
+      </div>
+
+      {% if has_active_filters %}
+        <div class="rounded-box bg-base-200/70 px-4 py-3 text-sm text-base-content/70">Filtros ativos. Resultado ordenado por nome em ordem alfabética crescente.</div>
+      {% else %}
+        <div class="rounded-box bg-base-200/70 px-4 py-3 text-sm text-base-content/70">Use a busca geral com autocomplete ou combine filtros por categoria, duração, valor e peça padrão.</div>
+      {% endif %}
+    </form>
+  </div>
+</div>
+
+<div class="mb-3 flex flex-col gap-1 text-sm text-base-content/70 md:flex-row md:items-center md:justify-between">
+  <span>{{ page_obj.paginator.count }} serviço(s) encontrado(s).</span>
+  <span>Ordenação: A-Z por nome.</span>
+</div>
+
+<div class="overflow-x-auto rounded-box bg-base-100 shadow">
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Código</th>
+        <th>Nome</th>
+        <th>Categoria</th>
+        <th>Duração</th>
+        <th>Valor</th>
+        <th class="text-right whitespace-nowrap">Ações</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for service in services %}
+        <tr>
+          <td class="font-mono whitespace-nowrap">{{ service.codigo }}</td>
+          <td>
+            <a href="{% url 'service_detail' service.pk %}" class="link link-primary font-medium whitespace-nowrap">{{ service.nome }}</a>
+          </td>
+          <td class="whitespace-nowrap">
+            {% if service.categoria %}
+              <span class="badge badge-outline">{{ service.categoria.nome }}</span>
+            {% else %}
+              <span class="text-base-content/60">-</span>
+            {% endif %}
+          </td>
+          <td class="whitespace-nowrap">{{ service.duracao_formatada }}</td>
+          <td class="whitespace-nowrap">{{ service.valor|money_br }}</td>
+          <td class="text-right whitespace-nowrap">
+            <div class="inline-flex flex-nowrap items-center justify-end gap-1 whitespace-nowrap">
+              <a href="{% url 'service_detail' service.pk %}" class="btn btn-xs btn-ghost whitespace-nowrap">Ver</a>
+              {% if perms.operations.change_service %}
+                <a href="{% url 'service_update' service.pk %}" class="btn btn-xs btn-outline whitespace-nowrap">Editar</a>
+              {% endif %}
+              {% if perms.operations.delete_service %}
+                <a href="{% url 'service_delete' service.pk %}" class="btn btn-xs btn-error btn-outline whitespace-nowrap">Excluir</a>
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+      {% empty %}
+        <tr>
+          <td colspan="6" class="text-center">Nenhum serviço cadastrado.</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% include 'includes/pagination.html' %}
+{% endblock %}
+
+{% block extra_js %}
+  <script src="{% static 'js/advanced-search.js' %}"></script>
+{% endblock %}

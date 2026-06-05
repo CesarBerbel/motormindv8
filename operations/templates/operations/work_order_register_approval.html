@@ -1,0 +1,359 @@
+{% extends 'base.html' %}
+{% load money %}
+
+{% block title %}Registrar aprovação | MotorMind{% endblock %}
+
+{% block content %}
+<div class="mb-6 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+  <div>
+    <div class="breadcrumbs text-sm text-base-content/60">
+      <ul>
+        <li><a href="{{ order.get_absolute_url }}">{{ order.codigo }}</a></li>
+        <li>{{ budget.codigo }}</li>
+        <li>Registro de aprovação</li>
+      </ul>
+    </div>
+    <h1 class="page-title">Registrar aprovação do orçamento</h1>
+    <p class="max-w-3xl text-base-content/70">Use esta tela quando a resposta for registrada pela equipe da oficina ou quando o cliente estiver presencialmente no balcão/tablet. A auditoria grava usuário interno, IP, navegador, documento, local, observação e assinatura quando presencial.</p>
+  </div>
+  <div class="flex flex-wrap gap-2">
+    <a href="{% url 'work_order_approval_detail' budget.pk %}" class="btn btn-outline">Ver auditoria</a>
+    <a href="{{ order.get_absolute_url }}" class="btn btn-ghost">Voltar para OS</a>
+  </div>
+</div>
+
+<div class="grid gap-4 lg:grid-cols-4 mb-6">
+  <div class="card bg-base-100 shadow-sm border border-base-300">
+    <div class="card-body p-5">
+      <span class="text-xs uppercase tracking-wide text-base-content/50">Cliente</span>
+      <p class="font-semibold leading-tight">{{ order.cliente.nome_razao_social }}</p>
+      <p class="text-sm text-base-content/60">{{ order.cliente.email|default:'Sem email informado' }}</p>
+    </div>
+  </div>
+  <div class="card bg-base-100 shadow-sm border border-base-300">
+    <div class="card-body p-5">
+      <span class="text-xs uppercase tracking-wide text-base-content/50">Veículo</span>
+      <p class="font-semibold leading-tight">{% if order.veiculo %}{{ order.veiculo.placa }}{% else %}-{% endif %}</p>
+      <p class="text-sm text-base-content/60">{% if order.veiculo %}{{ order.veiculo.marca }} {{ order.veiculo.modelo }}{% else %}Sem veículo{% endif %}</p>
+    </div>
+  </div>
+  <div class="card bg-base-100 shadow-sm border border-base-300">
+    <div class="card-body p-5">
+      <span class="text-xs uppercase tracking-wide text-base-content/50">Orçamento</span>
+      <p class="font-semibold">{{ budget.codigo }}</p>
+      <p class="text-sm text-base-content/60">{{ budget.get_status_display }}</p>
+    </div>
+  </div>
+  <div class="card bg-primary text-primary-content shadow-sm">
+    <div class="card-body p-5">
+      <span class="text-xs uppercase tracking-wide opacity-80">Total congelado</span>
+      <p class="break-words text-2xl font-bold">{{ budget.valor_total_snapshot|money_br }}</p>
+      <p class="text-sm opacity-80">Subtotal {{ budget.subtotal_snapshot|money_br }}</p>
+    </div>
+  </div>
+</div>
+
+<form method="post" class="grid gap-6 xl:grid-cols-[minmax(0,1fr)_420px]" data-approval-form>
+  {% csrf_token %}
+  {{ form.assinatura_base64 }}
+  <div class="space-y-6 min-w-0">
+    {% if form.non_field_errors %}
+      <div class="alert alert-error"><div>{% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}</div></div>
+    {% endif %}
+
+    <section class="card bg-base-100 shadow-sm border border-base-300">
+      <div class="card-body">
+        <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h2 class="card-title">1. Escolha o tipo de registro</h2>
+            <p class="text-sm text-base-content/60">Aprovação presencial exige assinatura digital do cliente. Aprovação pela oficina registra o usuário logado como responsável interno.</p>
+          </div>
+        </div>
+        <div class="grid gap-3 md:grid-cols-2 mt-2">
+          <label class="approval-method-card cursor-pointer rounded-box border border-base-300 bg-base-100 p-4 transition hover:border-primary" data-method-card="shop">
+            <div class="flex items-start gap-3">
+              <input type="radio" name="metodo" value="shop" class="radio radio-primary mt-1" {% if form.metodo.value == 'shop' or not form.metodo.value %}checked{% endif %}>
+              <div>
+                <p class="font-semibold">Aprovação registrada pela oficina</p>
+                <p class="text-sm text-base-content/60">Para autorizações recebidas por telefone, mensagem externa ou decisão operacional interna. Não exige assinatura.</p>
+              </div>
+            </div>
+          </label>
+          <label class="approval-method-card cursor-pointer rounded-box border border-base-300 bg-base-100 p-4 transition hover:border-primary" data-method-card="presential">
+            <div class="flex items-start gap-3">
+              <input type="radio" name="metodo" value="presential" class="radio radio-primary mt-1" {% if form.metodo.value == 'presential' %}checked{% endif %}>
+              <div>
+                <p class="font-semibold">Cliente presencialmente</p>
+                <p class="text-sm text-base-content/60">Para o cliente assinar diretamente no tablet no balcão da oficina.</p>
+              </div>
+            </div>
+          </label>
+        </div>
+        {% for error in form.metodo.errors %}<p class="text-sm text-error">{{ error }}</p>{% endfor %}
+      </div>
+    </section>
+
+    <section class="card bg-base-100 shadow-sm border border-base-300">
+      <div class="card-body">
+        <h2 class="card-title">2. Decisão sobre o orçamento</h2>
+        <div class="grid gap-3 md:grid-cols-3">
+          <label class="decision-card cursor-pointer rounded-box border border-base-300 p-4 transition hover:border-success" data-decision-card="approve_all">
+            <input type="radio" name="decisao" value="approve_all" class="radio radio-success mb-3" {% if form.decisao.value == 'approve_all' or not form.decisao.value %}checked{% endif %}>
+            <p class="font-semibold">Aprovar tudo</p>
+            <p class="text-sm text-base-content/60">Todos os itens do snapshot entram na OS aprovada.</p>
+          </label>
+          <label class="decision-card cursor-pointer rounded-box border border-base-300 p-4 transition hover:border-warning" data-decision-card="approve_partial">
+            <input type="radio" name="decisao" value="approve_partial" class="radio radio-warning mb-3" {% if form.decisao.value == 'approve_partial' %}checked{% endif %}>
+            <p class="font-semibold">Aprovar parcialmente</p>
+            <p class="text-sm text-base-content/60">Marque abaixo somente os itens liberados pelo cliente.</p>
+          </label>
+          <label class="decision-card cursor-pointer rounded-box border border-base-300 p-4 transition hover:border-error" data-decision-card="reject_all">
+            <input type="radio" name="decisao" value="reject_all" class="radio radio-error mb-3" {% if form.decisao.value == 'reject_all' %}checked{% endif %}>
+            <p class="font-semibold">Recusar tudo</p>
+            <p class="text-sm text-base-content/60">A OS poderá gerar novo orçamento ou seguir para teste/entrega.</p>
+          </label>
+        </div>
+        {% for error in form.decisao.errors %}<p class="text-sm text-error">{{ error }}</p>{% endfor %}
+      </div>
+    </section>
+
+    <section class="card bg-base-100 shadow-sm border border-base-300">
+      <div class="card-body">
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 class="card-title">3. Itens do orçamento</h2>
+            <p class="text-sm text-base-content/60">Na aprovação parcial, selecione os itens aprovados diretamente nesta lista. Em aprovação total ou recusa total, os checkboxes ficam desativados.</p>
+          </div>
+          <div class="partial-actions hidden gap-2" data-partial-actions>
+            <button type="button" class="btn btn-sm btn-outline" data-select-all>Todos</button>
+            <button type="button" class="btn btn-sm btn-ghost" data-clear-all>Limpar</button>
+          </div>
+        </div>
+        <div class="mt-4 overflow-x-auto rounded-box border border-base-300 hidden md:block">
+          <table class="table">
+            <thead>
+              <tr><th class="w-12">Aprovar</th><th>Tipo</th><th>Item</th><th class="text-right">Qtd</th><th class="text-right">Valor unit.</th><th class="text-right">Subtotal</th></tr>
+            </thead>
+            <tbody>
+              {% for item in budget.itens.all %}
+                <tr>
+                  <td><input type="checkbox" name="itens_aprovados" value="{{ item.pk }}" class="checkbox checkbox-primary approval-item-checkbox" {% if item in form.itens_aprovados.value %}checked{% endif %}></td>
+                  <td><span class="badge badge-outline">{{ item.get_tipo_display }}</span></td>
+                  <td><span class="font-mono text-xs text-base-content/50">{{ item.codigo|default:'-' }}</span><br><span class="font-medium">{{ item.nome }}</span>{% if item.origem_observacao %}<p class="text-xs text-base-content/50">{{ item.origem_observacao }}</p>{% endif %}</td>
+                  <td class="text-right">{{ item.quantidade }}</td>
+                  <td class="text-right">{{ item.valor_unitario|money_br }}</td>
+                  <td class="text-right font-semibold">{{ item.subtotal|money_br }}</td>
+                </tr>
+              {% empty %}
+                <tr><td colspan="6" class="text-center">Nenhum item no orçamento.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        <div class="mt-4 grid gap-3 md:hidden">
+          {% for item in budget.itens.all %}
+            <label class="rounded-box border border-base-300 p-4 bg-base-100 flex gap-3">
+              <input type="checkbox" name="itens_aprovados" value="{{ item.pk }}" class="checkbox checkbox-primary approval-item-checkbox mt-1">
+              <div class="min-w-0 flex-1">
+                <div class="flex items-start justify-between gap-3">
+                  <div><span class="badge badge-outline">{{ item.get_tipo_display }}</span><p class="font-semibold mt-1">{{ item.nome }}</p></div>
+                  <p class="font-bold whitespace-nowrap">{{ item.subtotal|money_br }}</p>
+                </div>
+                <p class="text-sm text-base-content/60">Qtd {{ item.quantidade }} · Unit. {{ item.valor_unitario|money_br }}</p>
+                {% if item.codigo %}<p class="font-mono text-xs text-base-content/50">{{ item.codigo }}</p>{% endif %}
+              </div>
+            </label>
+          {% endfor %}
+        </div>
+        {% for error in form.itens_aprovados.errors %}<p class="text-sm text-error mt-2">{{ error }}</p>{% endfor %}
+      </div>
+    </section>
+  </div>
+
+  <aside class="space-y-6 min-w-0 xl:sticky xl:top-4 xl:self-start">
+    <section class="card bg-base-100 shadow-sm border border-base-300">
+      <div class="card-body">
+        <h2 class="card-title">4. Responsável e auditoria</h2>
+        <div class="grid gap-4">
+          <div class="form-control">
+            <label class="label" for="{{ form.nome_responsavel.id_for_label }}"><span class="label-text">{{ form.nome_responsavel.label }}</span></label>
+            {{ form.nome_responsavel }}
+            {% for error in form.nome_responsavel.errors %}<span class="label-text-alt text-error">{{ error }}</span>{% endfor %}
+          </div>
+          <div class="form-control">
+            <label class="label" for="{{ form.documento.id_for_label }}"><span class="label-text">{{ form.documento.label }}</span></label>
+            {{ form.documento }}
+            {% for error in form.documento.errors %}<span class="label-text-alt text-error">{{ error }}</span>{% endfor %}
+          </div>
+          <div class="form-control">
+            <label class="label" for="{{ form.local.id_for_label }}"><span class="label-text">{{ form.local.label }}</span></label>
+            {{ form.local }}
+            <span class="label-text-alt text-base-content/60">Ex.: balcão da oficina, telefone, WhatsApp externo.</span>
+            {% for error in form.local.errors %}<span class="label-text-alt text-error">{{ error }}</span>{% endfor %}
+          </div>
+          <div class="form-control">
+            <label class="label" for="{{ form.observacao.id_for_label }}"><span class="label-text">{{ form.observacao.label }}</span></label>
+            {{ form.observacao }}
+            {% for error in form.observacao.errors %}<span class="label-text-alt text-error">{{ error }}</span>{% endfor %}
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card bg-base-100 shadow-sm border border-base-300 hidden" data-signature-section>
+      <div class="card-body">
+        <div class="flex items-start justify-between gap-3">
+          <div>
+            <h2 class="card-title">Assinatura do cliente</h2>
+            <p class="text-sm text-base-content/60">Peça para o cliente assinar no tablet. A assinatura será salva na auditoria.</p>
+          </div>
+          <span class="badge badge-primary">Presencial</span>
+        </div>
+        <div class="rounded-box border border-base-300 bg-base-200 p-2 touch-none">
+          <canvas id="signature-pad" class="h-48 w-full rounded-box bg-base-100" aria-label="Campo de assinatura"></canvas>
+        </div>
+        <div class="flex gap-2">
+          <button type="button" class="btn btn-sm btn-outline" data-clear-signature>Limpar assinatura</button>
+        </div>
+        {% for error in form.assinatura_base64.errors %}<p class="text-sm text-error">{{ error }}</p>{% endfor %}
+      </div>
+    </section>
+
+    <section class="card bg-base-100 shadow-sm border border-base-300">
+      <div class="card-body">
+        <h2 class="card-title">Confirmar registro</h2>
+        <div class="alert alert-info text-sm">
+          <span>Após confirmar, o orçamento será respondido e a OS passará a considerar somente os itens aprovados.</span>
+        </div>
+        <button type="submit" class="btn btn-success w-full">Registrar aprovação</button>
+      </div>
+    </section>
+  </aside>
+</form>
+
+<script>
+(function () {
+  const form = document.querySelector('[data-approval-form]');
+  if (!form) return;
+  const decisionInputs = Array.from(form.querySelectorAll('input[name="decisao"]'));
+  const methodInputs = Array.from(form.querySelectorAll('input[name="metodo"]'));
+  const itemChecks = Array.from(form.querySelectorAll('.approval-item-checkbox'));
+  const partialActions = form.querySelector('[data-partial-actions]');
+  const signatureSection = form.querySelector('[data-signature-section]');
+  const signatureInput = form.querySelector('#id_assinatura_base64');
+  const canvas = form.querySelector('#signature-pad');
+  const ctx = canvas ? canvas.getContext('2d') : null;
+  let drawing = false;
+  let hasSignature = Boolean(signatureInput && signatureInput.value);
+
+  function selectedDecision() {
+    return (decisionInputs.find((input) => input.checked) || {}).value || 'approve_all';
+  }
+  function selectedMethod() {
+    return (methodInputs.find((input) => input.checked) || {}).value || 'shop';
+  }
+  function syncPartialState() {
+    const partial = selectedDecision() === 'approve_partial';
+    itemChecks.forEach((input) => {
+      input.disabled = !partial;
+      if (!partial) input.checked = false;
+    });
+    if (partialActions) partialActions.classList.toggle('hidden', !partial);
+  }
+  function syncSignatureState() {
+    const presential = selectedMethod() === 'presential';
+    if (signatureSection) signatureSection.classList.toggle('hidden', !presential);
+    if (presential) resizeCanvas();
+  }
+  function resizeCanvas() {
+    if (!canvas || !ctx) return;
+    const ratio = Math.max(window.devicePixelRatio || 1, 1);
+    const rect = canvas.getBoundingClientRect();
+    const previous = signatureInput ? signatureInput.value : '';
+    canvas.width = Math.max(rect.width * ratio, 1);
+    canvas.height = Math.max(rect.height * ratio, 1);
+    ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+    ctx.lineWidth = 2.4;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.strokeStyle = '#111827';
+    if (previous) {
+      const image = new Image();
+      image.onload = function () { ctx.drawImage(image, 0, 0, rect.width, rect.height); };
+      image.src = previous;
+    }
+  }
+  function point(event) {
+    const rect = canvas.getBoundingClientRect();
+    const source = event.touches ? event.touches[0] : event;
+    return { x: source.clientX - rect.left, y: source.clientY - rect.top };
+  }
+  function start(event) {
+    if (!canvas || !ctx) return;
+    event.preventDefault();
+    drawing = true;
+    const p = point(event);
+    ctx.beginPath();
+    ctx.moveTo(p.x, p.y);
+  }
+  function move(event) {
+    if (!drawing || !canvas || !ctx) return;
+    event.preventDefault();
+    const p = point(event);
+    ctx.lineTo(p.x, p.y);
+    ctx.stroke();
+    hasSignature = true;
+    if (signatureInput) signatureInput.value = canvas.toDataURL('image/png');
+  }
+  function end(event) {
+    if (!drawing) return;
+    event.preventDefault();
+    drawing = false;
+    if (canvas && signatureInput && hasSignature) signatureInput.value = canvas.toDataURL('image/png');
+  }
+
+  decisionInputs.forEach((input) => input.addEventListener('change', syncPartialState));
+  methodInputs.forEach((input) => input.addEventListener('change', syncSignatureState));
+  const selectAll = form.querySelector('[data-select-all]');
+  const clearAll = form.querySelector('[data-clear-all]');
+  if (selectAll) selectAll.addEventListener('click', () => itemChecks.forEach((input) => { if (!input.disabled) input.checked = true; }));
+  if (clearAll) clearAll.addEventListener('click', () => itemChecks.forEach((input) => { if (!input.disabled) input.checked = false; }));
+  const clearSignature = form.querySelector('[data-clear-signature]');
+  if (clearSignature) clearSignature.addEventListener('click', () => {
+    if (!canvas || !ctx) return;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    hasSignature = false;
+    if (signatureInput) signatureInput.value = '';
+  });
+  if (canvas) {
+    canvas.addEventListener('mousedown', start);
+    canvas.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', end);
+    canvas.addEventListener('touchstart', start, { passive: false });
+    canvas.addEventListener('touchmove', move, { passive: false });
+    canvas.addEventListener('touchend', end, { passive: false });
+    window.addEventListener('resize', resizeCanvas);
+  }
+  form.addEventListener('submit', function (event) {
+    if (selectedDecision() === 'approve_partial') {
+      const total = itemChecks.filter((input) => input.checked && !input.disabled).length;
+      if (!total) {
+        event.preventDefault();
+        alert('Selecione ao menos um item aprovado para registrar aprovação parcial.');
+        return;
+      }
+      if (!window.confirm('Você escolheu aprovação parcial. Somente os itens marcados serão considerados na OS. Deseja confirmar?')) {
+        event.preventDefault();
+        return;
+      }
+    }
+    if (selectedMethod() === 'presential' && (!signatureInput || !signatureInput.value)) {
+      event.preventDefault();
+      alert('Colete a assinatura do cliente para registrar aprovação presencial.');
+    }
+  });
+  syncPartialState();
+  syncSignatureState();
+})();
+</script>
+{% endblock %}

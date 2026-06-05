@@ -1,0 +1,110 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Funcionários | MotorMind{% endblock %}
+
+{% block content %}
+<div class="mb-6 flex items-center justify-between gap-4">
+  <div>
+    <h1 class="page-title">Funcionários</h1>
+    <p class="text-base-content/70">Usuários internos acessam o sistema com email e senha.</p>
+  </div>
+  {% if perms.accounts.add_user %}
+    <a href="{% url 'employee_create' %}" class="btn btn-primary whitespace-nowrap">Novo funcionário</a>
+  {% endif %}
+</div>
+
+<div class="mb-6 rounded-box bg-base-100 p-4 shadow">
+  <form method="get" class="space-y-4" data-advanced-search-form>
+    <div class="grid grid-cols-1 gap-4 lg:grid-cols-4">
+      <div class="lg:col-span-3">
+        <label class="label" for="id_q">
+          <span class="label-text">Busca</span>
+        </label>
+        <div class="relative" data-autocomplete-wrapper>
+          <input
+            id="id_q"
+            name="q"
+            type="search"
+            value="{{ filters.q }}"
+            placeholder="Nome, email, função, telefone, cidade ou UF"
+            class="input input-bordered w-full"
+            autocomplete="off"
+            data-autocomplete-url="{% url 'employee_autocomplete' %}"
+            aria-autocomplete="list"
+            aria-expanded="false"
+          >
+          <div
+            class="absolute left-0 right-0 top-full z-40 mt-1 hidden max-h-72 overflow-y-auto rounded-box border border-base-300 bg-base-100 shadow-xl"
+            data-autocomplete-results
+          ></div>
+        </div>
+      </div>
+
+      <div class="flex items-end gap-2">
+        <button type="submit" class="btn btn-primary flex-1 whitespace-nowrap">Buscar</button>
+        <a href="{% url 'employee_list' %}" class="btn btn-outline whitespace-nowrap">Limpar</a>
+      </div>
+    </div>
+
+    {% if has_active_filters %}
+      <div class="text-sm text-base-content/70">
+        Filtro ativo. Resultado ordenado por nome em ordem alfabética crescente.
+      </div>
+    {% else %}
+      <div class="text-sm text-base-content/70">
+        Use a busca com autocomplete para localizar funcionários por nome, email, função, telefone, cidade ou UF.
+      </div>
+    {% endif %}
+  </form>
+</div>
+
+<div class="mb-3 flex flex-col gap-1 text-sm text-base-content/70 md:flex-row md:items-center md:justify-between">
+  <span>{{ page_obj.paginator.count }} funcionário(s) encontrado(s).</span>
+  <span>Ordenação: A-Z por nome.</span>
+</div>
+
+<div class="overflow-x-auto rounded-box bg-base-100 shadow">
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Nome / Razão social</th>
+        <th>Email</th>
+        <th>Função</th>
+        <th>Cidade/UF</th>
+        <th class="text-right whitespace-nowrap">Ações</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for employee in employees %}
+        <tr>
+          <td class="whitespace-nowrap">{{ employee.nome_razao_social }}</td>
+          <td class="whitespace-nowrap">{{ employee.email }}</td>
+          <td class="whitespace-nowrap">{{ employee.get_role_display }}</td>
+          <td class="whitespace-nowrap">{{ employee.cidade|default:'-' }}{% if employee.uf %}/{{ employee.uf }}{% endif %}</td>
+          <td class="text-right whitespace-nowrap">
+            <div class="inline-flex flex-nowrap items-center justify-end gap-1 whitespace-nowrap">
+              {% if perms.accounts.change_user %}
+                <a href="{% url 'employee_update' employee.pk %}" class="btn btn-xs btn-outline whitespace-nowrap">Editar</a>
+              {% endif %}
+              {% if perms.accounts.delete_user %}
+                <a href="{% url 'employee_delete' employee.pk %}" class="btn btn-xs btn-error btn-outline whitespace-nowrap">Excluir</a>
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+      {% empty %}
+        <tr>
+          <td colspan="5" class="text-center">Nenhum funcionário cadastrado.</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% include 'includes/pagination.html' %}
+{% endblock %}
+
+{% block extra_js %}
+  <script src="{% static 'js/advanced-search.js' %}"></script>
+{% endblock %}

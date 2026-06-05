@@ -1,0 +1,162 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Veículos | MotorMind{% endblock %}
+
+{% block content %}
+<div class="mb-6 flex items-center justify-between gap-4">
+  <div>
+    <h1 class="page-title">Veículos</h1>
+    <p class="text-base-content/70">Veículos vinculados aos clientes do atendimento.</p>
+  </div>
+  {% if perms.core.add_vehicle %}
+    <a href="{% url 'vehicle_create' %}" class="btn btn-primary whitespace-nowrap">Novo veículo</a>
+  {% endif %}
+</div>
+
+<div class="mb-6 rounded-box bg-base-100 p-4 shadow">
+  <form method="get" class="space-y-4" data-advanced-search-form>
+    <div class="grid grid-cols-1 gap-4 xl:grid-cols-6">
+      <div class="xl:col-span-2">
+        <label class="label" for="id_q"><span class="label-text">Busca geral</span></label>
+        <div class="relative" data-autocomplete-wrapper>
+          <input
+            id="id_q"
+            name="q"
+            type="search"
+            value="{{ filters.q }}"
+            placeholder="Placa, cliente, marca, modelo, versão ou chassi"
+            class="input input-bordered w-full"
+            autocomplete="off"
+            data-autocomplete-url="{% url 'vehicle_autocomplete' %}"
+            aria-autocomplete="list"
+            aria-expanded="false"
+          >
+          <div class="absolute left-0 right-0 top-full z-40 mt-1 hidden max-h-72 overflow-y-auto rounded-box border border-base-300 bg-base-100 shadow-xl" data-autocomplete-results></div>
+        </div>
+      </div>
+
+      <div class="xl:col-span-2">
+        <label class="label" for="id_cliente_filter"><span class="label-text">Cliente</span></label>
+        <select id="id_cliente_filter" name="cliente" class="select select-bordered w-full">
+          <option value="">Todos</option>
+          {% for customer in customer_choices %}
+            <option value="{{ customer.pk }}" {% if filters.cliente == customer.pk|stringformat:'s' %}selected{% endif %}>{{ customer.nome_razao_social }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div>
+        <label class="label" for="id_marca_filter"><span class="label-text">Marca</span></label>
+        <input id="id_marca_filter" name="marca" type="text" value="{{ filters.marca }}" class="input input-bordered w-full" placeholder="Marca">
+      </div>
+
+      <div>
+        <label class="label" for="id_combustivel_filter"><span class="label-text">Combustível</span></label>
+        <select id="id_combustivel_filter" name="combustivel" class="select select-bordered w-full">
+          <option value="">Todos</option>
+          {% for value, label in fuel_choices %}
+            <option value="{{ value }}" {% if filters.combustivel == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div>
+        <label class="label" for="id_tipo_direcao_filter"><span class="label-text">Direção</span></label>
+        <select id="id_tipo_direcao_filter" name="tipo_direcao" class="select select-bordered w-full">
+          <option value="">Todas</option>
+          {% for value, label in direction_choices %}
+            <option value="{{ value }}" {% if filters.tipo_direcao == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div>
+        <label class="label" for="id_ar_condicionado_filter"><span class="label-text">Ar condicionado</span></label>
+        <select id="id_ar_condicionado_filter" name="ar_condicionado" class="select select-bordered w-full">
+          <option value="">Todos</option>
+          <option value="sim" {% if filters.ar_condicionado == 'sim' %}selected{% endif %}>Sim</option>
+          <option value="nao" {% if filters.ar_condicionado == 'nao' %}selected{% endif %}>Não</option>
+        </select>
+      </div>
+
+      <div>
+        <label class="label" for="id_modificado_filter"><span class="label-text">Modificado</span></label>
+        <select id="id_modificado_filter" name="modificado" class="select select-bordered w-full">
+          <option value="">Todos</option>
+          <option value="sim" {% if filters.modificado == 'sim' %}selected{% endif %}>Sim</option>
+          <option value="nao" {% if filters.modificado == 'nao' %}selected{% endif %}>Não</option>
+        </select>
+      </div>
+
+      <div class="flex items-end gap-2 xl:col-span-2">
+        <button type="submit" class="btn btn-primary flex-1 whitespace-nowrap">Buscar</button>
+        <a href="{% url 'vehicle_list' %}" class="btn btn-outline whitespace-nowrap">Limpar</a>
+      </div>
+    </div>
+
+    {% if has_active_filters %}
+      <div class="text-sm text-base-content/70">Filtros ativos. Resultado ordenado por cliente, marca, modelo e placa em ordem crescente.</div>
+    {% else %}
+      <div class="text-sm text-base-content/70">Use a busca com autocomplete ou combine filtros por cliente, marca, combustível, direção, ar condicionado e modificação.</div>
+    {% endif %}
+  </form>
+</div>
+
+<div class="mb-3 flex flex-col gap-1 text-sm text-base-content/70 md:flex-row md:items-center md:justify-between">
+  <span>{{ page_obj.paginator.count }} veículo(s) encontrado(s).</span>
+  <span>Ordenação: A-Z por cliente, marca, modelo e placa.</span>
+</div>
+
+<div class="overflow-x-auto rounded-box bg-base-100 shadow">
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Placa</th>
+        <th>Cliente</th>
+        <th>Marca</th>
+        <th>Modelo / Versão</th>
+        <th>Combustível</th>
+        <th>KM</th>
+        <th class="text-right whitespace-nowrap">Ações</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for vehicle in vehicles %}
+        <tr>
+          <td><a href="{% url 'vehicle_detail' vehicle.pk %}" class="link link-primary font-mono font-medium whitespace-nowrap">{{ vehicle.placa }}</a></td>
+          <td class="whitespace-nowrap"><a href="{% url 'customer_detail' vehicle.cliente.pk %}" class="link link-primary">{{ vehicle.cliente.nome_razao_social }}</a></td>
+          <td class="whitespace-nowrap">{{ vehicle.marca }}</td>
+          <td>
+            <div class="min-w-52">
+              <p class="font-medium">{{ vehicle.modelo }}</p>
+              <p class="text-xs text-base-content/60">{{ vehicle.versao|default:'-' }}</p>
+            </div>
+          </td>
+          <td class="whitespace-nowrap">{% if vehicle.combustivel %}{{ vehicle.get_combustivel_display }}{% else %}-{% endif %}</td>
+          <td class="whitespace-nowrap">{{ vehicle.km }} km</td>
+          <td class="text-right whitespace-nowrap">
+            <div class="inline-flex flex-nowrap items-center justify-end gap-1 whitespace-nowrap">
+              <a href="{% url 'vehicle_detail' vehicle.pk %}" class="btn btn-xs btn-ghost whitespace-nowrap">Ver</a>
+              {% if perms.core.change_vehicle %}
+                <a href="{% url 'vehicle_update' vehicle.pk %}" class="btn btn-xs btn-outline whitespace-nowrap">Editar</a>
+              {% endif %}
+              {% if perms.core.delete_vehicle %}
+                <a href="{% url 'vehicle_delete' vehicle.pk %}" class="btn btn-xs btn-error btn-outline whitespace-nowrap">Excluir</a>
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="7" class="text-center">Nenhum veículo encontrado.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% include 'includes/pagination.html' %}
+{% endblock %}
+
+{% block extra_js %}
+  <script src="{% static 'js/advanced-search.js' %}"></script>
+{% endblock %}

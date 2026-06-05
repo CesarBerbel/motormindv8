@@ -1,0 +1,178 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ title }} | MotorMind{% endblock %}
+
+{% block content %}
+<div class="mx-auto max-w-6xl space-y-6">
+  <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+    <div>
+      <h1 class="page-title">{{ title }}</h1>
+      <p class="text-base-content/70">Configure o provedor de IA, comportamento textual, botões exibidos no sistema e teste a conexão.</p>
+    </div>
+    <button type="button" class="btn btn-outline btn-primary whitespace-nowrap" data-ai-test-url="{% url 'ai_test_connection' %}" data-ai-test-button>
+      Testar conexão da IA
+    </button>
+  </div>
+
+  <div class="alert alert-info">
+    <span>Use <strong>Local / simulado</strong> para desenvolvimento sem chave externa. Em produção, selecione o provedor real e informe chave/modelo/endpoint conforme necessário.</span>
+  </div>
+
+  <div class="hidden" data-ai-test-result></div>
+
+  <form method="post" class="card-section">
+    {% csrf_token %}
+    <div class="card-body space-y-8">
+      {% if form.non_field_errors %}
+        <div class="alert alert-error">
+          <div>{% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}</div>
+        </div>
+      {% endif %}
+
+      <section class="space-y-4">
+        <div>
+          <h2 class="card-title">1. Provedor</h2>
+          <p class="text-sm text-base-content/70">Defina qual serviço responderá aos botões de ajuda textual.</p>
+        </div>
+        <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <div class="form-control md:col-span-2 lg:col-span-3">
+            <label class="label cursor-pointer justify-start gap-3" for="{{ form.ativo.id_for_label }}">
+              {{ form.ativo }}
+              <span class="label-text">{{ form.ativo.label }}</span>
+            </label>
+            {% for error in form.ativo.errors %}<span class="label-text-alt text-error">{{ error }}</span>{% endfor %}
+          </div>
+
+          <div class="form-control">
+            <label class="label" for="{{ form.provedor.id_for_label }}"><span class="label-text">{{ form.provedor.label }}</span></label>
+            {{ form.provedor }}
+            {% if form.provedor.help_text %}<span class="label-text-alt text-base-content/60">{{ form.provedor.help_text }}</span>{% endif %}
+            {% for error in form.provedor.errors %}<span class="label-text-alt text-error">{{ error }}</span>{% endfor %}
+          </div>
+          <div class="form-control">
+            <label class="label" for="{{ form.modelo.id_for_label }}"><span class="label-text">{{ form.modelo.label }}</span></label>
+            {{ form.modelo }}
+            {% if form.modelo.help_text %}<span class="label-text-alt text-base-content/60">{{ form.modelo.help_text }}</span>{% endif %}
+            {% for error in form.modelo.errors %}<span class="label-text-alt text-error">{{ error }}</span>{% endfor %}
+          </div>
+          <div class="form-control">
+            <label class="label" for="{{ form.temperatura.id_for_label }}"><span class="label-text">{{ form.temperatura.label }}</span></label>
+            {{ form.temperatura }}
+            {% if form.temperatura.help_text %}<span class="label-text-alt text-base-content/60">{{ form.temperatura.help_text }}</span>{% endif %}
+            {% for error in form.temperatura.errors %}<span class="label-text-alt text-error">{{ error }}</span>{% endfor %}
+          </div>
+          <div class="form-control md:col-span-2">
+            <label class="label" for="{{ form.api_key.id_for_label }}"><span class="label-text">{{ form.api_key.label }}</span></label>
+            {{ form.api_key }}
+            {% for error in form.api_key.errors %}<span class="label-text-alt text-error">{{ error }}</span>{% endfor %}
+          </div>
+          <div class="form-control">
+            <label class="label" for="{{ form.timeout_segundos.id_for_label }}"><span class="label-text">{{ form.timeout_segundos.label }}</span></label>
+            {{ form.timeout_segundos }}
+            {% for error in form.timeout_segundos.errors %}<span class="label-text-alt text-error">{{ error }}</span>{% endfor %}
+          </div>
+          <div class="form-control md:col-span-2 lg:col-span-3">
+            <label class="label" for="{{ form.endpoint_base.id_for_label }}"><span class="label-text">{{ form.endpoint_base.label }}</span></label>
+            {{ form.endpoint_base }}
+            {% if form.endpoint_base.help_text %}<span class="label-text-alt text-base-content/60">{{ form.endpoint_base.help_text }}</span>{% endif %}
+            {% for error in form.endpoint_base.errors %}<span class="label-text-alt text-error">{{ error }}</span>{% endfor %}
+          </div>
+        </div>
+      </section>
+
+      <section class="space-y-4">
+        <div>
+          <h2 class="card-title">2. Características da resposta</h2>
+          <p class="text-sm text-base-content/70">Ajuste o estilo da IA para combinar com o atendimento da oficina.</p>
+        </div>
+        <div class="grid gap-4 md:grid-cols-2">
+          <div class="form-control md:col-span-2">
+            <label class="label" for="{{ form.tom_resposta.id_for_label }}"><span class="label-text">{{ form.tom_resposta.label }}</span></label>
+            {{ form.tom_resposta }}
+            {% for error in form.tom_resposta.errors %}<span class="label-text-alt text-error">{{ error }}</span>{% endfor %}
+          </div>
+          <div class="form-control">
+            <label class="label" for="{{ form.caracteristicas_oficina.id_for_label }}"><span class="label-text">{{ form.caracteristicas_oficina.label }}</span></label>
+            {{ form.caracteristicas_oficina }}
+            {% if form.caracteristicas_oficina.help_text %}<span class="label-text-alt text-base-content/60">{{ form.caracteristicas_oficina.help_text }}</span>{% endif %}
+            {% for error in form.caracteristicas_oficina.errors %}<span class="label-text-alt text-error">{{ error }}</span>{% endfor %}
+          </div>
+          <div class="form-control">
+            <label class="label" for="{{ form.instrucoes_gerais.id_for_label }}"><span class="label-text">{{ form.instrucoes_gerais.label }}</span></label>
+            {{ form.instrucoes_gerais }}
+            {% for error in form.instrucoes_gerais.errors %}<span class="label-text-alt text-error">{{ error }}</span>{% endfor %}
+          </div>
+          <div class="form-control">
+            <label class="label" for="{{ form.limite_caracteres_resposta.id_for_label }}"><span class="label-text">{{ form.limite_caracteres_resposta.label }}</span></label>
+            {{ form.limite_caracteres_resposta }}
+            {% if form.limite_caracteres_resposta.help_text %}<span class="label-text-alt text-base-content/60">{{ form.limite_caracteres_resposta.help_text }}</span>{% endif %}
+            {% for error in form.limite_caracteres_resposta.errors %}<span class="label-text-alt text-error">{{ error }}</span>{% endfor %}
+          </div>
+        </div>
+      </section>
+
+
+
+      <section class="space-y-4">
+        <div>
+          <h2 class="card-title">3. Instruções específicas por campo</h2>
+          <p class="text-sm text-base-content/70">Cada botão de IA usa estas regras junto com o contexto da OS ou do template. Edite aqui o comportamento desejado por campo.</p>
+        </div>
+        <div class="grid gap-4 md:grid-cols-2">
+          <div class="form-control">
+            <label class="label" for="{{ form.instrucao_problema_relatado.id_for_label }}"><span class="label-text">{{ form.instrucao_problema_relatado.label }}</span></label>
+            {{ form.instrucao_problema_relatado }}
+            {% if form.instrucao_problema_relatado.help_text %}<span class="label-text-alt text-base-content/60">{{ form.instrucao_problema_relatado.help_text }}</span>{% endif %}
+            {% for error in form.instrucao_problema_relatado.errors %}<span class="label-text-alt text-error">{{ error }}</span>{% endfor %}
+          </div>
+          <div class="form-control">
+            <label class="label" for="{{ form.instrucao_diagnostico.id_for_label }}"><span class="label-text">{{ form.instrucao_diagnostico.label }}</span></label>
+            {{ form.instrucao_diagnostico }}
+            {% if form.instrucao_diagnostico.help_text %}<span class="label-text-alt text-base-content/60">{{ form.instrucao_diagnostico.help_text }}</span>{% endif %}
+            {% for error in form.instrucao_diagnostico.errors %}<span class="label-text-alt text-error">{{ error }}</span>{% endfor %}
+          </div>
+          <div class="form-control">
+            <label class="label" for="{{ form.instrucao_observacao.id_for_label }}"><span class="label-text">{{ form.instrucao_observacao.label }}</span></label>
+            {{ form.instrucao_observacao }}
+            {% if form.instrucao_observacao.help_text %}<span class="label-text-alt text-base-content/60">{{ form.instrucao_observacao.help_text }}</span>{% endif %}
+            {% for error in form.instrucao_observacao.errors %}<span class="label-text-alt text-error">{{ error }}</span>{% endfor %}
+          </div>
+          <div class="form-control">
+            <label class="label" for="{{ form.instrucao_template_mensagem.id_for_label }}"><span class="label-text">{{ form.instrucao_template_mensagem.label }}</span></label>
+            {{ form.instrucao_template_mensagem }}
+            {% if form.instrucao_template_mensagem.help_text %}<span class="label-text-alt text-base-content/60">{{ form.instrucao_template_mensagem.help_text }}</span>{% endif %}
+            {% for error in form.instrucao_template_mensagem.errors %}<span class="label-text-alt text-error">{{ error }}</span>{% endfor %}
+          </div>
+        </div>
+      </section>
+
+      <section class="space-y-4">
+        <div>
+          <h2 class="card-title">4. Onde exibir ajuda</h2>
+          <p class="text-sm text-base-content/70">Controle os botões pequenos de IA nos formulários.</p>
+        </div>
+        <div class="grid gap-4 md:grid-cols-2">
+          <label class="flex gap-3 rounded-box border border-base-300 bg-base-100 p-4" for="{{ form.habilitar_os.id_for_label }}">
+            {{ form.habilitar_os }}
+            <span><span class="font-medium">{{ form.habilitar_os.label }}</span><span class="block text-sm text-base-content/60">Problema relatado, diagnóstico e observações da OS.</span></span>
+          </label>
+          <label class="flex gap-3 rounded-box border border-base-300 bg-base-100 p-4" for="{{ form.habilitar_mensagens.id_for_label }}">
+            {{ form.habilitar_mensagens }}
+            <span><span class="font-medium">{{ form.habilitar_mensagens.label }}</span><span class="block text-sm text-base-content/60">Templates de email/WhatsApp e mensagens manuais.</span></span>
+          </label>
+        </div>
+      </section>
+
+      <div class="card-actions justify-end border-t border-base-300 pt-4">
+        <a href="{% url 'dashboard' %}" class="btn btn-ghost whitespace-nowrap">Voltar</a>
+        <button type="submit" class="btn btn-primary whitespace-nowrap">Salvar configurações de IA</button>
+      </div>
+    </div>
+  </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+  <script src="{% static 'js/ai-assistant.js' %}"></script>
+{% endblock %}

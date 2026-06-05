@@ -1,0 +1,17 @@
+{
+  "name": "motormind-django-tailwind-daisyui",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "css:build": "tailwindcss -i ./static/src/input.css -o ./static/css/styles.css --minify",
+    "css:watch": "tailwindcss -i ./static/src/input.css -o ./static/css/styles.css --watch",
+    "dev": "concurrently \"python manage.py runserver\" \"npm run css:watch\""
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2",
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.4.49",
+    "daisyui": "^4.12.24",
+    "tailwindcss": "^3.4.17"
+  }
+}

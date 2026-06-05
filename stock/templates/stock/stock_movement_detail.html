@@ -1,0 +1,41 @@
+{% extends 'base.html' %}
+{% load money %}
+
+{% block title %}Movimentação de estoque | MotorMind{% endblock %}
+
+{% block content %}
+<div class="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+  <div>
+    <h1 class="page-title">Movimentação de estoque</h1>
+    <p class="text-base-content/70">{{ movement.criado_em|date:'d/m/Y H:i' }} · {{ movement.get_tipo_display }}</p>
+  </div>
+  <div class="flex flex-wrap gap-2">
+    <a href="{% url 'stock_movement_list' %}" class="btn btn-ghost whitespace-nowrap">Voltar</a>
+    {% if perms.stock.add_stockmovement %}
+      <a href="{% url 'stock_movement_create' %}?item={{ movement.item.pk }}" class="btn btn-primary whitespace-nowrap">Nova movimentação</a>
+    {% endif %}
+  </div>
+</div>
+
+<div class="card bg-base-100 shadow">
+  <div class="card-body">
+    <h2 class="card-title">Dados da movimentação</h2>
+    <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      <div><span class="text-sm text-base-content/60">Item</span><p class="font-medium"><a href="{% url 'inventory_item_detail' movement.item.pk %}" class="link link-primary">{{ movement.item.nome }}</a></p></div>
+      <div><span class="text-sm text-base-content/60">SKU</span><p class="font-medium font-mono">{{ movement.item.sku }}</p></div>
+      <div><span class="text-sm text-base-content/60">Fornecedor</span><p class="font-medium">{% if movement.fornecedor_id %}<a href="{% url 'supplier_detail' movement.fornecedor.pk %}" class="link link-primary">{{ movement.fornecedor.nome_razao_social }}</a>{% else %}-{% endif %}</p></div>
+      <div><span class="text-sm text-base-content/60">Tipo</span><p class="font-medium">{{ movement.get_tipo_display }}</p></div>
+      <div><span class="text-sm text-base-content/60">Quantidade informada</span><p class="font-medium">{{ movement.quantidade }} {{ movement.item.unidade.sigla }}</p></div>
+      <div><span class="text-sm text-base-content/60">Quantidade assinada</span><p class="font-medium">{{ movement.quantidade_assinada }} {{ movement.item.unidade.sigla }}</p></div>
+      <div><span class="text-sm text-base-content/60">Saldo após</span><p class="font-medium">{{ movement.saldo_apos_movimentacao }} {{ movement.item.unidade.sigla }}</p></div>
+      <div><span class="text-sm text-base-content/60">Custo unitário</span><p class="font-medium">{{ movement.custo_unitario|money_br }}</p></div>
+      <div><span class="text-sm text-base-content/60">Valor total</span><p class="font-medium">{{ movement.valor_total|money_br }}</p></div>
+      <div><span class="text-sm text-base-content/60">Criado por</span><p class="font-medium">{{ movement.criado_por.email|default:'-' }}</p></div>
+    </div>
+    <div class="mt-4">
+      <span class="text-sm text-base-content/60">Observação</span>
+      <p class="mt-1 whitespace-pre-line">{{ movement.observacao|default:'-' }}</p>
+    </div>
+  </div>
+</div>
+{% endblock %}

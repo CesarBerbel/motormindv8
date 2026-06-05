@@ -1,0 +1,93 @@
+<div class="mb-6 rounded-box bg-base-100 p-4 shadow">
+  <form method="get" class="space-y-4" data-advanced-search-form>
+    <div class="grid grid-cols-1 gap-4 lg:grid-cols-4">
+      <div class="lg:col-span-2">
+        <label class="label" for="id_q">
+          <span class="label-text">Busca geral</span>
+        </label>
+        <div class="relative" data-autocomplete-wrapper>
+          <input
+            id="id_q"
+            name="q"
+            type="search"
+            value="{{ filters.q }}"
+            placeholder="Nome, email, WhatsApp, documento, cidade ou categoria"
+            class="input input-bordered w-full"
+            autocomplete="off"
+            data-autocomplete-url="{{ autocomplete_url }}"
+            aria-autocomplete="list"
+            aria-expanded="false"
+          >
+          <div
+            class="absolute left-0 right-0 top-full z-40 mt-1 hidden max-h-72 overflow-y-auto rounded-box border border-base-300 bg-base-100 shadow-xl"
+            data-autocomplete-results
+          ></div>
+        </div>
+      </div>
+
+      <div>
+        <label class="label" for="id_tipo_pessoa_filter">
+          <span class="label-text">Tipo de pessoa</span>
+        </label>
+        <select id="id_tipo_pessoa_filter" name="tipo_pessoa" class="select select-bordered w-full">
+          <option value="">Todos</option>
+          {% for value, label in tipo_pessoa_choices %}
+            <option value="{{ value }}" {% if filters.tipo_pessoa == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div>
+        <label class="label" for="id_categoria_filter">
+          <span class="label-text">Categoria</span>
+        </label>
+        <select id="id_categoria_filter" name="categoria" class="select select-bordered w-full">
+          <option value="">Todas</option>
+          {% for categoria in category_choices %}
+            <option value="{{ categoria.pk }}" {% if filters.categoria == categoria.pk|stringformat:'s' %}selected{% endif %}>{{ categoria.nome }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div>
+        <label class="label" for="id_marketing_filter">
+          <span class="label-text">Aceita marketing</span>
+        </label>
+        <select id="id_marketing_filter" name="marketing" class="select select-bordered w-full">
+          <option value="">Todos</option>
+          <option value="sim" {% if filters.marketing == 'sim' %}selected{% endif %}>Sim</option>
+          <option value="nao" {% if filters.marketing == 'nao' %}selected{% endif %}>Não</option>
+        </select>
+      </div>
+
+      <div>
+        <label class="label" for="id_cidade_filter">
+          <span class="label-text">Cidade</span>
+        </label>
+        <input id="id_cidade_filter" name="cidade" type="text" value="{{ filters.cidade }}" class="input input-bordered w-full" placeholder="Cidade">
+      </div>
+
+      <div>
+        <label class="label" for="id_uf_filter">
+          <span class="label-text">UF</span>
+        </label>
+        <input id="id_uf_filter" name="uf" type="text" value="{{ filters.uf }}" class="input input-bordered w-full uppercase" placeholder="SP" maxlength="2">
+      </div>
+
+      <div class="flex items-end gap-2 lg:col-span-1">
+        <button type="submit" class="btn btn-primary flex-1 whitespace-nowrap">Buscar</button>
+        <a href="{{ clear_url }}" class="btn btn-outline whitespace-nowrap">Limpar</a>
+      </div>
+    </div>
+
+    {% if has_active_filters %}
+      <div class="text-sm text-base-content/70">
+        Filtros ativos. Resultado ordenado por nome/razão social em ordem alfabética crescente.
+      </div>
+    {% else %}
+      <div class="text-sm text-base-content/70">
+        Use a busca geral com autocomplete ou combine filtros por tipo, categoria, marketing, cidade e UF.
+      </div>
+    {% endif %}
+  </form>
+</div>

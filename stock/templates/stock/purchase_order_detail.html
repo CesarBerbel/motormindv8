@@ -1,0 +1,89 @@
+{% extends 'base.html' %}
+{% load money %}
+
+{% block title %}{{ order.codigo }} | MotorMind{% endblock %}
+
+{% block content %}
+<div class="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+  <div>
+    <h1 class="page-title">{{ order.codigo }}</h1>
+    <p class="text-base-content/70">Pedido de compra · {{ order.get_status_display }}</p>
+  </div>
+  <div class="flex flex-wrap gap-2">
+    <a href="{% url 'purchase_order_list' %}" class="btn btn-ghost whitespace-nowrap">Voltar</a>
+    {% if perms.stock.change_purchaseorder and order.is_editable %}
+      <a href="{% url 'purchase_order_update' order.pk %}" class="btn btn-outline whitespace-nowrap">Editar</a>
+    {% endif %}
+    {% if perms.stock.change_purchaseorder and order.can_receive %}
+      <form method="post" action="{% url 'purchase_order_receive' order.pk %}">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-primary whitespace-nowrap">Receber e dar entrada</button>
+      </form>
+    {% endif %}
+    {% if perms.stock.delete_purchaseorder and order.is_editable %}
+      <a href="{% url 'purchase_order_delete' order.pk %}" class="btn btn-error btn-outline whitespace-nowrap">Excluir</a>
+    {% endif %}
+  </div>
+</div>
+
+{% if order.can_receive and not order.fornecedor_id %}
+  <div class="alert alert-warning mb-6">Informe o fornecedor antes de receber o pedido e registrar a entrada no estoque.</div>
+{% endif %}
+
+<div class="grid gap-6 lg:grid-cols-3">
+  <div class="card bg-base-100 shadow lg:col-span-2">
+    <div class="card-body">
+      <h2 class="card-title">Dados do pedido</h2>
+      <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div><span class="text-sm text-base-content/60">Código</span><p class="font-medium font-mono">{{ order.codigo }}</p></div>
+        <div><span class="text-sm text-base-content/60">Status</span><p class="font-medium">{{ order.get_status_display }}</p></div>
+        <div><span class="text-sm text-base-content/60">Origem</span><p class="font-medium">{{ order.get_origem_display }}</p></div>
+        <div><span class="text-sm text-base-content/60">Fornecedor</span><p class="font-medium">{% if order.fornecedor_id %}<a href="{% url 'supplier_detail' order.fornecedor.pk %}" class="link link-primary">{{ order.fornecedor.nome_razao_social }}</a>{% else %}-{% endif %}</p></div>
+        <div><span class="text-sm text-base-content/60">OS de origem</span><p class="font-medium">{% if order.ordem_servico_id %}<a href="{% url 'work_order_detail' order.ordem_servico.pk %}" class="link link-primary">{{ order.ordem_servico.codigo }}</a>{% else %}-{% endif %}</p></div>
+        <div><span class="text-sm text-base-content/60">Criado por</span><p class="font-medium">{{ order.criado_por.email|default:'-' }}</p></div>
+        <div><span class="text-sm text-base-content/60">Criado em</span><p class="font-medium">{{ order.criado_em|date:'d/m/Y H:i' }}</p></div>
+        <div><span class="text-sm text-base-content/60">Recebido em</span><p class="font-medium">{{ order.recebido_em|date:'d/m/Y H:i'|default:'-' }}</p></div>
+        <div><span class="text-sm text-base-content/60">Recebido por</span><p class="font-medium">{{ order.recebido_por.email|default:'-' }}</p></div>
+      </div>
+      <div class="mt-4"><span class="text-sm text-base-content/60">Observação</span><p class="mt-1 whitespace-pre-line">{{ order.observacao|default:'-' }}</p></div>
+    </div>
+  </div>
+
+  <div class="card bg-base-100 shadow">
+    <div class="card-body">
+      <h2 class="card-title">Resumo</h2>
+      <div class="stats stats-vertical shadow-none">
+        <div class="stat px-0"><div class="stat-title">Itens</div><div class="stat-value text-3xl">{{ order.total_itens }}</div></div>
+        <div class="stat px-0"><div class="stat-title">Quantidade</div><div class="stat-value text-3xl">{{ order.quantidade_total }}</div></div>
+        <div class="stat px-0"><div class="stat-title">Total</div><div class="stat-value text-3xl">{{ order.valor_total|money_br }}</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="mt-6 card bg-base-100 shadow">
+  <div class="card-body">
+    <h2 class="card-title">Itens do pedido</h2>
+    <div class="overflow-x-auto">
+      <table class="table">
+        <thead><tr><th>Item</th><th>SKU</th><th>Estoque atual</th><th>Qtd.</th><th>Custo unitário</th><th>Subtotal</th><th>Observação</th></tr></thead>
+        <tbody>
+          {% for item in order.itens.all %}
+            <tr>
+              <td><a href="{% url 'inventory_item_detail' item.item.pk %}" class="link link-primary font-medium">{{ item.item.nome }}</a></td>
+              <td class="font-mono whitespace-nowrap">{{ item.item.sku }}</td>
+              <td class="whitespace-nowrap">{{ item.item.estoque_atual }} {{ item.item.unidade.sigla }}</td>
+              <td class="whitespace-nowrap">{{ item.quantidade }} {{ item.item.unidade.sigla }}</td>
+              <td class="whitespace-nowrap">{{ item.custo_unitario|money_br }}</td>
+              <td class="whitespace-nowrap">{{ item.subtotal|money_br }}</td>
+              <td>{{ item.observacao|default:'-' }}</td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="7" class="text-center">Nenhum item incluído.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

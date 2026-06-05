@@ -1,0 +1,17 @@
+{% if is_paginated %}
+  <div class="join mt-6">
+    {% if page_obj.has_previous %}
+      <a class="btn join-item" href="?{% if querystring %}{{ querystring }}&{% endif %}page={{ page_obj.previous_page_number }}">Anterior</a>
+    {% else %}
+      <button class="btn join-item btn-disabled">Anterior</button>
+    {% endif %}
+
+    <button class="btn join-item">Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}</button>
+
+    {% if page_obj.has_next %}
+      <a class="btn join-item" href="?{% if querystring %}{{ querystring }}&{% endif %}page={{ page_obj.next_page_number }}">Próxima</a>
+    {% else %}
+      <button class="btn join-item btn-disabled">Próxima</button>
+    {% endif %}
+  </div>
+{% endif %}

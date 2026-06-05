@@ -1,0 +1,100 @@
+{% extends 'base.html' %}
+{% load money %}
+
+{% block title %}{{ service.nome }} | MotorMind{% endblock %}
+
+{% block content %}
+<div class="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+  <div>
+    <h1 class="page-title">{{ service.nome }}</h1>
+    <p class="text-base-content/70">{{ service.codigo }} · {% if service.categoria %}{{ service.categoria.nome }} · {% endif %}{{ service.duracao_formatada }}</p>
+  </div>
+  <div class="flex flex-wrap gap-2">
+    <a href="{% url 'service_list' %}" class="btn btn-ghost whitespace-nowrap">Voltar</a>
+    {% if can_change %}
+      <a href="{% url 'service_update' service.pk %}" class="btn btn-outline whitespace-nowrap">Editar</a>
+    {% endif %}
+    {% if can_delete %}
+      <a href="{% url 'service_delete' service.pk %}" class="btn btn-error btn-outline whitespace-nowrap">Excluir</a>
+    {% endif %}
+  </div>
+</div>
+
+<div class="grid gap-6 lg:grid-cols-3">
+  <div class="card bg-base-100 shadow lg:col-span-2">
+    <div class="card-body">
+      <h2 class="card-title">Dados do serviço</h2>
+      <div class="grid gap-4 md:grid-cols-2">
+        <div><span class="text-sm text-base-content/60">Código</span><p class="font-mono font-medium">{{ service.codigo }}</p></div>
+        <div><span class="text-sm text-base-content/60">Categoria</span><p class="font-medium">{{ service.categoria.nome|default:'-' }}</p></div>
+        <div><span class="text-sm text-base-content/60">Duração</span><p class="font-medium">{{ service.duracao_formatada }} <span class="text-base-content/60">({{ service.duracao_minutos }} min)</span></p></div>
+        <div><span class="text-sm text-base-content/60">Valor do serviço</span><p class="font-medium">{{ service.valor|money_br }}</p></div>
+        <div><span class="text-sm text-base-content/60">Custo estimado das peças</span><p class="font-medium">{{ service.custo_pecas_padrao|money_br }}</p></div>
+      </div>
+      <div class="mt-4">
+        <span class="text-sm text-base-content/60">Descrição</span>
+        <p class="mt-1 whitespace-pre-line">{{ service.descricao|default:'-' }}</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="card bg-base-100 shadow">
+    <div class="card-body">
+      <h2 class="card-title">Resumo</h2>
+      <div class="stats stats-vertical shadow-none">
+        <div class="stat px-0">
+          <div class="stat-title">Valor do serviço</div>
+          <div class="stat-value text-2xl">{{ service.valor|money_br }}</div>
+        </div>
+        <div class="stat px-0">
+          <div class="stat-title">Serviço + peças</div>
+          <div class="stat-value text-2xl">{{ service.valor_estimado_total|money_br }}</div>
+        </div>
+      </div>
+      <p class="text-sm text-base-content/60">O total com peças é uma estimativa com base no preço de custo atual dos itens vinculados.</p>
+    </div>
+  </div>
+</div>
+
+<div class="mt-6 card bg-base-100 shadow">
+  <div class="card-body">
+    <h2 class="card-title">Peças padrão associadas</h2>
+    <div class="overflow-x-auto">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>SKU</th>
+            <th>Peça/Insumo</th>
+            <th>Categoria</th>
+            <th>Marca</th>
+            <th>Quantidade</th>
+            <th>Custo unitário</th>
+            <th>Custo total</th>
+            <th>Observação</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for part in service.pecas_associadas.all %}
+            <tr>
+              <td class="font-mono whitespace-nowrap">{{ part.item.sku }}</td>
+              <td class="whitespace-nowrap">
+                <a href="{% url 'inventory_item_detail' part.item.pk %}" class="link link-primary">{{ part.item.nome }}</a>
+              </td>
+              <td class="whitespace-nowrap">{{ part.item.categoria.nome }}</td>
+              <td class="whitespace-nowrap">{{ part.item.marca.nome|default:'-' }}</td>
+              <td class="whitespace-nowrap">{{ part.quantidade }} {{ part.item.unidade.sigla }}</td>
+              <td class="whitespace-nowrap">{{ part.item.preco_custo|money_br }}</td>
+              <td class="whitespace-nowrap">{{ part.custo_total|money_br }}</td>
+              <td>{{ part.observacao|default:'-' }}</td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="8" class="text-center">Nenhuma peça padrão associada.</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

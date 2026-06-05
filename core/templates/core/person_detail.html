@@ -1,0 +1,156 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ title }} | MotorMind{% endblock %}
+
+{% block content %}
+<div class="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+  <div>
+    <h1 class="page-title">{{ person.nome_razao_social }}</h1>
+    <p class="text-base-content/70">{{ title }}</p>
+  </div>
+  <div class="flex flex-wrap gap-2">
+    <a href="{{ list_url }}" class="btn btn-ghost whitespace-nowrap">Voltar</a>
+    {% if can_change %}
+      <a href="{{ edit_url }}" class="btn btn-primary whitespace-nowrap">Editar</a>
+    {% endif %}
+    {% if can_delete %}
+      <a href="{{ delete_url }}" class="btn btn-error btn-outline whitespace-nowrap">Excluir</a>
+    {% endif %}
+  </div>
+</div>
+
+<div class="grid gap-6 lg:grid-cols-3">
+  <section class="card-section lg:col-span-2">
+    <div class="card-body">
+      <h2 class="card-title">Dados principais</h2>
+      <dl class="grid gap-4 md:grid-cols-2">
+        <div>
+          <dt class="text-sm text-base-content/60">Tipo de pessoa</dt>
+          <dd class="font-medium">{{ person.get_tipo_pessoa_display }}</dd>
+        </div>
+        <div>
+          <dt class="text-sm text-base-content/60">{{ person.nome_label }}</dt>
+          <dd class="font-medium">{{ person.nome_razao_social }}</dd>
+        </div>
+        <div>
+          <dt class="text-sm text-base-content/60">{{ person.documento_label }}</dt>
+          <dd class="font-medium">{{ person.documento|default:'Não informado' }}</dd>
+        </div>
+        <div>
+          <dt class="text-sm text-base-content/60">{{ person.data_label }}</dt>
+          <dd class="font-medium">{{ person.data_nascimento_fundacao|date:'d/m/Y'|default:'Não informado' }}</dd>
+        </div>
+        <div>
+          <dt class="text-sm text-base-content/60">Email</dt>
+          <dd class="font-medium">{{ person.email }}</dd>
+        </div>
+        <div>
+          <dt class="text-sm text-base-content/60">WhatsApp</dt>
+          <dd class="font-medium">{{ person.whatsapp }}</dd>
+        </div>
+        <div>
+          <dt class="text-sm text-base-content/60">Aceita marketing?</dt>
+          <dd class="font-medium">{% if person.aceita_marketing %}Sim{% else %}Não{% endif %}</dd>
+        </div>
+      </dl>
+    </div>
+  </section>
+
+  <section class="card-section">
+    <div class="card-body">
+      <h2 class="card-title">Categorias</h2>
+      <div class="flex flex-wrap gap-2">
+        {% for categoria in person.categorias.all %}
+          <span class="badge badge-primary badge-outline shrink-0 whitespace-nowrap">{{ categoria.nome }}</span>
+        {% empty %}
+          <span class="text-base-content/60">Sem categoria</span>
+        {% endfor %}
+      </div>
+    </div>
+  </section>
+
+  <section class="card-section lg:col-span-3">
+    <div class="card-body">
+      <h2 class="card-title">Endereço</h2>
+      <dl class="grid gap-4 md:grid-cols-3">
+        <div>
+          <dt class="text-sm text-base-content/60">CEP</dt>
+          <dd class="font-medium">{{ person.cep }}</dd>
+        </div>
+        <div class="md:col-span-2">
+          <dt class="text-sm text-base-content/60">Logradouro</dt>
+          <dd class="font-medium">{{ person.logradouro }}</dd>
+        </div>
+        <div>
+          <dt class="text-sm text-base-content/60">Número</dt>
+          <dd class="font-medium">{{ person.numero }}</dd>
+        </div>
+        <div>
+          <dt class="text-sm text-base-content/60">Complemento</dt>
+          <dd class="font-medium">{{ person.complemento|default:'-' }}</dd>
+        </div>
+        <div>
+          <dt class="text-sm text-base-content/60">Bairro</dt>
+          <dd class="font-medium">{{ person.bairro }}</dd>
+        </div>
+        <div>
+          <dt class="text-sm text-base-content/60">Cidade</dt>
+          <dd class="font-medium">{{ person.cidade }}</dd>
+        </div>
+        <div>
+          <dt class="text-sm text-base-content/60">UF</dt>
+          <dd class="font-medium">{{ person.uf }}</dd>
+        </div>
+        <div class="md:col-span-3">
+          <dt class="text-sm text-base-content/60">Endereço completo</dt>
+          <dd class="font-medium">{{ person.endereco_completo }}</dd>
+        </div>
+      </dl>
+    </div>
+  </section>
+
+
+  {% if title == 'Detalhes do cliente' %}
+    <section class="card-section lg:col-span-3">
+      <div class="card-body">
+        <div class="flex items-center justify-between gap-4">
+          <div>
+            <h2 class="card-title">Veículos</h2>
+            <p class="text-sm text-base-content/70">Veículos vinculados a este cliente.</p>
+          </div>
+          {% if perms.core.add_vehicle %}
+            <a href="{% url 'vehicle_create' %}?cliente={{ person.pk }}" class="btn btn-primary btn-sm whitespace-nowrap">Novo veículo</a>
+          {% endif %}
+        </div>
+        <div class="mt-4 overflow-x-auto">
+          <table class="table table-sm">
+            <thead>
+              <tr>
+                <th>Placa</th>
+                <th>Marca</th>
+                <th>Modelo / Versão</th>
+                <th>KM</th>
+                <th class="text-right whitespace-nowrap">Ações</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for vehicle in person.veiculos.all %}
+                <tr>
+                  <td class="font-mono whitespace-nowrap">{{ vehicle.placa }}</td>
+                  <td class="whitespace-nowrap">{{ vehicle.marca }}</td>
+                  <td>{{ vehicle.modelo }}{% if vehicle.versao %}<span class="text-base-content/60"> — {{ vehicle.versao }}</span>{% endif %}</td>
+                  <td class="whitespace-nowrap">{{ vehicle.km }} km</td>
+                  <td class="text-right whitespace-nowrap"><a href="{% url 'vehicle_detail' vehicle.pk %}" class="btn btn-xs btn-ghost">Ver</a></td>
+                </tr>
+              {% empty %}
+                <tr><td colspan="5" class="text-center text-base-content/60">Nenhum veículo vinculado.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  {% endif %}
+
+</div>
+{% endblock %}

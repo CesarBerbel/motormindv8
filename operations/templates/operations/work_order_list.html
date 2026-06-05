@@ -1,0 +1,159 @@
+{% extends 'base.html' %}
+{% load static money %}
+
+{% block title %}Ordens de Serviço | MotorMind{% endblock %}
+
+{% block content %}
+<div class="mb-6 flex items-center justify-between gap-4">
+  <div>
+    <h1 class="page-title">Ordens de Serviço</h1>
+    <p class="text-base-content/70">Controle operacional de atendimentos, serviços, combos, peças e baixa de estoque.</p>
+  </div>
+  {% if perms.operations.add_workorder %}
+    <a href="{% url 'work_order_create' %}" class="btn btn-primary whitespace-nowrap">Nova OS</a>
+  {% endif %}
+</div>
+
+<div class="mb-6 grid gap-4 md:grid-cols-3">
+  <div class="stat rounded-box bg-base-100 shadow">
+    <div class="stat-title">Capacidade da oficina</div>
+    <div class="stat-value text-3xl">{{ workshop_settings.vagas_oficina }}</div>
+    <div class="stat-desc">Vaga(s) configurada(s)</div>
+  </div>
+  <div class="stat rounded-box bg-base-100 shadow">
+    <div class="stat-title">Vagas ocupadas</div>
+    <div class="stat-value text-3xl">{{ vagas_ocupadas }}</div>
+    <div class="stat-desc">OS ativas na oficina</div>
+  </div>
+  <div class="stat rounded-box bg-base-100 shadow">
+    <div class="stat-title">Vagas disponíveis</div>
+    <div class="stat-value text-3xl {% if vagas_disponiveis == 0 %}text-error{% else %}text-success{% endif %}">{{ vagas_disponiveis }}</div>
+    <div class="stat-desc">{% if vagas_disponiveis == 0 %}Oficina cheia{% else %}Livre para nova OS{% endif %}</div>
+  </div>
+</div>
+
+<div class="mb-6 rounded-box bg-base-100 p-4 shadow">
+  <form method="get" class="space-y-4" data-advanced-search-form>
+    <div class="grid grid-cols-1 gap-4 xl:grid-cols-6">
+      <div class="xl:col-span-2">
+        <label class="label" for="id_q"><span class="label-text">Busca geral</span></label>
+        <div class="relative" data-autocomplete-wrapper>
+          <input id="id_q" name="q" type="search" value="{{ filters.q }}" placeholder="OS, cliente, placa, serviço ou peça" class="input input-bordered w-full" autocomplete="off" data-autocomplete-url="{% url 'work_order_autocomplete' %}" aria-autocomplete="list" aria-expanded="false">
+          <div class="absolute left-0 right-0 top-full z-40 mt-1 hidden max-h-72 overflow-y-auto rounded-box border border-base-300 bg-base-100 shadow-xl" data-autocomplete-results></div>
+        </div>
+      </div>
+
+      <div>
+        <label class="label" for="id_status_filter"><span class="label-text">Status</span></label>
+        <select id="id_status_filter" name="status" class="select select-bordered w-full">
+          <option value="">Todos</option>
+          {% for value,label in status_choices %}
+            <option value="{{ value }}" {% if filters.status == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div>
+        <label class="label" for="id_cliente_filter"><span class="label-text">Cliente</span></label>
+        <select id="id_cliente_filter" name="cliente" class="select select-bordered w-full">
+          <option value="">Todos</option>
+          {% for customer in customer_choices %}
+            <option value="{{ customer.pk }}" {% if filters.cliente == customer.pk|stringformat:'s' %}selected{% endif %}>{{ customer.nome_razao_social }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div>
+        <label class="label" for="id_veiculo_filter"><span class="label-text">Veículo</span></label>
+        <select id="id_veiculo_filter" name="veiculo" class="select select-bordered w-full">
+          <option value="">Todos</option>
+          {% for vehicle in vehicle_choices %}
+            <option value="{{ vehicle.pk }}" {% if filters.veiculo == vehicle.pk|stringformat:'s' %}selected{% endif %}>{{ vehicle.placa }} - {{ vehicle.marca }} {{ vehicle.modelo }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div>
+        <label class="label" for="id_data_inicial"><span class="label-text">Abertura inicial</span></label>
+        <input id="id_data_inicial" name="data_inicial" type="date" value="{{ filters.data_inicial }}" class="input input-bordered w-full">
+      </div>
+
+      <div>
+        <label class="label" for="id_data_final"><span class="label-text">Abertura final</span></label>
+        <input id="id_data_final" name="data_final" type="date" value="{{ filters.data_final }}" class="input input-bordered w-full">
+      </div>
+
+      <div>
+        <label class="label" for="id_valor_min"><span class="label-text">Valor mínimo</span></label>
+        <input id="id_valor_min" name="valor_min" type="text" value="{{ filters.valor_min }}" class="input input-bordered w-full" placeholder="0,00" inputmode="decimal" data-mask="money">
+      </div>
+
+      <div>
+        <label class="label" for="id_valor_max"><span class="label-text">Valor máximo</span></label>
+        <input id="id_valor_max" name="valor_max" type="text" value="{{ filters.valor_max }}" class="input input-bordered w-full" placeholder="999,99" inputmode="decimal" data-mask="money">
+      </div>
+
+      <div class="flex items-end gap-2 xl:col-span-2">
+        <button type="submit" class="btn btn-primary flex-1 whitespace-nowrap">Buscar</button>
+        <a href="{% url 'work_order_list' %}" class="btn btn-outline whitespace-nowrap">Limpar</a>
+      </div>
+    </div>
+
+    {% if has_active_filters %}
+      <div class="text-sm text-base-content/70">Filtros ativos. Resultado ordenado pelas OS mais recentes.</div>
+    {% else %}
+      <div class="text-sm text-base-content/70">Use a busca geral com autocomplete ou combine os filtros da OS.</div>
+    {% endif %}
+  </form>
+</div>
+
+<div class="mb-3 flex flex-col gap-1 text-sm text-base-content/70 md:flex-row md:items-center md:justify-between">
+  <span>{{ page_obj.paginator.count }} OS encontrada(s).</span>
+  <span>Ordenação: mais recentes primeiro.</span>
+</div>
+
+<div class="overflow-x-auto rounded-box bg-base-100 shadow">
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Código</th>
+        <th>Cliente</th>
+        <th>Veículo</th>
+        <th>Status</th>
+        <th>Abertura</th>
+        <th>Total</th>
+        <th>Estoque</th>
+        <th class="text-right whitespace-nowrap">Ações</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for order in orders %}
+        <tr>
+          <td class="font-mono whitespace-nowrap">{{ order.codigo }}</td>
+          <td><a href="{% url 'work_order_detail' order.pk %}" class="link link-primary font-medium whitespace-nowrap">{{ order.cliente.nome_razao_social }}</a></td>
+          <td class="whitespace-nowrap">{% if order.veiculo %}{{ order.veiculo.placa }} - {{ order.veiculo.modelo }}{% else %}-{% endif %}</td>
+          <td class="whitespace-nowrap"><span class="badge {{ order.status_badge_class }}">{{ order.get_status_display }}</span></td>
+          <td class="whitespace-nowrap">{{ order.data_abertura|date:'d/m/Y H:i' }}</td>
+          <td class="whitespace-nowrap">{{ order.valor_total|money_br }}</td>
+          <td class="whitespace-nowrap">{% if order.estoque_baixado %}<span class="badge badge-success">Baixado</span>{% else %}<span class="badge badge-warning">Pendente</span>{% endif %}</td>
+          <td class="text-right whitespace-nowrap">
+            <div class="inline-flex flex-nowrap items-center justify-end gap-1 whitespace-nowrap">
+              <a href="{% url 'work_order_detail' order.pk %}" class="btn btn-xs btn-ghost whitespace-nowrap">Ver</a>
+              {% if perms.operations.change_workorder %}<a href="{% url 'work_order_update' order.pk %}" class="btn btn-xs btn-outline whitespace-nowrap">Editar</a>{% endif %}
+              {% if perms.operations.delete_workorder %}<a href="{% url 'work_order_delete' order.pk %}" class="btn btn-xs btn-error btn-outline whitespace-nowrap">Excluir</a>{% endif %}
+            </div>
+          </td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="8" class="text-center">Nenhuma OS cadastrada.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% include 'includes/pagination.html' %}
+{% endblock %}
+
+{% block extra_js %}
+  <script src="{% static 'js/advanced-search.js' %}"></script>
+{% endblock %}

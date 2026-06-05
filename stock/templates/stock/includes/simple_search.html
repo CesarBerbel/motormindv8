@@ -1,0 +1,14 @@
+<form method="get" class="mb-6 rounded-box bg-base-100 p-4 shadow">
+  <div class="grid gap-3 md:grid-cols-[1fr_auto]">
+    <label class="form-control">
+      <span class="label-text mb-1">Buscar</span>
+      <input type="search" name="q" value="{{ filters.q }}" class="input input-bordered w-full" placeholder="Nome, descrição ou código">
+    </label>
+    <div class="flex items-end gap-2">
+      <button type="submit" class="btn btn-primary whitespace-nowrap">Buscar</button>
+      {% if has_active_filters %}
+        <a href="{{ clear_url }}" class="btn btn-ghost whitespace-nowrap">Limpar</a>
+      {% endif %}
+    </div>
+  </div>
+</form>

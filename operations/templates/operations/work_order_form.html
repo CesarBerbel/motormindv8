@@ -1,0 +1,177 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ title }} | MotorMind{% endblock %}
+
+{% block content %}
+<div class="mb-6 flex items-center justify-between gap-4">
+  <div>
+    <h1 class="page-title">{{ title }}</h1>
+    <p class="text-base-content/70">Informe o cliente, veículo, serviços, combos e peças/insumos usados na ordem de serviço.</p>
+  </div>
+  <a href="{{ cancel_url }}" class="btn btn-ghost whitespace-nowrap">Cancelar</a>
+</div>
+
+<form method="post" class="space-y-6" data-work-order-form data-work-order-vehicles-url="{% url 'work_order_customer_vehicles' %}" data-current-vehicle-id="{{ form.instance.veiculo_id|default_if_none:'' }}" {% if form.instance.pk %}data-work-order-locked="true"{% endif %}>
+  {% csrf_token %}
+
+  <div class="card-section">
+    <div class="card-body">
+      <h2 class="card-title">Dados da OS</h2>
+      <div class="form-grid">
+        {% include 'includes/form_fields.html' %}
+      </div>
+      <p class="text-sm text-base-content/60">O código da OS será gerado automaticamente após salvar.</p>
+    </div>
+  </div>
+
+  <div class="card-section">
+    <div class="card-body">
+      <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+        <div>
+          <h2 class="card-title">Serviços</h2>
+          <p class="text-sm text-base-content/70">Adicione serviços avulsos à OS. A quantidade indica quantas vezes o serviço será cobrado.</p>
+        </div>
+        <button type="button" class="btn btn-primary whitespace-nowrap" data-work-order-service-open-modal>Adicionar serviço</button>
+      </div>
+
+      {{ services_formset.management_form }}
+      {% if services_formset.non_form_errors %}<div class="alert alert-error mt-4"><div>{% for error in services_formset.non_form_errors %}<p>{{ error }}</p>{% endfor %}</div></div>{% endif %}
+
+      <div class="hidden" data-work-order-services-hidden-forms>
+        {% for item_form in services_formset.forms %}
+          <div data-work-order-service-form data-form-index="{{ forloop.counter0 }}">
+            {% for hidden in item_form.hidden_fields %}{{ hidden }}{% endfor %}
+            {{ item_form.service }}
+            {{ item_form.quantidade }}
+            {% if item_form.DELETE %}{{ item_form.DELETE }}{% endif %}
+            {% if item_form.errors or item_form.non_field_errors %}
+              <div data-work-order-service-errors>
+                {% for error in item_form.non_field_errors %}<p>{{ error }}</p>{% endfor %}
+                {% for error in item_form.service.errors %}<p>{{ error }}</p>{% endfor %}
+                {% for error in item_form.quantidade.errors %}<p>{{ error }}</p>{% endfor %}
+              </div>
+            {% endif %}
+          </div>
+        {% endfor %}
+      </div>
+      <template data-work-order-service-empty-form-template>
+        <div data-work-order-service-form data-form-index="__prefix__">
+          {% for hidden in services_formset.empty_form.hidden_fields %}{{ hidden }}{% endfor %}
+          {{ services_formset.empty_form.service }}
+          {{ services_formset.empty_form.quantidade }}
+          {% if services_formset.empty_form.DELETE %}{{ services_formset.empty_form.DELETE }}{% endif %}
+        </div>
+      </template>
+      <div class="mt-4 space-y-3" data-work-order-services-list></div>
+      <div class="mt-4 rounded-box border border-dashed border-base-300 bg-base-200 p-6 text-center text-sm text-base-content/60" data-work-order-services-empty>Nenhum serviço adicionado.</div>
+    </div>
+  </div>
+
+  <div class="card-section">
+    <div class="card-body">
+      <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+        <div>
+          <h2 class="card-title">Combos</h2>
+          <p class="text-sm text-base-content/70">Adicione combos comerciais à OS.</p>
+        </div>
+        <button type="button" class="btn btn-primary whitespace-nowrap" data-work-order-combo-open-modal>Adicionar combo</button>
+      </div>
+
+      {{ combos_formset.management_form }}
+      {% if combos_formset.non_form_errors %}<div class="alert alert-error mt-4"><div>{% for error in combos_formset.non_form_errors %}<p>{{ error }}</p>{% endfor %}</div></div>{% endif %}
+
+      <div class="hidden" data-work-order-combos-hidden-forms>
+        {% for item_form in combos_formset.forms %}
+          <div data-work-order-combo-form data-form-index="{{ forloop.counter0 }}">
+            {% for hidden in item_form.hidden_fields %}{{ hidden }}{% endfor %}
+            {{ item_form.combo }}
+            {{ item_form.quantidade }}
+            {% if item_form.DELETE %}{{ item_form.DELETE }}{% endif %}
+            {% if item_form.errors or item_form.non_field_errors %}
+              <div data-work-order-combo-errors>
+                {% for error in item_form.non_field_errors %}<p>{{ error }}</p>{% endfor %}
+                {% for error in item_form.combo.errors %}<p>{{ error }}</p>{% endfor %}
+                {% for error in item_form.quantidade.errors %}<p>{{ error }}</p>{% endfor %}
+              </div>
+            {% endif %}
+          </div>
+        {% endfor %}
+      </div>
+      <template data-work-order-combo-empty-form-template>
+        <div data-work-order-combo-form data-form-index="__prefix__">
+          {% for hidden in combos_formset.empty_form.hidden_fields %}{{ hidden }}{% endfor %}
+          {{ combos_formset.empty_form.combo }}
+          {{ combos_formset.empty_form.quantidade }}
+          {% if combos_formset.empty_form.DELETE %}{{ combos_formset.empty_form.DELETE }}{% endif %}
+        </div>
+      </template>
+      <div class="mt-4 space-y-3" data-work-order-combos-list></div>
+      <div class="mt-4 rounded-box border border-dashed border-base-300 bg-base-200 p-6 text-center text-sm text-base-content/60" data-work-order-combos-empty>Nenhum combo adicionado.</div>
+    </div>
+  </div>
+
+  <div class="card-section">
+    <div class="card-body">
+      <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+        <div>
+          <h2 class="card-title">Peças e insumos avulsos</h2>
+          <p class="text-sm text-base-content/70">Adicione peças avulsas. As peças padrão dos serviços e combos entram automaticamente na baixa de estoque.</p>
+        </div>
+        <button type="button" class="btn btn-primary whitespace-nowrap" data-work-order-part-open-modal>Adicionar peça</button>
+      </div>
+
+      {{ parts_formset.management_form }}
+      {% if parts_formset.non_form_errors %}<div class="alert alert-error mt-4"><div>{% for error in parts_formset.non_form_errors %}<p>{{ error }}</p>{% endfor %}</div></div>{% endif %}
+
+      <div class="hidden" data-work-order-parts-hidden-forms>
+        {% for item_form in parts_formset.forms %}
+          <div data-work-order-part-form data-form-index="{{ forloop.counter0 }}">
+            {% for hidden in item_form.hidden_fields %}{{ hidden }}{% endfor %}
+            {{ item_form.item }}
+            {{ item_form.quantidade }}
+            {% if item_form.DELETE %}{{ item_form.DELETE }}{% endif %}
+            {% if item_form.errors or item_form.non_field_errors %}
+              <div data-work-order-part-errors>
+                {% for error in item_form.non_field_errors %}<p>{{ error }}</p>{% endfor %}
+                {% for error in item_form.item.errors %}<p>{{ error }}</p>{% endfor %}
+                {% for error in item_form.quantidade.errors %}<p>{{ error }}</p>{% endfor %}
+              </div>
+            {% endif %}
+          </div>
+        {% endfor %}
+      </div>
+      <template data-work-order-part-empty-form-template>
+        <div data-work-order-part-form data-form-index="__prefix__">
+          {% for hidden in parts_formset.empty_form.hidden_fields %}{{ hidden }}{% endfor %}
+          {{ parts_formset.empty_form.item }}
+          {{ parts_formset.empty_form.quantidade }}
+          {% if parts_formset.empty_form.DELETE %}{{ parts_formset.empty_form.DELETE }}{% endif %}
+        </div>
+      </template>
+      <div class="mt-4 space-y-3" data-work-order-parts-list></div>
+      <div class="mt-4 rounded-box border border-dashed border-base-300 bg-base-200 p-6 text-center text-sm text-base-content/60" data-work-order-parts-empty>Nenhuma peça avulsa adicionada.</div>
+
+      <div class="card-actions justify-end mt-6">
+        <a href="{{ cancel_url }}" class="btn btn-ghost whitespace-nowrap">Voltar</a>
+        <button type="submit" class="btn btn-primary whitespace-nowrap">Salvar OS</button>
+      </div>
+    </div>
+  </div>
+</form>
+
+{% include 'includes/reusable_select_modal.html' with modal_id='work_order_service_picker_modal' modal_title='Adicionar serviço à OS' modal_description='Busque o serviço, confira os dados no card e informe a quantidade.' search_label='Serviço' search_placeholder='Digite código, nome ou descrição' quantity_label='Quantidade' quantity_placeholder='1' empty_message='Nenhum serviço encontrado.' %}
+{% include 'includes/reusable_select_modal.html' with modal_id='work_order_combo_picker_modal' modal_title='Adicionar combo à OS' modal_description='Busque o combo, confira os dados no card e informe a quantidade.' search_label='Combo' search_placeholder='Digite código, nome ou descrição' quantity_label='Quantidade' quantity_placeholder='1' empty_message='Nenhum combo encontrado.' %}
+{% include 'includes/reusable_select_modal.html' with modal_id='work_order_part_picker_modal' modal_title='Adicionar peça avulsa à OS' modal_description='Busque a peça ou insumo, confira o estoque e informe a quantidade.' search_label='Peça/Insumo' search_placeholder='Digite SKU, nome, categoria ou marca' quantity_label='Quantidade' quantity_placeholder='1' empty_message='Nenhuma peça/insumo encontrada.' %}
+
+{{ work_order_services_json|json_script:'work-order-services-data' }}
+{{ work_order_combos_json|json_script:'work-order-combos-data' }}
+{{ work_order_parts_json|json_script:'work-order-parts-data' }}
+{% endblock %}
+
+{% block extra_js %}
+  <script src="{% static 'js/reusable-select-modal.js' %}"></script>
+  <script src="{% static 'js/work-order-form.js' %}"></script>
+  <script src="{% static 'js/work-order-items.js' %}"></script>
+  <script src="{% static 'js/ai-assistant.js' %}"></script>
+{% endblock %}

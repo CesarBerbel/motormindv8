@@ -1,0 +1,92 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ title }} | MotorMind{% endblock %}
+
+{% block content %}
+<div class="mx-auto max-w-5xl">
+  <div class="mb-6">
+    <h1 class="page-title">{{ title }}</h1>
+    <p class="text-base-content/70">Configure o assunto e o corpo reutilizável da mensagem.</p>
+  </div>
+
+  <form method="post" class="card-section">
+    {% csrf_token %}
+    <div class="card-body space-y-6">
+      {% if form.non_field_errors %}
+        <div class="alert alert-error">
+          <div>
+            {% for error in form.non_field_errors %}
+              <p>{{ error }}</p>
+            {% endfor %}
+          </div>
+        </div>
+      {% endif %}
+
+      <div class="grid gap-4 md:grid-cols-2">
+        <div class="form-control">
+          <label class="label" for="{{ form.nome.id_for_label }}">
+            <span class="label-text">{{ form.nome.label }} <span class="text-error">*</span></span>
+          </label>
+          {{ form.nome }}
+          {% for error in form.nome.errors %}<span class="label-text-alt text-error">{{ error }}</span>{% endfor %}
+        </div>
+
+        <div class="form-control">
+          <label class="label" for="{{ form.tipo.id_for_label }}">
+            <span class="label-text">{{ form.tipo.label }} <span class="text-error">*</span></span>
+          </label>
+          {{ form.tipo }}
+          {% if form.tipo.help_text %}<span class="label-text-alt text-base-content/60">{{ form.tipo.help_text }}</span>{% endif %}
+          {% for error in form.tipo.errors %}<span class="label-text-alt text-error">{{ error }}</span>{% endfor %}
+        </div>
+
+        <div class="form-control md:col-span-2">
+          <label class="label" for="{{ form.assunto.id_for_label }}">
+            <span class="label-text">{{ form.assunto.label }} <span class="text-error">*</span></span>
+          </label>
+          {{ form.assunto }}
+          {% for error in form.assunto.errors %}<span class="label-text-alt text-error">{{ error }}</span>{% endfor %}
+        </div>
+
+        <div class="form-control md:col-span-2" data-ai-field-wrapper>
+          <div class="label gap-2">
+            <label class="label-text" for="{{ form.corpo.id_for_label }}">{{ form.corpo.label }} <span class="text-error">*</span></label>
+            <div class="flex flex-wrap justify-end gap-2">
+              <button type="button" class="btn btn-xs btn-outline btn-primary" data-ai-assist-button data-ai-action="improve_message" data-ai-target="#{{ form.corpo.id_for_label }}" data-ai-url="{% url 'ai_text_assist' %}">IA melhorar</button>
+              <button type="button" class="btn btn-xs btn-outline btn-secondary" data-ai-assist-button data-ai-action="email_template" data-ai-target="#{{ form.corpo.id_for_label }}" data-ai-url="{% url 'ai_text_assist' %}">Gerar email</button>
+              <button type="button" class="btn btn-xs btn-outline btn-accent" data-ai-assist-button data-ai-action="whatsapp_template" data-ai-target="#{{ form.corpo.id_for_label }}" data-ai-url="{% url 'ai_text_assist' %}">Gerar WhatsApp</button>
+            </div>
+          </div>
+          {{ form.corpo }}
+          {% if form.corpo.help_text %}<span class="label-text-alt text-base-content/60">{{ form.corpo.help_text }}</span>{% endif %}
+          {% for error in form.corpo.errors %}<span class="label-text-alt text-error">{{ error }}</span>{% endfor %}
+        </div>
+
+        <div class="form-control">
+          <label class="label cursor-pointer justify-start gap-3" for="{{ form.padrao.id_for_label }}">
+            {{ form.padrao }}
+            <span class="label-text">{{ form.padrao.label }}</span>
+          </label>
+          {% if form.padrao.help_text %}<span class="label-text-alt text-base-content/60">{{ form.padrao.help_text }}</span>{% endif %}
+          {% for error in form.padrao.errors %}<span class="label-text-alt text-error">{{ error }}</span>{% endfor %}
+        </div>
+
+      </div>
+
+      <div class="alert alert-info">
+        <span>Variáveis disponíveis: {% templatetag openvariable %} nome {% templatetag closevariable %}, {% templatetag openvariable %} email {% templatetag closevariable %}, {% templatetag openvariable %} data_envio {% templatetag closevariable %}, {% templatetag openvariable %} cliente.nome_razao_social {% templatetag closevariable %}, {% templatetag openvariable %} fornecedor.nome_razao_social {% templatetag closevariable %}, {% templatetag openvariable %} destinatario.nome_razao_social {% templatetag closevariable %}, {% templatetag openvariable %} ordem_servico.codigo {% templatetag closevariable %}, {% templatetag openvariable %} status_novo_label {% templatetag closevariable %}, {% templatetag openvariable %} veiculo {% templatetag closevariable %} {% templatetag openvariable %} mensagem_status {% templatetag closevariable %}, {% templatetag openvariable %} orcamento.codigo {% templatetag closevariable %}, {% templatetag openvariable %} valor_total {% templatetag closevariable %} e {% templatetag openvariable %} link_aprovacao {% templatetag closevariable %}.</span>
+      </div>
+
+      <div class="card-actions justify-end">
+        <a href="{% url 'message_template_list' %}" class="btn btn-ghost whitespace-nowrap">Cancelar</a>
+        <button type="submit" class="btn btn-primary whitespace-nowrap">Salvar</button>
+      </div>
+    </div>
+  </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+  <script src="{% static 'js/ai-assistant.js' %}"></script>
+{% endblock %}

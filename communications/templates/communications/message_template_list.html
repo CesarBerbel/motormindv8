@@ -1,0 +1,61 @@
+{% extends 'base.html' %}
+
+{% block title %}Templates de mensagens | MotorMind{% endblock %}
+
+{% block content %}
+<div class="mb-6 flex items-center justify-between gap-4">
+  <div>
+    <h1 class="page-title">Templates de mensagens</h1>
+    <p class="text-base-content/70">Defina modelos para aniversário, fundação, mudança de status da OS, orçamento/aprovação da OS, campanhas e comunicados manuais.</p>
+  </div>
+  {% if perms.communications.add_messagetemplate %}
+    <a href="{% url 'message_template_create' %}" class="btn btn-primary whitespace-nowrap">Novo template</a>
+  {% endif %}
+</div>
+
+<div class="overflow-x-auto rounded-box bg-base-100 shadow">
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Nome</th>
+        <th>Tipo</th>
+        <th>Assunto</th>
+        <th>Padrão</th>
+        <th class="text-right">Ações</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in message_templates %}
+        <tr>
+          <td class="font-medium whitespace-nowrap">{{ item.nome }}</td>
+          <td class="whitespace-nowrap">{{ item.get_tipo_display }}</td>
+          <td class="min-w-64">{{ item.assunto }}</td>
+          <td class="whitespace-nowrap">
+            {% if item.padrao %}
+              <span class="badge badge-success">Sim</span>
+            {% else %}
+              <span class="text-base-content/50">-</span>
+            {% endif %}
+          </td>
+          <td class="text-right whitespace-nowrap">
+            <div class="flex justify-end gap-2 whitespace-nowrap">
+              {% if perms.communications.change_messagetemplate %}
+                <a href="{% url 'message_template_update' item.pk %}" class="btn btn-ghost btn-xs whitespace-nowrap">Editar</a>
+              {% endif %}
+              {% if perms.communications.delete_messagetemplate %}
+                <a href="{% url 'message_template_delete' item.pk %}" class="btn btn-error btn-xs whitespace-nowrap">Excluir</a>
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+      {% empty %}
+        <tr>
+          <td colspan="5" class="text-center">Nenhum template cadastrado.</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% include 'includes/pagination.html' %}
+{% endblock %}

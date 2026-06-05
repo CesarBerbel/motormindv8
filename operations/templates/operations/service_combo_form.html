@@ -1,0 +1,97 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ title }} | MotorMind{% endblock %}
+
+{% block content %}
+<div class="mb-6 flex items-center justify-between gap-4">
+  <div>
+    <h1 class="page-title">{{ title }}</h1>
+    <p class="text-base-content/70">Monte combos comerciais associando serviços já cadastrados.</p>
+  </div>
+  <a href="{{ cancel_url }}" class="btn btn-ghost whitespace-nowrap">Cancelar</a>
+</div>
+
+<form method="post" class="space-y-6" data-combo-services-form>
+  {% csrf_token %}
+
+  <div class="card-section">
+    <div class="card-body">
+      <h2 class="card-title">Dados do combo</h2>
+      <div class="form-grid">
+        {% include 'includes/form_fields.html' %}
+      </div>
+      <p class="text-sm text-base-content/60">O código do combo será gerado automaticamente após salvar.</p>
+    </div>
+  </div>
+
+  <div class="card-section">
+    <div class="card-body">
+      <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+        <div>
+          <h2 class="card-title">Serviços associados</h2>
+          <p class="text-sm text-base-content/70">Adicione os serviços que fazem parte desse combo. Isso não cria ordem de serviço nem movimenta estoque.</p>
+        </div>
+        <button type="button" class="btn btn-primary whitespace-nowrap" data-combo-service-open-modal>
+          Adicionar serviço
+        </button>
+      </div>
+
+      {{ services_formset.management_form }}
+
+      {% if services_formset.non_form_errors %}
+        <div class="alert alert-error mt-4">
+          <div>
+            {% for error in services_formset.non_form_errors %}<p>{{ error }}</p>{% endfor %}
+          </div>
+        </div>
+      {% endif %}
+
+      <div class="hidden" data-combo-services-hidden-forms>
+        {% for service_form in services_formset.forms %}
+          <div data-combo-service-form data-form-index="{{ forloop.counter0 }}">
+            {% for hidden in service_form.hidden_fields %}{{ hidden }}{% endfor %}
+            {{ service_form.service }}
+            {% if service_form.DELETE %}{{ service_form.DELETE }}{% endif %}
+
+            {% if service_form.errors or service_form.non_field_errors %}
+              <div data-combo-service-errors>
+                {% for error in service_form.non_field_errors %}<p>{{ error }}</p>{% endfor %}
+                {% for error in service_form.service.errors %}<p>{{ error }}</p>{% endfor %}
+              </div>
+            {% endif %}
+          </div>
+        {% endfor %}
+      </div>
+
+      <template data-combo-service-empty-form-template>
+        <div data-combo-service-form data-form-index="__prefix__">
+          {% for hidden in services_formset.empty_form.hidden_fields %}{{ hidden }}{% endfor %}
+          {{ services_formset.empty_form.service }}
+          {% if services_formset.empty_form.DELETE %}{{ services_formset.empty_form.DELETE }}{% endif %}
+        </div>
+      </template>
+
+      <div class="mt-4 space-y-3" data-combo-services-list></div>
+
+      <div class="mt-4 rounded-box border border-dashed border-base-300 bg-base-200 p-6 text-center text-sm text-base-content/60" data-combo-services-empty>
+        Nenhum serviço adicionado. Clique em <strong>Adicionar serviço</strong> para selecionar os serviços do combo.
+      </div>
+
+      <div class="card-actions justify-end mt-6">
+        <a href="{{ cancel_url }}" class="btn btn-ghost whitespace-nowrap">Voltar</a>
+        <button type="submit" class="btn btn-primary whitespace-nowrap">Salvar</button>
+      </div>
+    </div>
+  </div>
+</form>
+
+{% include 'includes/reusable_select_modal.html' with modal_id='combo_service_picker_modal' modal_title='Adicionar serviço ao combo' modal_description='Busque o serviço, confira os dados no card e clique em salvar para adicioná-lo ao combo.' search_label='Serviço' search_placeholder='Digite código, nome, descrição ou valor' hide_quantity=True empty_message='Nenhum serviço encontrado.' %}
+
+{{ combo_services_json|json_script:'combo-services-data' }}
+{% endblock %}
+
+{% block extra_js %}
+  <script src="{% static 'js/reusable-select-modal.js' %}"></script>
+  <script src="{% static 'js/combo-services.js' %}"></script>
+{% endblock %}

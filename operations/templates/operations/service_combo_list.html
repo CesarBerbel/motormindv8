@@ -1,0 +1,153 @@
+{% extends 'base.html' %}
+{% load static money %}
+
+{% block title %}Combos | MotorMind{% endblock %}
+
+{% block content %}
+<div class="mb-6 flex items-center justify-between gap-4">
+  <div>
+    <h1 class="page-title">Combos</h1>
+    <p class="text-base-content/70">Combos comerciais formados por serviços associados e desconto percentual opcional.</p>
+  </div>
+  {% if perms.operations.add_servicecombo %}
+    <a href="{% url 'service_combo_create' %}" class="btn btn-primary whitespace-nowrap">Novo combo</a>
+  {% endif %}
+</div>
+
+<div class="mb-6 rounded-box bg-base-100 p-4 shadow">
+  <form method="get" class="space-y-4" data-advanced-search-form>
+    <div class="grid grid-cols-1 gap-4 xl:grid-cols-6">
+      <div class="xl:col-span-2">
+        <label class="label" for="id_q">
+          <span class="label-text">Busca geral</span>
+        </label>
+        <div class="relative" data-autocomplete-wrapper>
+          <input
+            id="id_q"
+            name="q"
+            type="search"
+            value="{{ filters.q }}"
+            placeholder="Código, nome, descrição ou serviço"
+            class="input input-bordered w-full"
+            autocomplete="off"
+            data-autocomplete-url="{% url 'service_combo_autocomplete' %}"
+            aria-autocomplete="list"
+            aria-expanded="false"
+          >
+          <div
+            class="absolute left-0 right-0 top-full z-40 mt-1 hidden max-h-72 overflow-y-auto rounded-box border border-base-300 bg-base-100 shadow-xl"
+            data-autocomplete-results
+          ></div>
+        </div>
+      </div>
+
+      <div>
+        <label class="label" for="id_desconto_min_filter">
+          <span class="label-text">Desconto mínimo</span>
+        </label>
+        <input id="id_desconto_min_filter" name="desconto_min" type="text" value="{{ filters.desconto_min }}" class="input input-bordered w-full" placeholder="0,00" inputmode="decimal" data-mask="money">
+      </div>
+
+      <div>
+        <label class="label" for="id_desconto_max_filter">
+          <span class="label-text">Desconto máximo</span>
+        </label>
+        <input id="id_desconto_max_filter" name="desconto_max" type="text" value="{{ filters.desconto_max }}" class="input input-bordered w-full" placeholder="100,00" inputmode="decimal" data-mask="money">
+      </div>
+
+      <div>
+        <label class="label" for="id_valor_min_filter">
+          <span class="label-text">Valor mínimo</span>
+        </label>
+        <input id="id_valor_min_filter" name="valor_min" type="text" value="{{ filters.valor_min }}" class="input input-bordered w-full" placeholder="0,00" inputmode="decimal" data-mask="money">
+      </div>
+
+      <div>
+        <label class="label" for="id_valor_max_filter">
+          <span class="label-text">Valor máximo</span>
+        </label>
+        <input id="id_valor_max_filter" name="valor_max" type="text" value="{{ filters.valor_max }}" class="input input-bordered w-full" placeholder="999,99" inputmode="decimal" data-mask="money">
+      </div>
+
+      <div class="xl:col-span-4">
+        <label class="label" for="id_servico_filter">
+          <span class="label-text">Serviço associado</span>
+        </label>
+        <select id="id_servico_filter" name="servico" class="select select-bordered w-full">
+          <option value="">Todos</option>
+          {% for service in service_choices %}
+            <option value="{{ service.pk }}" {% if filters.servico == service.pk|stringformat:'s' %}selected{% endif %}>{{ service.codigo }} - {{ service.nome }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:col-span-2 xl:self-end">
+        <button type="submit" class="btn btn-primary w-full whitespace-nowrap">Buscar</button>
+        <a href="{% url 'service_combo_list' %}" class="btn btn-outline w-full whitespace-nowrap">Limpar</a>
+      </div>
+    </div>
+
+    {% if has_active_filters %}
+      <div class="text-sm text-base-content/70">Filtros ativos. Resultado ordenado por nome em ordem alfabética crescente.</div>
+    {% else %}
+      <div class="text-sm text-base-content/70">Use a busca geral com autocomplete ou combine filtros por desconto, valor e serviço associado.</div>
+    {% endif %}
+  </form>
+</div>
+
+<div class="mb-3 flex flex-col gap-1 text-sm text-base-content/70 md:flex-row md:items-center md:justify-between">
+  <span>{{ page_obj.paginator.count }} combo(s) encontrado(s).</span>
+  <span>Ordenação: A-Z por nome.</span>
+</div>
+
+<div class="overflow-x-auto rounded-box bg-base-100 shadow">
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Código</th>
+        <th>Nome</th>
+        <th class="text-center whitespace-nowrap">Qtd. serviços</th>
+        <th>Desconto</th>
+        <th>Valor total</th>
+        <th class="text-right whitespace-nowrap">Ações</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for combo in combos %}
+        <tr>
+          <td class="font-mono whitespace-nowrap">{{ combo.codigo }}</td>
+          <td>
+            <a href="{% url 'service_combo_detail' combo.pk %}" class="link link-primary font-medium whitespace-nowrap">{{ combo.nome }}</a>
+          </td>
+          <td class="text-center whitespace-nowrap">
+            <span class="badge badge-outline">{{ combo.servicos_associados.count }} serviço(s)</span>
+          </td>
+          <td class="whitespace-nowrap">{{ combo.desconto_percentual|default:'0,00' }}%</td>
+          <td class="whitespace-nowrap">{{ combo.valor_total|money_br }}</td>
+          <td class="text-right whitespace-nowrap">
+            <div class="inline-flex flex-nowrap items-center justify-end gap-1 whitespace-nowrap">
+              <a href="{% url 'service_combo_detail' combo.pk %}" class="btn btn-xs btn-ghost whitespace-nowrap">Ver</a>
+              {% if perms.operations.change_servicecombo %}
+                <a href="{% url 'service_combo_update' combo.pk %}" class="btn btn-xs btn-outline whitespace-nowrap">Editar</a>
+              {% endif %}
+              {% if perms.operations.delete_servicecombo %}
+                <a href="{% url 'service_combo_delete' combo.pk %}" class="btn btn-xs btn-error btn-outline whitespace-nowrap">Excluir</a>
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+      {% empty %}
+        <tr>
+          <td colspan="6" class="text-center">Nenhum combo cadastrado.</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% include 'includes/pagination.html' %}
+{% endblock %}
+
+{% block extra_js %}
+  <script src="{% static 'js/advanced-search.js' %}"></script>
+{% endblock %}

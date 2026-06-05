@@ -1,0 +1,86 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Clientes | MotorMind{% endblock %}
+
+{% block content %}
+<div class="mb-6 flex items-center justify-between gap-4">
+  <div>
+    <h1 class="page-title">Clientes</h1>
+    <p class="text-base-content/70">Clientes não possuem usuário de login.</p>
+  </div>
+  {% if perms.core.add_customer %}
+    <a href="{% url 'customer_create' %}" class="btn btn-primary whitespace-nowrap">Novo cliente</a>
+  {% endif %}
+</div>
+
+{% url 'customer_autocomplete' as autocomplete_url %}
+{% url 'customer_list' as clear_url %}
+{% include 'core/includes/person_search_form.html' with autocomplete_url=autocomplete_url clear_url=clear_url %}
+
+<div class="mb-3 flex flex-col gap-1 text-sm text-base-content/70 md:flex-row md:items-center md:justify-between">
+  <span>{{ page_obj.paginator.count }} cliente(s) encontrado(s).</span>
+  <span>Ordenação: A-Z por nome/razão social.</span>
+</div>
+
+<div class="overflow-x-auto rounded-box bg-base-100 shadow">
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Nome / Razão social</th>
+        <th>Tipo</th>
+        <th>Email</th>
+        <th>WhatsApp</th>
+        <th>Cidade/UF</th>
+        <th>Categorias</th>
+        <th class="text-right whitespace-nowrap">Ações</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for customer in customers %}
+        <tr>
+          <td>
+            <a href="{% url 'customer_detail' customer.pk %}" class="link link-primary font-medium whitespace-nowrap">
+              {{ customer.nome_razao_social }}
+            </a>
+          </td>
+          <td class="whitespace-nowrap">{{ customer.get_tipo_pessoa_display }}</td>
+          <td class="whitespace-nowrap">{{ customer.email }}</td>
+          <td class="whitespace-nowrap">{{ customer.whatsapp }}</td>
+          <td class="whitespace-nowrap">{{ customer.cidade }}/{{ customer.uf }}</td>
+          <td>
+            <div class="flex max-w-56 flex-nowrap gap-1 overflow-x-auto whitespace-nowrap py-1">
+              {% for categoria in customer.categorias.all %}
+                <span class="badge badge-outline shrink-0">{{ categoria.nome }}</span>
+              {% empty %}
+                <span class="text-base-content/50 whitespace-nowrap">Sem categoria</span>
+              {% endfor %}
+            </div>
+          </td>
+          <td class="text-right whitespace-nowrap">
+            <div class="inline-flex flex-nowrap items-center justify-end gap-1 whitespace-nowrap">
+              <a href="{% url 'customer_detail' customer.pk %}" class="btn btn-xs btn-ghost whitespace-nowrap">Ver</a>
+              {% if perms.core.change_customer %}
+                <a href="{% url 'customer_update' customer.pk %}" class="btn btn-xs btn-outline whitespace-nowrap">Editar</a>
+              {% endif %}
+              {% if perms.core.delete_customer %}
+                <a href="{% url 'customer_delete' customer.pk %}" class="btn btn-xs btn-error btn-outline whitespace-nowrap">Excluir</a>
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+      {% empty %}
+        <tr>
+          <td colspan="7" class="text-center">Nenhum cliente encontrado.</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% include 'includes/pagination.html' %}
+{% endblock %}
+
+{% block extra_js %}
+  <script src="{% static 'js/advanced-search.js' %}"></script>
+{% endblock %}

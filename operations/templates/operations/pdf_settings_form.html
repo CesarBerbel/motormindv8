@@ -1,0 +1,89 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ title }} | MotorMind{% endblock %}
+
+{% block content %}
+<div class="mx-auto max-w-5xl">
+  <div class="mb-6">
+    <h1 class="page-title">{{ title }}</h1>
+    <p class="text-base-content/70">Configure identidade visual global dos PDFs e textos específicos por template.</p>
+  </div>
+
+  <form method="post" enctype="multipart/form-data" class="space-y-6">
+    {% csrf_token %}
+    {% if global_form.non_field_errors or checkin_form.non_field_errors or budget_form.non_field_errors %}
+      <div class="alert alert-error">
+        <div>
+          {{ global_form.non_field_errors }}
+          {{ checkin_form.non_field_errors }}
+          {{ budget_form.non_field_errors }}
+        </div>
+      </div>
+    {% endif %}
+
+    <section class="card-section">
+      <div class="card-body space-y-5">
+        <div>
+          <h2 class="card-title">1. Configuração global</h2>
+          <p class="text-sm text-base-content/70">Logo, cabeçalho e rodapé aplicados a todos os PDFs, salvo textos adicionais do template.</p>
+        </div>
+        <div class="grid gap-4 md:grid-cols-2">
+          <div class="form-control md:col-span-2">
+            <label class="label"><span class="label-text font-medium">{{ global_form.logo.label }}</span></label>
+            {{ global_form.logo }}
+            {% if global_form.instance.logo %}
+              <span class="label-text-alt mt-2 text-base-content/70">Logo atual: {{ global_form.instance.logo.name }}</span>
+            {% endif %}
+            {% for error in global_form.logo.errors %}<span class="label-text-alt text-error">{{ error }}</span>{% endfor %}
+          </div>
+          <div class="form-control">
+            <label class="label"><span class="label-text font-medium">{{ global_form.cabecalho_global.label }}</span></label>
+            {{ global_form.cabecalho_global }}
+            {% for error in global_form.cabecalho_global.errors %}<span class="label-text-alt text-error">{{ error }}</span>{% endfor %}
+          </div>
+          <div class="form-control">
+            <label class="label"><span class="label-text font-medium">{{ global_form.rodape_global.label }}</span></label>
+            {{ global_form.rodape_global }}
+            {% for error in global_form.rodape_global.errors %}<span class="label-text-alt text-error">{{ error }}</span>{% endfor %}
+          </div>
+        </div>
+        <div class="grid gap-3 md:grid-cols-2">
+          <label class="label cursor-pointer justify-start gap-3 rounded-box border border-base-300 p-3">
+            {{ global_form.mostrar_assinatura_cliente_padrao }}
+            <span class="label-text">{{ global_form.mostrar_assinatura_cliente_padrao.label }}</span>
+          </label>
+          <label class="label cursor-pointer justify-start gap-3 rounded-box border border-base-300 p-3">
+            {{ global_form.mostrar_assinatura_oficina_padrao }}
+            <span class="label-text">{{ global_form.mostrar_assinatura_oficina_padrao.label }}</span>
+          </label>
+        </div>
+      </div>
+    </section>
+
+    <section class="card-section">
+      <div class="card-body space-y-5">
+        <div>
+          <h2 class="card-title">2. Template: Check-in do veículo</h2>
+          <p class="text-sm text-base-content/70">Textos e assinaturas usados no PDF gerado após o check-in.</p>
+        </div>
+        {% include 'operations/includes/pdf_template_fields.html' with form=checkin_form %}
+      </div>
+    </section>
+
+    <section class="card-section">
+      <div class="card-body space-y-5">
+        <div>
+          <h2 class="card-title">3. Template: Orçamento / aprovação da OS</h2>
+          <p class="text-sm text-base-content/70">Notas de rodapé e preferências do template de orçamento para quando o PDF de orçamento for usado.</p>
+        </div>
+        {% include 'operations/includes/pdf_template_fields.html' with form=budget_form %}
+      </div>
+    </section>
+
+    <div class="flex justify-end gap-2">
+      <a href="{% url 'dashboard' %}" class="btn btn-ghost">Cancelar</a>
+      <button type="submit" class="btn btn-primary">Salvar configurações de PDF</button>
+    </div>
+  </form>
+</div>
+{% endblock %}

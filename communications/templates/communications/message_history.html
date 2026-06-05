@@ -1,0 +1,93 @@
+{% extends 'base.html' %}
+
+{% block title %}Histórico de mensagens | MotorMind{% endblock %}
+
+{% block content %}
+<div class="mb-6 flex items-center justify-between gap-4">
+  <div>
+    <h1 class="page-title">Histórico de mensagens</h1>
+    <p class="text-base-content/70">Acompanhe emails enviados, pendentes e com erro.</p>
+  </div>
+  <div class="flex gap-2 whitespace-nowrap">
+    {% if perms.communications.view_messagetemplate %}
+      <a href="{% url 'message_template_list' %}" class="btn btn-ghost whitespace-nowrap">Templates</a>
+    {% endif %}
+    {% if perms.communications.add_messagelog %}
+      <a href="{% url 'message_manual' %}" class="btn btn-primary whitespace-nowrap">Nova mensagem</a>
+    {% endif %}
+  </div>
+</div>
+
+<div class="overflow-x-auto rounded-box bg-base-100 shadow">
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Data</th>
+        <th>Tipo</th>
+        <th>Status</th>
+        <th>Destinatário</th>
+        <th>Email</th>
+        <th>Template</th>
+        <th>OS</th>
+        <th>Status OS</th>
+        <th>Assunto</th>
+        <th>Erro</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in messages_history %}
+        <tr>
+          <td class="whitespace-nowrap">{{ item.criado_em|date:'d/m/Y H:i' }}</td>
+          <td class="whitespace-nowrap">{{ item.get_tipo_display }}</td>
+          <td class="whitespace-nowrap">
+            {% if item.status == 'sent' %}
+              <span class="badge badge-success">Enviado</span>
+            {% elif item.status == 'error' %}
+              <span class="badge badge-error">Erro</span>
+            {% else %}
+              <span class="badge badge-warning">Pendente</span>
+            {% endif %}
+          </td>
+          <td class="whitespace-nowrap">{{ item.destinatario_nome }}</td>
+          <td class="whitespace-nowrap">{{ item.destinatario_email }}</td>
+          <td class="whitespace-nowrap">
+            {% if item.template %}
+              {{ item.template.nome }}
+            {% else %}
+              <span class="text-base-content/50">-</span>
+            {% endif %}
+          </td>
+          <td class="whitespace-nowrap">
+            {% if item.ordem_servico_codigo %}
+              {{ item.ordem_servico_codigo }}
+            {% else %}
+              <span class="text-base-content/50">-</span>
+            {% endif %}
+          </td>
+          <td class="whitespace-nowrap">
+            {% if item.ordem_servico_status %}
+              {{ item.get_ordem_servico_status_display }}
+            {% else %}
+              <span class="text-base-content/50">-</span>
+            {% endif %}
+          </td>
+          <td class="min-w-64">{{ item.assunto }}</td>
+          <td class="max-w-md">
+            {% if item.erro %}
+              <span class="text-error">{{ item.erro|truncatechars:120 }}</span>
+            {% else %}
+              <span class="text-base-content/50">-</span>
+            {% endif %}
+          </td>
+        </tr>
+      {% empty %}
+        <tr>
+          <td colspan="10" class="text-center">Nenhuma mensagem registrada.</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% include 'includes/pagination.html' %}
+{% endblock %}

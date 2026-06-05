@@ -1,0 +1,76 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer components {
+  .page-title {
+    @apply text-2xl font-bold tracking-tight;
+  }
+
+  .card-section {
+    @apply card bg-base-100 shadow-xl border border-base-200;
+  }
+
+  .form-grid {
+    @apply grid grid-cols-1 gap-4 md:grid-cols-2;
+  }
+
+
+  .app-toast-container {
+    position: fixed;
+    top: 1rem;
+    right: 1rem;
+    left: 1rem;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.5rem;
+    pointer-events: none;
+  }
+
+  .app-toast {
+    width: min(100%, 34rem);
+    pointer-events: auto;
+    animation: app-toast-enter 180ms ease-out both;
+  }
+
+  .app-toast.is-hiding {
+    animation: app-toast-exit 220ms ease-in both;
+  }
+
+  @keyframes app-toast-enter {
+    from {
+      opacity: 0;
+      transform: translateY(-0.5rem) scale(0.98);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+
+  @keyframes app-toast-exit {
+    from {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+    to {
+      opacity: 0;
+      transform: translateY(-0.5rem) scale(0.98);
+    }
+  }
+
+  @media (max-width: 640px) {
+    .app-toast-container {
+      top: 0.75rem;
+      right: 0.75rem;
+      left: 0.75rem;
+      align-items: stretch;
+    }
+
+    .app-toast {
+      width: 100%;
+    }
+  }
+}

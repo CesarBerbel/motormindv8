@@ -1,0 +1,341 @@
+{% load static %}
+<!doctype html>
+<html lang="pt-br" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}MotorMind{% endblock %}</title>
+  <link rel="stylesheet" href="{% static 'css/styles.css' %}">
+</head>
+<body class="min-h-screen bg-base-200">
+  <div class="navbar bg-base-100 shadow-sm" data-main-navbar>
+    <div class="navbar-start gap-2">
+      {% if request.user.is_authenticated %}
+        <details class="dropdown lg:hidden" data-menu-root>
+          <summary class="btn btn-ghost btn-sm list-none whitespace-nowrap">Menu</summary>
+          <ul class="menu dropdown-content z-50 mt-3 w-72 rounded-box bg-base-100 p-2 shadow">
+            {% if perms.core.view_customer or perms.core.view_vehicle or perms.operations.view_vehiclecheckin %}
+              <li>
+                <details data-menu-nested>
+                  <summary class="whitespace-nowrap">Atendimento</summary>
+                  <ul>
+                    {% if perms.core.view_customer %}
+                      <li><a href="{% url 'customer_list' %}" class="whitespace-nowrap">Clientes</a></li>
+                    {% endif %}
+                    {% if perms.core.view_vehicle %}
+                      <li><a href="{% url 'vehicle_list' %}" class="whitespace-nowrap">Veículos</a></li>
+                    {% endif %}
+                    {% if perms.operations.view_vehiclecheckin %}
+                      <li><a href="{% url 'vehicle_checkin_list' %}" class="whitespace-nowrap">Check-ins</a></li>
+                    {% endif %}
+                  </ul>
+                </details>
+              </li>
+            {% endif %}
+
+            {% if request.user.is_superuser or request.user.role == 'tecnico' %}
+              <li>
+                <details data-menu-nested>
+                  <summary class="whitespace-nowrap">Mecânica</summary>
+                  <ul>
+                    <li><a href="{% url 'mechanic_work_order_list' %}" class="whitespace-nowrap">Fila de OS</a></li>
+                  </ul>
+                </details>
+              </li>
+            {% endif %}
+
+            {% if perms.operations.view_workorder or perms.operations.view_service or perms.operations.view_servicecombo %}
+              <li>
+                <details data-menu-nested>
+                  <summary class="whitespace-nowrap">Operacional</summary>
+                  <ul>
+                    {% if perms.operations.view_workorder %}
+                      <li><a href="{% url 'work_order_list' %}" class="whitespace-nowrap">Ordens de Serviço</a></li>
+                    {% endif %}
+                    {% if perms.operations.view_service %}
+                      <li><a href="{% url 'service_list' %}" class="whitespace-nowrap">Serviços</a></li>
+                    {% endif %}
+                    {% if perms.operations.view_servicecombo %}
+                    <li><a href="{% url 'service_combo_list' %}" class="whitespace-nowrap">Combos</a></li>
+                  {% endif %}
+                  </ul>
+                </details>
+              </li>
+            {% endif %}
+
+            {% if perms.stock.view_inventoryitem or perms.stock.view_purchaseorder or perms.stock.view_stockmovement or perms.core.view_supplier %}
+              <li>
+                <details data-menu-nested>
+                  <summary class="whitespace-nowrap">Estoque</summary>
+                  <ul>
+                    {% if perms.stock.view_inventoryitem %}
+                      <li><a href="{% url 'inventory_item_list' %}" class="whitespace-nowrap">Peças e insumos</a></li>
+                    {% endif %}
+                    {% if perms.stock.view_purchaseorder %}
+                      <li><a href="{% url 'purchase_order_list' %}" class="whitespace-nowrap">Pedidos de compra</a></li>
+                    {% endif %}
+                    {% if perms.stock.view_stockmovement %}
+                      <li><a href="{% url 'stock_movement_list' %}" class="whitespace-nowrap">Movimentações</a></li>
+                    {% endif %}
+                    {% if perms.core.view_supplier %}
+                      <li><a href="{% url 'supplier_list' %}" class="whitespace-nowrap">Fornecedores</a></li>
+                    {% endif %}
+                  </ul>
+                </details>
+              </li>
+            {% endif %}
+
+            {% if perms.communications.add_messagelog or perms.communications.view_messagelog or perms.communications.view_messagetemplate %}
+              <li>
+                <details data-menu-nested>
+                  <summary class="whitespace-nowrap">Mensagens</summary>
+                  <ul>
+                    {% if perms.communications.add_messagelog %}
+                      <li><a href="{% url 'message_manual' %}" class="whitespace-nowrap">Mensagem manual</a></li>
+                    {% endif %}
+                    {% if perms.communications.view_messagetemplate %}
+                      <li><a href="{% url 'message_template_list' %}" class="whitespace-nowrap">Templates</a></li>
+                    {% endif %}
+                    {% if perms.communications.view_messagelog %}
+                      <li><a href="{% url 'message_history' %}" class="whitespace-nowrap">Histórico de mensagens</a></li>
+                    {% endif %}
+                  </ul>
+                </details>
+              </li>
+            {% endif %}
+
+            {% if perms.core.view_category or perms.accounts.view_user or perms.communications.change_messagesettings or perms.operations.change_workordersettings or perms.operations.view_servicecategory or perms.ai_assistant.change_aisettings or perms.stock.view_stockcategory or perms.stock.view_brand or request.user.is_superuser %}
+              <li>
+                <details data-menu-nested>
+                  <summary class="whitespace-nowrap">Configurações</summary>
+                  <ul>
+                    {% if perms.core.view_category or perms.stock.view_stockcategory or perms.operations.view_servicecategory %}
+                      <li>
+                        <details data-menu-nested>
+                          <summary class="whitespace-nowrap">Categorias</summary>
+                          <ul>
+                            {% if perms.core.view_category %}
+                              <li><a href="{% url 'category_list' %}" class="whitespace-nowrap">Clientes e fornecedores</a></li>
+                            {% endif %}
+                            {% if perms.stock.view_stockcategory %}
+                              <li><a href="{% url 'stock_category_list' %}" class="whitespace-nowrap">Peças e insumos</a></li>
+                            {% endif %}
+                            {% if perms.operations.view_servicecategory %}
+                              <li><a href="{% url 'service_category_list' %}" class="whitespace-nowrap">Serviços</a></li>
+                            {% endif %}
+                          </ul>
+                        </details>
+                      </li>
+                    {% endif %}
+                    {% if perms.accounts.view_user %}
+                      <li><a href="{% url 'employee_list' %}" class="whitespace-nowrap">Funcionários</a></li>
+                    {% endif %}
+                    {% if perms.stock.view_brand %}
+                      <li><a href="{% url 'brand_list' %}" class="whitespace-nowrap">Marcas</a></li>
+                    {% endif %}
+                    {% if perms.communications.change_messagesettings %}
+                      <li><a href="{% url 'message_settings' %}" class="whitespace-nowrap">Mensagens</a></li>
+                    {% endif %}
+                    {% if perms.operations.change_workordersettings %}
+                      <li><a href="{% url 'work_order_settings' %}" class="whitespace-nowrap">OS</a></li>
+                      <li><a href="{% url 'pdf_settings' %}" class="whitespace-nowrap">PDFs</a></li>
+                    {% endif %}
+                    {% if perms.ai_assistant.change_aisettings %}
+                      <li><a href="{% url 'ai_settings' %}" class="whitespace-nowrap">IA</a></li>
+                    {% endif %}
+                    {% if request.user.is_superuser %}
+                      <li><a href="{% url 'admin:index' %}" class="whitespace-nowrap">Admin Django</a></li>
+                    {% endif %}
+                  </ul>
+                </details>
+              </li>
+            {% endif %}
+          </ul>
+        </details>
+      {% endif %}
+
+      <a href="{% url 'dashboard' %}" class="btn btn-ghost text-xl whitespace-nowrap">MotorMind</a>
+    </div>
+
+    <div class="navbar-center hidden lg:flex">
+      {% if request.user.is_authenticated %}
+        <ul class="menu menu-horizontal px-1">
+          {% if perms.core.view_customer or perms.core.view_vehicle or perms.operations.view_vehiclecheckin %}
+            <li>
+              <details data-menu-root>
+                <summary class="whitespace-nowrap">Atendimento</summary>
+                <ul class="z-50 w-56 rounded-box bg-base-100 p-2 shadow">
+                  {% if perms.core.view_customer %}
+                    <li><a href="{% url 'customer_list' %}" class="whitespace-nowrap">Clientes</a></li>
+                  {% endif %}
+                  {% if perms.core.view_vehicle %}
+                    <li><a href="{% url 'vehicle_list' %}" class="whitespace-nowrap">Veículos</a></li>
+                  {% endif %}
+                  {% if perms.operations.view_vehiclecheckin %}
+                    <li><a href="{% url 'vehicle_checkin_list' %}" class="whitespace-nowrap">Check-ins</a></li>
+                  {% endif %}
+                </ul>
+              </details>
+            </li>
+          {% endif %}
+
+          {% if request.user.is_superuser or request.user.role == 'tecnico' %}
+            <li>
+              <details data-menu-root>
+                <summary class="whitespace-nowrap">Mecânica</summary>
+                <ul class="z-50 w-56 rounded-box bg-base-100 p-2 shadow">
+                  <li><a href="{% url 'mechanic_work_order_list' %}" class="whitespace-nowrap">Fila de OS</a></li>
+                </ul>
+              </details>
+            </li>
+          {% endif %}
+
+          {% if perms.operations.view_workorder or perms.operations.view_service or perms.operations.view_servicecombo %}
+            <li>
+              <details data-menu-root>
+                <summary class="whitespace-nowrap">Operacional</summary>
+                <ul class="z-50 w-56 rounded-box bg-base-100 p-2 shadow">
+                  {% if perms.operations.view_workorder %}
+                    <li><a href="{% url 'work_order_list' %}" class="whitespace-nowrap">Ordens de Serviço</a></li>
+                  {% endif %}
+                  {% if perms.operations.view_service %}
+                    <li><a href="{% url 'service_list' %}" class="whitespace-nowrap">Serviços</a></li>
+                  {% endif %}
+                  {% if perms.operations.view_servicecombo %}
+                    <li><a href="{% url 'service_combo_list' %}" class="whitespace-nowrap">Combos</a></li>
+                  {% endif %}
+                </ul>
+              </details>
+            </li>
+          {% endif %}
+
+          {% if perms.stock.view_inventoryitem or perms.stock.view_purchaseorder or perms.stock.view_stockmovement or perms.core.view_supplier %}
+            <li>
+              <details data-menu-root>
+                <summary class="whitespace-nowrap">Estoque</summary>
+                <ul class="z-50 w-64 rounded-box bg-base-100 p-2 shadow">
+                  {% if perms.stock.view_inventoryitem %}
+                    <li><a href="{% url 'inventory_item_list' %}" class="whitespace-nowrap">Peças e insumos</a></li>
+                  {% endif %}
+                  {% if perms.stock.view_purchaseorder %}
+                    <li><a href="{% url 'purchase_order_list' %}" class="whitespace-nowrap">Pedidos de compra</a></li>
+                  {% endif %}
+                  {% if perms.stock.view_stockmovement %}
+                    <li><a href="{% url 'stock_movement_list' %}" class="whitespace-nowrap">Movimentações</a></li>
+                  {% endif %}
+                  {% if perms.core.view_supplier %}
+                    <li><a href="{% url 'supplier_list' %}" class="whitespace-nowrap">Fornecedores</a></li>
+                  {% endif %}
+                </ul>
+              </details>
+            </li>
+          {% endif %}
+
+          {% if perms.communications.add_messagelog or perms.communications.view_messagelog or perms.communications.view_messagetemplate %}
+            <li>
+              <details data-menu-root>
+                <summary class="whitespace-nowrap">Mensagens</summary>
+                <ul class="z-50 w-64 rounded-box bg-base-100 p-2 shadow">
+                  {% if perms.communications.add_messagelog %}
+                    <li><a href="{% url 'message_manual' %}" class="whitespace-nowrap">Mensagem manual</a></li>
+                  {% endif %}
+                  {% if perms.communications.view_messagetemplate %}
+                    <li><a href="{% url 'message_template_list' %}" class="whitespace-nowrap">Templates</a></li>
+                  {% endif %}
+                  {% if perms.communications.view_messagelog %}
+                    <li><a href="{% url 'message_history' %}" class="whitespace-nowrap">Histórico de mensagens</a></li>
+                  {% endif %}
+                </ul>
+              </details>
+            </li>
+          {% endif %}
+
+          {% if perms.core.view_category or perms.accounts.view_user or perms.communications.change_messagesettings or perms.operations.change_workordersettings or perms.operations.view_servicecategory or perms.ai_assistant.change_aisettings or perms.stock.view_stockcategory or perms.stock.view_brand or request.user.is_superuser %}
+            <li>
+              <details data-menu-root>
+                <summary class="whitespace-nowrap">Configurações</summary>
+                <ul class="z-50 w-56 rounded-box bg-base-100 p-2 shadow">
+                  {% if perms.core.view_category or perms.stock.view_stockcategory or perms.operations.view_servicecategory %}
+                    <li>
+                      <details data-menu-nested>
+                        <summary class="whitespace-nowrap">Categorias</summary>
+                        <ul>
+                          {% if perms.core.view_category %}
+                            <li><a href="{% url 'category_list' %}" class="whitespace-nowrap">Clientes e fornecedores</a></li>
+                          {% endif %}
+                          {% if perms.stock.view_stockcategory %}
+                            <li><a href="{% url 'stock_category_list' %}" class="whitespace-nowrap">Peças e insumos</a></li>
+                          {% endif %}
+                          {% if perms.operations.view_servicecategory %}
+                            <li><a href="{% url 'service_category_list' %}" class="whitespace-nowrap">Serviços</a></li>
+                          {% endif %}
+                        </ul>
+                      </details>
+                    </li>
+                  {% endif %}
+                  {% if perms.accounts.view_user %}
+                    <li><a href="{% url 'employee_list' %}" class="whitespace-nowrap">Funcionários</a></li>
+                  {% endif %}
+                  {% if perms.stock.view_brand %}
+                    <li><a href="{% url 'brand_list' %}" class="whitespace-nowrap">Marcas</a></li>
+                  {% endif %}
+                  {% if perms.communications.change_messagesettings %}
+                    <li><a href="{% url 'message_settings' %}" class="whitespace-nowrap">Mensagens</a></li>
+                  {% endif %}
+                  {% if perms.operations.change_workordersettings %}
+                    <li><a href="{% url 'work_order_settings' %}" class="whitespace-nowrap">OS</a></li>
+                    <li><a href="{% url 'pdf_settings' %}" class="whitespace-nowrap">PDFs</a></li>
+                  {% endif %}
+                  {% if perms.ai_assistant.change_aisettings %}
+                    <li><a href="{% url 'ai_settings' %}" class="whitespace-nowrap">IA</a></li>
+                  {% endif %}
+                  {% if request.user.is_superuser %}
+                    <li><a href="{% url 'admin:index' %}" class="whitespace-nowrap">Admin Django</a></li>
+                  {% endif %}
+                </ul>
+              </details>
+            </li>
+          {% endif %}
+        </ul>
+      {% endif %}
+    </div>
+
+    <div class="navbar-end gap-2">
+      {% if request.user.is_authenticated %}
+        <span class="hidden max-w-64 truncate text-sm md:inline">{{ request.user.email }}</span>
+        <form action="{% url 'logout' %}" method="post">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-outline btn-sm whitespace-nowrap">Sair</button>
+        </form>
+      {% else %}
+        <a href="{% url 'login' %}" class="btn btn-primary btn-sm whitespace-nowrap">Entrar</a>
+      {% endif %}
+    </div>
+  </div>
+
+  <main class="container mx-auto px-4 py-8">
+    {% block content %}{% endblock %}
+
+    {% if messages %}
+      <div class="app-toast-container" data-toast-container aria-live="polite" aria-atomic="true">
+        {% for message in messages %}
+          <div
+            class="alert app-toast shadow-xl {% if message.tags == 'success' %}alert-success{% elif message.tags == 'error' %}alert-error{% elif message.tags == 'warning' %}alert-warning{% else %}alert-info{% endif %}"
+            role="alert"
+            data-toast
+            data-toast-duration="{% if message.tags == 'error' %}15000{% elif message.tags == 'warning' %}9000{% else %}5000{% endif %}"
+          >
+            <span class="min-w-0 flex-1">{{ message }}</span>
+            <button type="button" class="btn btn-ghost btn-xs btn-circle shrink-0" data-toast-close aria-label="Fechar mensagem">✕</button>
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  </main>
+
+  <script src="{% static 'js/menu.js' %}"></script>
+  <script src="{% static 'js/toasts.js' %}"></script>
+  <script src="{% static 'js/money.js' %}"></script>
+  {% block extra_js %}{% endblock %}
+</body>
+</html>
