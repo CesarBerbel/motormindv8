@@ -8,6 +8,7 @@ def trigger_error(request):
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('', include('website.urls')),
     path('', include('core.urls')),
     path('', include('accounts.urls')),
     path('', include('communications.urls')),

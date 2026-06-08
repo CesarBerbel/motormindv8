@@ -1,0 +1,19 @@
+{% comment %}Cartão de serviço. Espera `servico`.{% endcomment %}
+<a href="{{ servico.get_absolute_url }}"
+   class="card h-full border border-base-200 bg-base-100 transition hover:-translate-y-1 hover:border-primary/40 hover:shadow-lg">
+  {% if servico.imagem %}
+    <figure class="h-40 overflow-hidden">
+      <img src="{{ servico.imagem.url }}" alt="{{ servico.titulo }}" class="h-full w-full object-cover">
+    </figure>
+  {% endif %}
+  <div class="card-body">
+    <div class="flex items-center gap-3">
+      {% if servico.icone %}<span class="text-3xl">{{ servico.icone }}</span>{% endif %}
+      <h3 class="card-title text-lg">{{ servico.titulo }}</h3>
+    </div>
+    {% if servico.resumo %}
+      <p class="text-sm text-base-content/70">{{ servico.resumo }}</p>
+    {% endif %}
+    <span class="mt-2 text-sm font-semibold text-primary">Saber mais →</span>
+  </div>
+</a>

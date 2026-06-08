@@ -1,0 +1,133 @@
+{% load static %}
+<!doctype html>
+<html lang="pt-br" data-theme="bandeirantes">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="csrf-token" content="{{ csrf_token }}">
+  <title>{% block title %}{{ site.nome_fantasia }}{% endblock %}</title>
+  <meta name="description" content="{% block meta_description %}{{ site.slogan }} — {{ site.nome_fantasia }}{% endblock %}">
+  <link rel="stylesheet" href="{% static 'css/styles.css' %}">
+</head>
+<body class="min-h-screen bg-base-100 flex flex-col">
+  <header class="navbar sticky top-0 z-50 bg-base-100/95 backdrop-blur shadow-sm">
+    <div class="container mx-auto flex w-full items-center px-4">
+      <div class="navbar-start">
+        <a href="{% url 'public_home' %}" class="flex items-center gap-3">
+          {% if site.logo %}
+            <img src="{{ site.logo.url }}" alt="{{ site.nome_fantasia }}" class="h-11 w-auto">
+          {% else %}
+            <span class="grid h-11 w-11 place-items-center rounded-full bg-primary text-lg font-black text-primary-content">AB</span>
+          {% endif %}
+          <span class="hidden flex-col leading-tight sm:flex">
+            <span class="text-sm font-extrabold uppercase tracking-wide text-primary">{{ site.nome_fantasia }}</span>
+            <span class="text-xs text-base-content/60">{{ site.slogan }}</span>
+          </span>
+        </a>
+      </div>
+
+      <nav class="navbar-center hidden lg:flex">
+        <ul class="menu menu-horizontal gap-1 px-1 font-medium">
+          <li><a href="{% url 'public_home' %}">Início</a></li>
+          <li><a href="{% url 'public_service_list' %}">Serviços</a></li>
+          <li><a href="{% url 'public_about' %}">Sobre</a></li>
+          <li><a href="{% url 'public_blog_list' %}">Blog</a></li>
+          <li><a href="{% url 'public_contact' %}">Contato</a></li>
+        </ul>
+      </nav>
+
+      <div class="navbar-end gap-2">
+        {% if site.whatsapp_link %}
+          <a href="{{ site.whatsapp_link }}" target="_blank" rel="noopener"
+             class="btn btn-success btn-sm hidden text-success-content sm:inline-flex">
+            WhatsApp
+          </a>
+        {% endif %}
+        <a href="{% url 'public_contact' %}" class="btn btn-primary btn-sm hidden md:inline-flex">Orçamento</a>
+        <a href="{% url 'login' %}" class="btn btn-ghost btn-sm hidden xl:inline-flex">Área restrita</a>
+
+        <div class="dropdown dropdown-end lg:hidden">
+          <label tabindex="0" class="btn btn-ghost btn-sm" aria-label="Abrir menu">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          </label>
+          <ul tabindex="0" class="menu dropdown-content z-50 mt-3 w-56 rounded-box bg-base-100 p-2 shadow-lg">
+            <li><a href="{% url 'public_home' %}">Início</a></li>
+            <li><a href="{% url 'public_service_list' %}">Serviços</a></li>
+            <li><a href="{% url 'public_about' %}">Sobre</a></li>
+            <li><a href="{% url 'public_blog_list' %}">Blog</a></li>
+            <li><a href="{% url 'public_contact' %}">Contato</a></li>
+            <li><a href="{% url 'public_contact' %}" class="font-semibold text-primary">Pedir orçamento</a></li>
+            <li><a href="{% url 'login' %}">Área restrita</a></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="flex-1">
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="bg-neutral text-neutral-content">
+    <div class="container mx-auto grid gap-8 px-4 py-12 md:grid-cols-3">
+      <div>
+        <h3 class="mb-3 text-lg font-bold">{{ site.nome_fantasia }}</h3>
+        <p class="mb-4 text-sm text-neutral-content/70">{{ site.slogan }}</p>
+        {% if site.endereco_completo %}
+          <p class="text-sm text-neutral-content/80">{{ site.endereco_completo }}</p>
+        {% endif %}
+        <div class="mt-4 flex gap-3">
+          {% if site.instagram_url %}<a href="{{ site.instagram_url }}" target="_blank" rel="noopener" class="link link-hover text-sm">Instagram</a>{% endif %}
+          {% if site.facebook_url %}<a href="{{ site.facebook_url }}" target="_blank" rel="noopener" class="link link-hover text-sm">Facebook</a>{% endif %}
+        </div>
+      </div>
+
+      <div>
+        <h3 class="mb-3 text-lg font-bold">Contato</h3>
+        <ul class="space-y-1 text-sm text-neutral-content/80">
+          {% if site.telefone_principal %}<li>📞 {{ site.telefone_principal }}</li>{% endif %}
+          {% if site.telefone_secundario %}<li>📞 {{ site.telefone_secundario }}</li>{% endif %}
+          {% if site.email_contato %}<li>✉️ {{ site.email_contato }}</li>{% endif %}
+          {% if site.whatsapp_link %}<li><a href="{{ site.whatsapp_link }}" target="_blank" rel="noopener" class="link link-hover">💬 Falar no WhatsApp</a></li>{% endif %}
+        </ul>
+      </div>
+
+      <div>
+        <h3 class="mb-3 text-lg font-bold">Horário de funcionamento</h3>
+        <ul class="space-y-1 text-sm text-neutral-content/80">
+          <li>Seg. a Sex.: {{ site.horario_semana }}</li>
+          <li>Sábado: {{ site.horario_sabado }}</li>
+          <li>Domingo: {{ site.horario_domingo }}</li>
+        </ul>
+      </div>
+    </div>
+    <div class="border-t border-neutral-content/10">
+      <div class="container mx-auto flex flex-col items-center justify-between gap-2 px-4 py-4 text-xs text-neutral-content/60 sm:flex-row">
+        <span>© {% now "Y" %} {{ site.nome_fantasia }}. Todos os direitos reservados.</span>
+        <a href="{% url 'login' %}" class="link link-hover">Acesso da equipe</a>
+      </div>
+    </div>
+  </footer>
+
+  {% if messages %}
+    <div class="app-toast-container" data-toast-container aria-live="polite" aria-atomic="true">
+      {% for message in messages %}
+        <div
+          class="alert app-toast shadow-xl {% if message.tags == 'success' %}alert-success{% elif message.tags == 'error' %}alert-error{% elif message.tags == 'warning' %}alert-warning{% else %}alert-info{% endif %}"
+          role="alert"
+          data-toast
+          data-toast-duration="{% if message.tags == 'error' %}15000{% elif message.tags == 'warning' %}9000{% else %}5000{% endif %}"
+        >
+          <span class="min-w-0 flex-1">{{ message }}</span>
+          <button type="button" class="btn btn-ghost btn-xs btn-circle shrink-0" data-toast-close aria-label="Fechar mensagem">✕</button>
+        </div>
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  <script src="{% static 'js/toasts.js' %}"></script>
+  {% block extra_js %}{% endblock %}
+</body>
+</html>

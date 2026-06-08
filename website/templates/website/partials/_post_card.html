@@ -1,0 +1,17 @@
+{% comment %}Cartão de artigo do blog. Espera `post`.{% endcomment %}
+<a href="{{ post.get_absolute_url }}"
+   class="card h-full overflow-hidden border border-base-200 bg-base-100 transition hover:-translate-y-1 hover:shadow-lg">
+  <figure class="h-44 overflow-hidden bg-base-200">
+    {% if post.imagem %}
+      <img src="{{ post.imagem.url }}" alt="{{ post.titulo }}" class="h-full w-full object-cover">
+    {% else %}
+      <div class="grid h-full w-full place-items-center text-4xl text-base-content/20">🛠️</div>
+    {% endif %}
+  </figure>
+  <div class="card-body">
+    <span class="text-xs text-base-content/50">{{ post.publicado_em|date:"d/m/Y" }}</span>
+    <h3 class="card-title text-lg">{{ post.titulo }}</h3>
+    {% if post.resumo %}<p class="text-sm text-base-content/70">{{ post.resumo }}</p>{% endif %}
+    <span class="mt-2 text-sm font-semibold text-primary">Ler artigo →</span>
+  </div>
+</a>

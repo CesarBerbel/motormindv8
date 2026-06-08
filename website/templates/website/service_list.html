@@ -1,0 +1,28 @@
+{% extends 'website/base_public.html' %}
+
+{% block title %}Serviços · {{ site.nome_fantasia }}{% endblock %}
+
+{% block content %}
+  <section class="bg-primary text-primary-content">
+    <div class="container mx-auto px-4 py-14">
+      <h1 class="text-4xl font-black">Nossos serviços</h1>
+      <p class="mt-2 max-w-2xl text-primary-content/85">Mecânica multimarcas completa. Escolha um serviço para saber mais ou peça um orçamento.</p>
+    </div>
+  </section>
+
+  <section class="container mx-auto px-4 py-14">
+    {% if servicos %}
+      <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        {% for servico in servicos %}
+          {% include 'website/partials/_service_card.html' %}
+        {% endfor %}
+      </div>
+    {% else %}
+      <p class="text-center text-base-content/60">Em breve listaremos nossos serviços aqui.</p>
+    {% endif %}
+
+    <div class="mt-12 text-center">
+      <a href="{% url 'public_contact' %}" class="btn btn-primary btn-lg">Pedir orçamento</a>
+    </div>
+  </section>
+{% endblock %}

@@ -1,0 +1,56 @@
+{% extends 'website/base_public.html' %}
+
+{% block title %}{{ servico.titulo }} · {{ site.nome_fantasia }}{% endblock %}
+{% block meta_description %}{{ servico.resumo|default:servico.titulo }}{% endblock %}
+
+{% block content %}
+  <section class="bg-base-200">
+    <div class="container mx-auto px-4 py-10">
+      <div class="breadcrumbs text-sm">
+        <ul>
+          <li><a href="{% url 'public_home' %}">Início</a></li>
+          <li><a href="{% url 'public_service_list' %}">Serviços</a></li>
+          <li>{{ servico.titulo }}</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <article class="container mx-auto grid gap-10 px-4 py-12 lg:grid-cols-3">
+    <div class="lg:col-span-2">
+      <div class="flex items-center gap-3">
+        {% if servico.icone %}<span class="text-4xl">{{ servico.icone }}</span>{% endif %}
+        <h1 class="text-3xl font-bold">{{ servico.titulo }}</h1>
+      </div>
+      {% if servico.imagem %}
+        <img src="{{ servico.imagem.url }}" alt="{{ servico.titulo }}" class="mt-6 w-full rounded-2xl object-cover">
+      {% endif %}
+      {% if servico.resumo %}<p class="mt-6 text-lg text-base-content/80">{{ servico.resumo }}</p>{% endif %}
+      {% if servico.descricao %}
+        <div class="prose mt-4 max-w-none whitespace-pre-line text-base-content/80">{{ servico.descricao }}</div>
+      {% endif %}
+
+      {% if outros_servicos %}
+        <div class="mt-12">
+          <h2 class="mb-4 text-xl font-bold">Outros serviços</h2>
+          <div class="grid gap-4 sm:grid-cols-2">
+            {% for servico in outros_servicos %}
+              {% include 'website/partials/_service_card.html' %}
+            {% endfor %}
+          </div>
+        </div>
+      {% endif %}
+    </div>
+
+    <aside class="lg:col-span-1">
+      <div class="card sticky top-24 border border-base-200 bg-base-100 shadow-sm">
+        <div class="card-body">
+          <h2 class="card-title">Solicitar este serviço</h2>
+          <p class="text-sm text-base-content/70">Deixe seus dados que entramos em contato.</p>
+          {% url 'public_contact' as contact_url %}
+          {% include 'website/partials/_lead_form.html' with form_action=contact_url %}
+        </div>
+      </div>
+    </aside>
+  </article>
+{% endblock %}

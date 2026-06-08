@@ -1,0 +1,46 @@
+{% extends 'website/base_public.html' %}
+
+{% block title %}{{ post.titulo }} · {{ site.nome_fantasia }}{% endblock %}
+{% block meta_description %}{{ post.resumo|default:post.titulo }}{% endblock %}
+
+{% block content %}
+  <section class="bg-base-200">
+    <div class="container mx-auto px-4 py-10">
+      <div class="breadcrumbs text-sm">
+        <ul>
+          <li><a href="{% url 'public_home' %}">Início</a></li>
+          <li><a href="{% url 'public_blog_list' %}">Blog</a></li>
+          <li>{{ post.titulo }}</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <article class="container mx-auto max-w-3xl px-4 py-12">
+    <p class="text-sm text-base-content/50">{{ post.publicado_em|date:"d \d\e F \d\e Y" }}{% if post.autor %} · {{ post.autor.get_full_name|default:post.autor.email }}{% endif %}</p>
+    <h1 class="mt-2 text-4xl font-black">{{ post.titulo }}</h1>
+    {% if post.imagem %}
+      <img src="{{ post.imagem.url }}" alt="{{ post.titulo }}" class="mt-6 w-full rounded-2xl object-cover">
+    {% endif %}
+    {% if post.resumo %}<p class="mt-6 text-lg font-medium text-base-content/80">{{ post.resumo }}</p>{% endif %}
+    <div class="prose mt-6 max-w-none text-base-content/90">{{ post.conteudo|safe }}</div>
+
+    <div class="mt-10 rounded-2xl bg-base-200 p-6 text-center">
+      <h2 class="text-xl font-bold">Precisa de ajuda com seu veículo?</h2>
+      <a href="{% url 'public_contact' %}" class="btn btn-primary mt-4">Pedir orçamento</a>
+    </div>
+  </article>
+
+  {% if posts_recentes %}
+  <section class="bg-base-200">
+    <div class="container mx-auto px-4 py-12">
+      <h2 class="mb-6 text-2xl font-bold">Leia também</h2>
+      <div class="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+        {% for post in posts_recentes %}
+          {% include 'website/partials/_post_card.html' %}
+        {% endfor %}
+      </div>
+    </div>
+  </section>
+  {% endif %}
+{% endblock %}
