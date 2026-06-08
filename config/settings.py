@@ -1,6 +1,7 @@
 from pathlib import Path
 import os
 
+from django.core.exceptions import ImproperlyConfigured
 from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -15,8 +16,19 @@ def env_list(name, default=''):
     return [item.strip() for item in os.getenv(name, default).split(',') if item.strip()]
 
 
-SECRET_KEY = os.getenv('SECRET_KEY', 'unsafe-dev-secret-key')
 DEBUG = env_bool('DEBUG', True)
+
+# A SECRET_KEY nunca deve ter um valor padrao conhecido em producao. Em
+# desenvolvimento (DEBUG=True) usamos um valor inseguro explicito apenas para
+# conveniencia; com DEBUG=False a aplicacao recusa-se a arrancar sem chave.
+SECRET_KEY = os.getenv('SECRET_KEY', '').strip()
+if not SECRET_KEY:
+    if DEBUG:
+        SECRET_KEY = 'unsafe-dev-secret-key-only-for-debug'
+    else:
+        raise ImproperlyConfigured(
+            'SECRET_KEY tem de ser definida no ambiente quando DEBUG=False.'
+        )
 ALLOWED_HOSTS = env_list('ALLOWED_HOSTS', '127.0.0.1,localhost')
 SITE_URL = os.getenv('SITE_URL', '').strip().rstrip('/')
 PUBLIC_BASE_URL = os.getenv('PUBLIC_BASE_URL', SITE_URL).strip().rstrip('/')
@@ -149,11 +161,18 @@ X_FRAME_OPTIONS = os.getenv('X_FRAME_OPTIONS', 'DENY')
 SESSION_COOKIE_AGE = int(os.getenv('SESSION_COOKIE_AGE', '28800'))
 SESSION_SAVE_EVERY_REQUEST = env_bool('SESSION_SAVE_EVERY_REQUEST', True)
 SESSION_COOKIE_HTTPONLY = env_bool('SESSION_COOKIE_HTTPONLY', True)
-CSRF_COOKIE_HTTPONLY = env_bool('CSRF_COOKIE_HTTPONLY', False)
+CSRF_COOKIE_HTTPONLY = env_bool('CSRF_COOKIE_HTTPONLY', True)
 PASSWORD_RESET_TIMEOUT = int(os.getenv('PASSWORD_RESET_TIMEOUT', '3600'))
 LOGIN_ATTEMPT_LIMIT = int(os.getenv('LOGIN_ATTEMPT_LIMIT', '5'))
 LOGIN_ATTEMPT_WINDOW_MINUTES = int(os.getenv('LOGIN_ATTEMPT_WINDOW_MINUTES', '15'))
 LOGIN_LOCKOUT_MINUTES = int(os.getenv('LOGIN_LOCKOUT_MINUTES', '15'))
+
+# Logging com saida para consola e ficheiro rotativo persistente.
+LOG_DIR = Path(os.getenv('LOG_DIR', BASE_DIR / 'logs'))
+LOG_DIR.mkdir(parents=True, exist_ok=True)
+LOG_LEVEL = os.getenv('DJANGO_LOG_LEVEL', 'INFO')
+LOG_FILE_MAX_BYTES = int(os.getenv('LOG_FILE_MAX_BYTES', str(5 * 1024 * 1024)))
+LOG_FILE_BACKUP_COUNT = int(os.getenv('LOG_FILE_BACKUP_COUNT', '5'))
 
 LOGGING = {
     'version': 1,
@@ -169,15 +188,28 @@ LOGGING = {
             'class': 'logging.StreamHandler',
             'formatter': 'standard',
         },
+        'file': {
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': str(LOG_DIR / 'motormind.log'),
+            'maxBytes': LOG_FILE_MAX_BYTES,
+            'backupCount': LOG_FILE_BACKUP_COUNT,
+            'encoding': 'utf-8',
+            'formatter': 'standard',
+        },
     },
     'root': {
-        'handlers': ['console'],
-        'level': os.getenv('DJANGO_LOG_LEVEL', 'INFO'),
+        'handlers': ['console', 'file'],
+        'level': LOG_LEVEL,
     },
     'loggers': {
         'django': {
-            'handlers': ['console'],
-            'level': os.getenv('DJANGO_LOG_LEVEL', 'INFO'),
+            'handlers': ['console', 'file'],
+            'level': LOG_LEVEL,
+            'propagate': False,
+        },
+        'ai_assistant': {
+            'handlers': ['console', 'file'],
+            'level': LOG_LEVEL,
             'propagate': False,
         },
     },

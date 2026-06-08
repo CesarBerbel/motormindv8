@@ -6,6 +6,17 @@
     return '';
   }
 
+  // Com CSRF_COOKIE_HTTPONLY=True o cookie csrftoken nao e legivel por JS.
+  // Lemos o token da meta tag renderizada pelo servidor (ou de um campo
+  // csrfmiddlewaretoken no formulario) e usamos o cookie apenas como fallback.
+  function getCsrfToken() {
+    const meta = document.querySelector('meta[name="csrf-token"]');
+    if (meta && meta.content) return meta.content;
+    const input = document.querySelector('input[name="csrfmiddlewaretoken"]');
+    if (input && input.value) return input.value;
+    return getCookie('csrftoken');
+  }
+
   function findTarget(button) {
     const selector = button.dataset.aiTarget;
     if (selector) {
@@ -90,7 +101,7 @@
         credentials: 'same-origin',
         headers: {
           'Content-Type': 'application/json',
-          'X-CSRFToken': getCookie('csrftoken')
+          'X-CSRFToken': getCsrfToken()
         },
         body: JSON.stringify({
           action: action,
@@ -130,7 +141,7 @@
         credentials: 'same-origin',
         headers: {
           'Content-Type': 'application/json',
-          'X-CSRFToken': getCookie('csrftoken')
+          'X-CSRFToken': getCsrfToken()
         },
         body: JSON.stringify({})
       });

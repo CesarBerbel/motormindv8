@@ -5,4 +5,5 @@ __pycache__/
 .env
 node_modules/
 staticfiles/
+logs/
 .DS_Store

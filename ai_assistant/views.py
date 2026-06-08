@@ -11,7 +11,20 @@ from django.views.generic import UpdateView
 from core.views import FormTitleMixin
 from .forms import AISettingsForm
 from .models import AIAssistantAction, AISettings
-from .services import AIServiceError, generate_ai_text, sanitize_context, test_ai_connection
+from .services import (
+    AIServiceError,
+    check_ai_rate_limit,
+    generate_ai_text,
+    sanitize_context,
+    test_ai_connection,
+)
+
+
+def _rate_limited_response():
+    return JsonResponse(
+        {'ok': False, 'error': 'Muitas solicitações de IA em pouco tempo. Aguarde um instante e tente novamente.'},
+        status=429,
+    )
 
 
 class AISettingsView(LoginRequiredMixin, PermissionRequiredMixin, FormTitleMixin, UpdateView):
@@ -59,20 +72,11 @@ class AITextAssistView(AIPermissionMixin, View):
         if action not in AIAssistantAction.values:
             return JsonResponse({'ok': False, 'error': 'Ação de IA inválida.'}, status=400)
 
-        settings = AISettings.get_solo()
-        if action in {
-            AIAssistantAction.IMPROVE_PROBLEM,
-            AIAssistantAction.IMPROVE_DIAGNOSIS,
-            AIAssistantAction.SUGGEST_OBSERVATION,
-        } and not settings.habilitar_os:
-            return JsonResponse({'ok': False, 'error': 'A IA para campos da OS está desabilitada nas configurações.'}, status=400)
-        if action in {
-            AIAssistantAction.IMPROVE_MESSAGE,
-            AIAssistantAction.EMAIL_TEMPLATE,
-            AIAssistantAction.WHATSAPP_TEMPLATE,
-        } and not settings.habilitar_mensagens:
-            return JsonResponse({'ok': False, 'error': 'A IA para mensagens/templates está desabilitada nas configurações.'}, status=400)
+        if not check_ai_rate_limit(request.user):
+            return _rate_limited_response()
 
+        # As regras de habilitacao por tipo de acao vivem no servico
+        # (ensure_action_enabled), chamado dentro de generate_ai_text.
         try:
             result = generate_ai_text(action, text=text, context=context, user=request.user)
         except AIServiceError as exc:
@@ -92,6 +96,8 @@ class AITestConnectionView(AIPermissionMixin, View):
     def post(self, request, *args, **kwargs):
         if not (request.user.is_superuser or request.user.has_perm('ai_assistant.change_aisettings')):
             return JsonResponse({'ok': False, 'error': 'Sem permissão para testar a configuração de IA.'}, status=403)
+        if not check_ai_rate_limit(request.user):
+            return _rate_limited_response()
         try:
             result = test_ai_connection(user=request.user)
         except Exception as exc:
