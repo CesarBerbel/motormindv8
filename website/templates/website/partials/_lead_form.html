@@ -1,0 +1,50 @@
+{% comment %}Formulário de pedido de orçamento. Espera `form` no contexto.{% endcomment %}
+<form method="post" action="{{ form_action|default:'/contato/' }}" class="space-y-4">
+  {% csrf_token %}
+  {% if form.non_field_errors %}
+    <div class="alert alert-error text-sm">{{ form.non_field_errors }}</div>
+  {% endif %}
+
+  <div class="grid gap-4 sm:grid-cols-2">
+    <label class="form-control w-full">
+      <span class="label-text mb-1 font-medium">Nome *</span>
+      {{ form.nome }}
+      {% for e in form.nome.errors %}<span class="mt-1 text-sm text-error">{{ e }}</span>{% endfor %}
+    </label>
+    <label class="form-control w-full">
+      <span class="label-text mb-1 font-medium">Telefone / WhatsApp *</span>
+      {{ form.telefone }}
+      {% for e in form.telefone.errors %}<span class="mt-1 text-sm text-error">{{ e }}</span>{% endfor %}
+    </label>
+  </div>
+
+  <div class="grid gap-4 sm:grid-cols-2">
+    <label class="form-control w-full">
+      <span class="label-text mb-1 font-medium">E-mail</span>
+      {{ form.email }}
+      {% for e in form.email.errors %}<span class="mt-1 text-sm text-error">{{ e }}</span>{% endfor %}
+    </label>
+    <label class="form-control w-full">
+      <span class="label-text mb-1 font-medium">Serviço de interesse</span>
+      {{ form.servico }}
+    </label>
+  </div>
+
+  <div class="grid gap-4 sm:grid-cols-2">
+    <label class="form-control w-full">
+      <span class="label-text mb-1 font-medium">Veículo</span>
+      {{ form.veiculo }}
+    </label>
+    <label class="form-control w-full">
+      <span class="label-text mb-1 font-medium">Placa</span>
+      {{ form.placa }}
+    </label>
+  </div>
+
+  <label class="form-control w-full">
+    <span class="label-text mb-1 font-medium">Mensagem</span>
+    {{ form.mensagem }}
+  </label>
+
+  <button type="submit" class="btn btn-primary w-full sm:w-auto">Enviar pedido de orçamento</button>
+</form>

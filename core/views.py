@@ -31,13 +31,6 @@ from .models import (
 )
 
 
-class HomeView(View):
-    def get(self, request, *args, **kwargs):
-        if request.user.is_authenticated:
-            return redirect('dashboard')
-        return redirect('login')
-
-
 class DashboardView(LoginRequiredMixin, TemplateView):
     template_name = 'core/dashboard.html'
 

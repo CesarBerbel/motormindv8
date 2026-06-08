@@ -1,0 +1,38 @@
+{% extends 'website/base_public.html' %}
+
+{% block title %}Blog · {{ site.nome_fantasia }}{% endblock %}
+
+{% block content %}
+  <section class="bg-primary text-primary-content">
+    <div class="container mx-auto px-4 py-14">
+      <h1 class="text-4xl font-black">Blog & Dicas</h1>
+      <p class="mt-2 max-w-2xl text-primary-content/85">Conteúdo para você cuidar melhor do seu veículo.</p>
+    </div>
+  </section>
+
+  <section class="container mx-auto px-4 py-14">
+    {% if posts %}
+      <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        {% for post in posts %}
+          {% include 'website/partials/_post_card.html' %}
+        {% endfor %}
+      </div>
+
+      {% if is_paginated %}
+        <div class="mt-10 flex justify-center">
+          <div class="join">
+            {% if page_obj.has_previous %}
+              <a class="btn join-item" href="?page={{ page_obj.previous_page_number }}">«</a>
+            {% endif %}
+            <span class="btn btn-active join-item">Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}</span>
+            {% if page_obj.has_next %}
+              <a class="btn join-item" href="?page={{ page_obj.next_page_number }}">»</a>
+            {% endif %}
+          </div>
+        </div>
+      {% endif %}
+    {% else %}
+      <p class="text-center text-base-content/60">Ainda não há artigos publicados. Volte em breve!</p>
+    {% endif %}
+  </section>
+{% endblock %}

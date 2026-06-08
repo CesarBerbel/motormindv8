@@ -1,0 +1,75 @@
+{% extends 'website/base_public.html' %}
+
+{% block title %}Sobre · {{ site.nome_fantasia }}{% endblock %}
+
+{% block content %}
+  <section class="bg-primary text-primary-content">
+    <div class="container mx-auto px-4 py-16">
+      <h1 class="text-4xl font-black">Sobre a {{ site.nome_fantasia }}</h1>
+      <p class="mt-3 max-w-2xl text-primary-content/85">{{ site.slogan }}</p>
+    </div>
+  </section>
+
+  <section class="container mx-auto grid gap-10 px-4 py-14 lg:grid-cols-3">
+    <div class="lg:col-span-2">
+      <div class="prose max-w-none whitespace-pre-line text-base-content/80">
+        {% if site.sobre %}{{ site.sobre }}{% else %}A {{ site.nome_fantasia }} é uma oficina mecânica multimarcas que une experiência técnica e atendimento próximo. Trabalhamos com diagnóstico preciso, peças de qualidade e total transparência: você só aprova o serviço depois de receber um orçamento claro. Nosso compromisso é cuidar do seu carro como se fosse nosso.{% endif %}
+      </div>
+
+      {% if servicos %}
+        <h2 class="mt-10 text-2xl font-bold">O que fazemos</h2>
+        <div class="mt-4 grid gap-3 sm:grid-cols-2">
+          {% for servico in servicos %}
+            <a href="{{ servico.get_absolute_url }}" class="flex items-center gap-3 rounded-xl border border-base-200 bg-base-100 p-3 hover:border-primary/40">
+              <span class="text-2xl">{{ servico.icone|default:"🔧" }}</span>
+              <span class="font-medium">{{ servico.titulo }}</span>
+            </a>
+          {% endfor %}
+        </div>
+      {% endif %}
+    </div>
+
+    <aside>
+      <div class="card border border-base-200 bg-base-100">
+        <div class="card-body">
+          <h2 class="card-title">Visite a oficina</h2>
+          {% if site.endereco_completo %}<p class="text-sm text-base-content/80">📍 {{ site.endereco_completo }}</p>{% endif %}
+          <ul class="mt-2 space-y-1 text-sm text-base-content/80">
+            <li>🕗 Seg. a Sex.: {{ site.horario_semana }}</li>
+            <li>🕗 Sábado: {{ site.horario_sabado }}</li>
+            <li>🕗 Domingo: {{ site.horario_domingo }}</li>
+          </ul>
+          {% if site.telefone_principal %}<p class="mt-2 text-sm">📞 {{ site.telefone_principal }}</p>{% endif %}
+          {% if site.whatsapp_link %}
+            <a href="{{ site.whatsapp_link }}" target="_blank" rel="noopener" class="btn btn-success btn-sm mt-3 text-success-content">WhatsApp</a>
+          {% endif %}
+        </div>
+      </div>
+      {% if site.google_maps_embed %}
+        <div class="mt-6 overflow-hidden rounded-2xl border border-base-300">
+          <iframe src="{{ site.google_maps_embed }}" width="100%" height="240" style="border:0" loading="lazy"
+                  referrerpolicy="no-referrer-when-downgrade" title="Localização"></iframe>
+        </div>
+      {% endif %}
+    </aside>
+  </section>
+
+  {% if depoimentos %}
+  <section class="bg-base-200">
+    <div class="container mx-auto px-4 py-14">
+      <h2 class="mb-6 text-center text-3xl font-bold">Quem confia na gente</h2>
+      <div class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        {% for d in depoimentos %}
+          <div class="card border border-base-200 bg-base-100">
+            <div class="card-body">
+              <div class="text-warning">{{ d.estrelas }}</div>
+              <p class="text-base-content/80">“{{ d.texto }}”</p>
+              <p class="mt-2 font-semibold">— {{ d.nome_cliente }}</p>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+  </section>
+  {% endif %}
+{% endblock %}

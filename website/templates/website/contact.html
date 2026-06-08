@@ -1,0 +1,54 @@
+{% extends 'website/base_public.html' %}
+
+{% block title %}Contato · {{ site.nome_fantasia }}{% endblock %}
+
+{% block content %}
+  <section class="bg-primary text-primary-content">
+    <div class="container mx-auto px-4 py-14">
+      <h1 class="text-4xl font-black">Fale com a gente</h1>
+      <p class="mt-2 max-w-2xl text-primary-content/85">Peça um orçamento ou tire suas dúvidas. Respondemos rápido!</p>
+    </div>
+  </section>
+
+  <section class="container mx-auto grid gap-10 px-4 py-14 lg:grid-cols-2">
+    <div>
+      <h2 class="text-2xl font-bold">Pedido de orçamento</h2>
+      <p class="mt-1 text-base-content/70">Preencha os campos abaixo. Campos com * são obrigatórios.</p>
+      <div class="card mt-6 border border-base-200 bg-base-100 shadow-sm">
+        <div class="card-body">
+          {% url 'public_contact' as contact_url %}
+          {% include 'website/partials/_lead_form.html' with form_action=contact_url %}
+        </div>
+      </div>
+    </div>
+
+    <div class="space-y-6">
+      <div class="card border border-base-200 bg-base-100">
+        <div class="card-body">
+          <h2 class="card-title">Contato direto</h2>
+          <ul class="space-y-2 text-base-content/80">
+            {% if site.telefone_principal %}<li>📞 {{ site.telefone_principal }}</li>{% endif %}
+            {% if site.telefone_secundario %}<li>📞 {{ site.telefone_secundario }}</li>{% endif %}
+            {% if site.email_contato %}<li>✉️ {{ site.email_contato }}</li>{% endif %}
+            {% if site.endereco_completo %}<li>📍 {{ site.endereco_completo }}</li>{% endif %}
+          </ul>
+          {% if site.whatsapp_link %}
+            <a href="{{ site.whatsapp_link }}" target="_blank" rel="noopener" class="btn btn-success mt-2 text-success-content">Falar no WhatsApp</a>
+          {% endif %}
+          <ul class="mt-4 space-y-1 text-sm text-base-content/70">
+            <li>Seg. a Sex.: {{ site.horario_semana }}</li>
+            <li>Sábado: {{ site.horario_sabado }}</li>
+            <li>Domingo: {{ site.horario_domingo }}</li>
+          </ul>
+        </div>
+      </div>
+
+      {% if site.google_maps_embed %}
+        <div class="overflow-hidden rounded-2xl border border-base-300">
+          <iframe src="{{ site.google_maps_embed }}" width="100%" height="300" style="border:0" loading="lazy"
+                  referrerpolicy="no-referrer-when-downgrade" title="Localização"></iframe>
+        </div>
+      {% endif %}
+    </div>
+  </section>
+{% endblock %}

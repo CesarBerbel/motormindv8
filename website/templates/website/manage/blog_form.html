@@ -1,0 +1,83 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ title }} | MotorMind{% endblock %}
+
+{% block content %}
+<div class="mx-auto max-w-4xl">
+  <div class="mb-6">
+    <h1 class="page-title">{{ title }}</h1>
+    <p class="text-base-content/70">Os artigos publicados aparecem no blog do site público.</p>
+  </div>
+
+  <form method="post" enctype="multipart/form-data" class="card-section">
+    {% csrf_token %}
+    <div class="card-body space-y-6">
+      {% if form.non_field_errors %}
+        <div class="alert alert-error">
+          <div>
+            {% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}
+          </div>
+        </div>
+      {% endif %}
+
+      <div class="grid gap-4 md:grid-cols-2">
+        <div class="form-control md:col-span-2">
+          <label class="label" for="{{ form.titulo.id_for_label }}">
+            <span class="label-text">{{ form.titulo.label }} <span class="text-error">*</span></span>
+          </label>
+          {{ form.titulo }}
+          {% for error in form.titulo.errors %}<span class="label-text-alt text-error">{{ error }}</span>{% endfor %}
+        </div>
+
+        <div class="form-control md:col-span-2">
+          <label class="label" for="{{ form.slug.id_for_label }}">
+            <span class="label-text">{{ form.slug.label }}</span>
+          </label>
+          {{ form.slug }}
+          {% if form.slug.help_text %}<span class="label-text-alt text-base-content/60">{{ form.slug.help_text }}</span>{% endif %}
+          {% for error in form.slug.errors %}<span class="label-text-alt text-error">{{ error }}</span>{% endfor %}
+        </div>
+
+        <div class="form-control md:col-span-2">
+          <label class="label" for="{{ form.resumo.id_for_label }}">
+            <span class="label-text">{{ form.resumo.label }}</span>
+          </label>
+          {{ form.resumo }}
+          {% for error in form.resumo.errors %}<span class="label-text-alt text-error">{{ error }}</span>{% endfor %}
+        </div>
+
+        <div class="form-control md:col-span-2">
+          <label class="label" for="{{ form.imagem.id_for_label }}">
+            <span class="label-text">{{ form.imagem.label }}</span>
+          </label>
+          {{ form.imagem }}
+          {% for error in form.imagem.errors %}<span class="label-text-alt text-error">{{ error }}</span>{% endfor %}
+        </div>
+
+        <div class="form-control md:col-span-2">
+          <label class="label" for="{{ form.conteudo.id_for_label }}">
+            <span class="label-text">{{ form.conteudo.label }} <span class="text-error">*</span></span>
+          </label>
+          {{ form.conteudo }}
+          {% if form.conteudo.help_text %}<span class="label-text-alt text-base-content/60">{{ form.conteudo.help_text }}</span>{% endif %}
+          {% for error in form.conteudo.errors %}<span class="label-text-alt text-error">{{ error }}</span>{% endfor %}
+        </div>
+
+        <div class="form-control md:col-span-2">
+          <label class="label cursor-pointer justify-start gap-3" for="{{ form.publicado.id_for_label }}">
+            {{ form.publicado }}
+            <span class="label-text">{{ form.publicado.label }}</span>
+          </label>
+          {% if form.publicado.help_text %}<span class="label-text-alt text-base-content/60">{{ form.publicado.help_text }}</span>{% endif %}
+          {% for error in form.publicado.errors %}<span class="label-text-alt text-error">{{ error }}</span>{% endfor %}
+        </div>
+      </div>
+
+      <div class="card-actions justify-end">
+        <a href="{% url 'blog_manage_list' %}" class="btn btn-ghost whitespace-nowrap">Cancelar</a>
+        <button type="submit" class="btn btn-primary whitespace-nowrap">Salvar</button>
+      </div>
+    </div>
+  </form>
+</div>
+{% endblock %}
