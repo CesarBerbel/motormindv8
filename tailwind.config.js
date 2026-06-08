@@ -21,19 +21,19 @@ module.exports = {
       'dark',
       'cupcake',
       {
-        // Tema da vitrine pública, inspirado no logo verde da oficina.
+        // Tema da vitrine pública: tons de azul escuro, no mesmo tom do rodapé.
         bandeirantes: {
-          'primary': '#15803d',
+          'primary': '#1f2937',
           'primary-content': '#ffffff',
-          'secondary': '#f59e0b',
-          'secondary-content': '#1c1917',
-          'accent': '#22c55e',
-          'accent-content': '#052e16',
+          'secondary': '#2563eb',
+          'secondary-content': '#ffffff',
+          'accent': '#3b82f6',
+          'accent-content': '#ffffff',
           'neutral': '#1f2937',
           'neutral-content': '#e5e7eb',
           'base-100': '#ffffff',
-          'base-200': '#f3f4f6',
-          'base-300': '#e5e7eb',
+          'base-200': '#f1f5f9',
+          'base-300': '#e2e8f0',
           'base-content': '#1f2937',
           'info': '#0ea5e9',
           'info-content': '#ffffff',
