@@ -12,6 +12,7 @@ PERMISSIONS_BY_ROLE = {
         'accounts.add_user',
         'accounts.change_user',
         'accounts.delete_user',
+        'audit.view_auditlog',
         'ai_assistant.view_aisettings',
         'ai_assistant.change_aisettings',
         'ai_assistant.view_aiinteractionlog',

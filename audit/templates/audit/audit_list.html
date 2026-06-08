@@ -1,0 +1,157 @@
+{% extends 'base.html' %}
+
+{% block title %}Auditoria | MotorMind{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+  <h1 class="page-title">Auditoria</h1>
+  <p class="text-base-content/70">Registro de logins, navegação e todas as alterações de dados (inclusão, edição e exclusão lógica).</p>
+</div>
+
+<div class="card mb-6 bg-base-100 shadow">
+  <div class="card-body p-4 sm:p-6">
+    <form method="get" class="grid grid-cols-1 gap-4 md:grid-cols-12">
+      <div class="md:col-span-4">
+        <label class="label" for="id_q"><span class="label-text">Busca</span></label>
+        <input id="id_q" name="q" type="search" value="{{ filters.q }}" placeholder="Usuário, objeto, IP, caminho..." class="input input-bordered w-full">
+      </div>
+      <div class="md:col-span-2">
+        <label class="label" for="id_categoria"><span class="label-text">Categoria</span></label>
+        <select id="id_categoria" name="categoria" class="select select-bordered w-full">
+          <option value="">Todas</option>
+          {% for value, label in categorias %}
+            <option value="{{ value }}" {% if filters.categoria == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="md:col-span-2">
+        <label class="label" for="id_acao"><span class="label-text">Ação</span></label>
+        <select id="id_acao" name="acao" class="select select-bordered w-full">
+          <option value="">Todas</option>
+          {% for value, label in acoes %}
+            <option value="{{ value }}" {% if filters.acao == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="md:col-span-4">
+        <label class="label" for="id_usuario"><span class="label-text">Usuário</span></label>
+        <select id="id_usuario" name="usuario" class="select select-bordered w-full">
+          <option value="">Todos</option>
+          {% for u in usuarios %}
+            <option value="{{ u.pk }}" {% if filters.usuario == u.pk|stringformat:'s' %}selected{% endif %}>{{ u.email }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="md:col-span-3">
+        <label class="label" for="id_modelo"><span class="label-text">Modelo</span></label>
+        <select id="id_modelo" name="modelo" class="select select-bordered w-full">
+          <option value="">Todos</option>
+          {% for m in modelos %}
+            <option value="{{ m }}" {% if filters.modelo == m %}selected{% endif %}>{{ m }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="md:col-span-2">
+        <label class="label" for="id_de"><span class="label-text">De</span></label>
+        <input id="id_de" name="de" type="date" value="{{ filters.de }}" class="input input-bordered w-full">
+      </div>
+      <div class="md:col-span-2">
+        <label class="label" for="id_ate"><span class="label-text">Até</span></label>
+        <input id="id_ate" name="ate" type="date" value="{{ filters.ate }}" class="input input-bordered w-full">
+      </div>
+      <div class="flex items-end gap-2 md:col-span-5">
+        <button type="submit" class="btn btn-primary whitespace-nowrap">Filtrar</button>
+        <a href="{% url 'audit_list' %}" class="btn btn-outline whitespace-nowrap">Limpar</a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="mb-3 text-sm text-base-content/70">{{ page_obj.paginator.count }} registro(s).</div>
+
+<div class="overflow-x-auto rounded-box bg-base-100 shadow">
+  <table class="table table-sm">
+    <thead>
+      <tr>
+        <th>Data</th>
+        <th>Usuário</th>
+        <th>Ação</th>
+        <th>Objeto</th>
+        <th class="text-right">Detalhes</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in registros %}
+        <tr>
+          <td class="whitespace-nowrap">{{ r.criado_em|date:'d/m/Y H:i:s' }}</td>
+          <td class="max-w-44 truncate" title="{{ r.usuario_email }}">{{ r.usuario_email|default:'—' }}</td>
+          <td class="whitespace-nowrap">
+            {% if r.acao == 'login' or r.acao == 'restaurar' %}<span class="badge badge-success badge-sm">{{ r.get_acao_display }}</span>
+            {% elif r.acao == 'login_falha' or r.acao == 'excluir' or r.acao == 'excluir_fisico' %}<span class="badge badge-error badge-sm">{{ r.get_acao_display }}</span>
+            {% elif r.acao == 'criar' %}<span class="badge badge-info badge-sm">{{ r.get_acao_display }}</span>
+            {% elif r.acao == 'editar' %}<span class="badge badge-warning badge-sm">{{ r.get_acao_display }}</span>
+            {% else %}<span class="badge badge-ghost badge-sm">{{ r.get_acao_display }}</span>{% endif %}
+          </td>
+          <td class="max-w-xs truncate" title="{{ r.descricao }}">
+            {% if r.objeto_modelo %}<span class="text-base-content/60">{{ r.objeto_modelo }}</span> {% endif %}{{ r.objeto_descricao|default:r.descricao }}
+          </td>
+          <td class="text-right">
+            <label for="audit-modal-{{ r.pk }}" class="btn btn-ghost btn-xs btn-circle" title="Ver detalhes" aria-label="Ver detalhes">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-4 w-4">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" />
+                <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+              </svg>
+            </label>
+          </td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="5" class="text-center">Nenhum registro de auditoria.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% for r in registros %}
+  <input type="checkbox" id="audit-modal-{{ r.pk }}" class="modal-toggle" />
+  <div class="modal" role="dialog">
+    <div class="modal-box max-w-2xl">
+      <h3 class="text-lg font-bold">Detalhes do registro</h3>
+      <dl class="mt-4 grid grid-cols-1 gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
+        <div><dt class="text-base-content/60">Data</dt><dd>{{ r.criado_em|date:'d/m/Y H:i:s' }}</dd></div>
+        <div><dt class="text-base-content/60">Categoria / Ação</dt><dd>{{ r.get_categoria_display }} · {{ r.get_acao_display }}</dd></div>
+        <div><dt class="text-base-content/60">Usuário</dt><dd class="break-all">{{ r.usuario_email|default:'—' }}</dd></div>
+        <div><dt class="text-base-content/60">IP</dt><dd>{{ r.ip|default:'—' }}</dd></div>
+        <div class="sm:col-span-2"><dt class="text-base-content/60">Objeto</dt><dd>{% if r.objeto_modelo %}{{ r.objeto_modelo }} #{{ r.objeto_id }} — {% endif %}{{ r.objeto_descricao|default:'—' }}</dd></div>
+        <div class="sm:col-span-2"><dt class="text-base-content/60">Descrição</dt><dd>{{ r.descricao }}</dd></div>
+        {% if r.caminho %}<div class="sm:col-span-2"><dt class="text-base-content/60">Caminho</dt><dd class="break-all">{{ r.metodo }} {{ r.caminho }}{% if r.status_code %} ({{ r.status_code }}){% endif %}</dd></div>{% endif %}
+        {% if r.user_agent %}<div class="sm:col-span-2"><dt class="text-base-content/60">User agent</dt><dd class="break-all text-xs">{{ r.user_agent }}</dd></div>{% endif %}
+      </dl>
+
+      {% if r.alteracoes %}
+        <h4 class="mt-4 font-semibold">Alterações</h4>
+        <div class="mt-2 overflow-x-auto rounded-box border border-base-300">
+          <table class="table table-xs">
+            <thead><tr><th>Campo</th><th>De</th><th>Para</th></tr></thead>
+            <tbody>
+              {% for campo, valores in r.alteracoes.items %}
+                <tr>
+                  <td class="font-mono">{{ campo }}</td>
+                  <td class="text-base-content/70">{{ valores.de|default:'—' }}</td>
+                  <td>{{ valores.para|default:'—' }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% endif %}
+
+      <div class="modal-action">
+        <label for="audit-modal-{{ r.pk }}" class="btn">Fechar</label>
+      </div>
+    </div>
+    <label class="modal-backdrop" for="audit-modal-{{ r.pk }}">Fechar</label>
+  </div>
+{% endfor %}
+
+{% include 'includes/pagination.html' %}
+{% endblock %}

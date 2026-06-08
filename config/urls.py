@@ -14,7 +14,8 @@ urlpatterns = [
     path('', include('communications.urls')),
     path('', include('stock.urls')),
     path('', include('operations.urls')),
-    path('', include('ai_assistant.urls')),  
+    path('', include('ai_assistant.urls')),
+    path('', include('audit.urls')),
     path('sentry-debug/', trigger_error),
 ]
 

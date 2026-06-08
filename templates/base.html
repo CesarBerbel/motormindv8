@@ -137,7 +137,7 @@
               </li>
             {% endif %}
 
-            {% if perms.core.view_category or perms.accounts.view_user or perms.communications.change_messagesettings or perms.operations.change_workordersettings or perms.operations.view_servicecategory or perms.ai_assistant.change_aisettings or perms.stock.view_stockcategory or perms.stock.view_brand or perms.website.change_sitesettings or request.user.is_superuser %}
+            {% if perms.core.view_category or perms.accounts.view_user or perms.communications.change_messagesettings or perms.operations.change_workordersettings or perms.operations.view_servicecategory or perms.ai_assistant.change_aisettings or perms.stock.view_stockcategory or perms.stock.view_brand or perms.website.change_sitesettings or perms.audit.view_auditlog or request.user.is_superuser %}
               <li>
                 <details data-menu-nested>
                   <summary class="whitespace-nowrap">Configurações</summary>
@@ -171,6 +171,9 @@
                     {% endif %}
                     {% if perms.website.change_sitesettings %}
                       <li><a href="{% url 'site_settings' %}" class="whitespace-nowrap">Oficina</a></li>
+                    {% endif %}
+                    {% if perms.audit.view_auditlog %}
+                      <li><a href="{% url 'audit_list' %}" class="whitespace-nowrap">Auditoria</a></li>
                     {% endif %}
                     {% if perms.operations.change_workordersettings %}
                       <li><a href="{% url 'work_order_settings' %}" class="whitespace-nowrap">OS</a></li>
@@ -298,7 +301,7 @@
             </li>
           {% endif %}
 
-          {% if perms.core.view_category or perms.accounts.view_user or perms.communications.change_messagesettings or perms.operations.change_workordersettings or perms.operations.view_servicecategory or perms.ai_assistant.change_aisettings or perms.stock.view_stockcategory or perms.stock.view_brand or perms.website.change_sitesettings or request.user.is_superuser %}
+          {% if perms.core.view_category or perms.accounts.view_user or perms.communications.change_messagesettings or perms.operations.change_workordersettings or perms.operations.view_servicecategory or perms.ai_assistant.change_aisettings or perms.stock.view_stockcategory or perms.stock.view_brand or perms.website.change_sitesettings or perms.audit.view_auditlog or request.user.is_superuser %}
             <li>
               <details data-menu-root>
                 <summary class="whitespace-nowrap">Configurações</summary>
@@ -332,6 +335,9 @@
                   {% endif %}
                   {% if perms.website.change_sitesettings %}
                     <li><a href="{% url 'site_settings' %}" class="whitespace-nowrap">Oficina</a></li>
+                  {% endif %}
+                  {% if perms.audit.view_auditlog %}
+                    <li><a href="{% url 'audit_list' %}" class="whitespace-nowrap">Auditoria</a></li>
                   {% endif %}
                   {% if perms.operations.change_workordersettings %}
                     <li><a href="{% url 'work_order_settings' %}" class="whitespace-nowrap">OS</a></li>
