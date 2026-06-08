@@ -7,3 +7,6 @@ gunicorn==23.0.0
 reportlab==4.5.1
 Pillow==11.3.0
 psycopg[binary]==3.3.4
+# Monitorizacao opcional de erros/performance. So e ativado quando SENTRY_DSN
+# esta definida no ambiente (ver config/monitoring.py).
+sentry-sdk==2.62.0
