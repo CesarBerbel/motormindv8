@@ -14,6 +14,7 @@ urlpatterns = [
     # Área restrita: gestão do conteúdo do site.
     path('painel/oficina/', views.SiteSettingsView.as_view(), name='site_settings'),
     path('painel/artigos/', views.BlogPostManageListView.as_view(), name='blog_manage_list'),
+    path('painel/artigos/gerar-ia/', views.BlogArticleGenerateView.as_view(), name='blog_generate_ai'),
     path('painel/artigos/novo/', views.BlogPostCreateView.as_view(), name='blog_manage_create'),
     path('painel/artigos/<int:pk>/editar/', views.BlogPostUpdateView.as_view(), name='blog_manage_update'),
     path('painel/artigos/<int:pk>/excluir/', views.BlogPostDeleteView.as_view(), name='blog_manage_delete'),

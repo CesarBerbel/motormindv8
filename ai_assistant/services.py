@@ -320,25 +320,26 @@ def extract_text_from_provider(provider, data):
     return ''
 
 
-def generate_with_provider(settings, action, text, context=None):
-    prompt = build_prompt(settings, action, text, context)
+def call_provider(settings, prompt, *, action='', text='', context=None, max_tokens=None):
+    """Envia um prompt ao provedor configurado e devolve o texto bruto da resposta.
+
+    Não trunca nem remove HTML — isso fica a cargo de quem chama, conforme o uso
+    (campos curtos da OS vs. artigo de blog em HTML).
+    """
     provider = settings.provedor
     model = settings.modelo or ''
     timeout = clamp_timeout(settings.timeout_segundos)
     temperature = float(settings.temperatura or 0.3)
-
-    if provider == AIProvider.LOCAL:
-        return AIResult(text=local_generate(settings, action, text, context), provider=provider, model=model)
+    anthropic_tokens = max_tokens or max(256, min(settings.limite_caracteres_resposta or 1200, 4000))
 
     if provider == AIProvider.OPENAI:
         base = (settings.endpoint_base or 'https://api.openai.com').rstrip('/')
+        payload = {'model': model or 'gpt-4o-mini', 'input': prompt, 'temperature': temperature}
+        if max_tokens:
+            payload['max_output_tokens'] = max_tokens
         data = post_json(
             f'{base}/v1/responses',
-            {
-                'model': model or 'gpt-4o-mini',
-                'input': prompt,
-                'temperature': temperature,
-            },
+            payload,
             headers={'Authorization': f'Bearer {settings.api_key}'},
             timeout=timeout,
         )
@@ -348,7 +349,7 @@ def generate_with_provider(settings, action, text, context=None):
             f'{base}/v1/messages',
             {
                 'model': model or 'claude-3-5-sonnet-latest',
-                'max_tokens': max(256, min(settings.limite_caracteres_resposta or 1200, 4000)),
+                'max_tokens': anthropic_tokens,
                 'temperature': temperature,
                 'messages': [{'role': 'user', 'content': prompt}],
             },
@@ -359,11 +360,14 @@ def generate_with_provider(settings, action, text, context=None):
         base = (settings.endpoint_base or 'https://generativelanguage.googleapis.com').rstrip('/')
         gemini_model = model or 'gemini-1.5-flash'
         sep = '&' if '?' in base else '?'
+        generation_config = {'temperature': temperature}
+        if max_tokens:
+            generation_config['maxOutputTokens'] = max_tokens
         data = post_json(
             f'{base}/v1beta/models/{gemini_model}:generateContent{sep}key={settings.api_key}',
             {
                 'contents': [{'parts': [{'text': prompt}]}],
-                'generationConfig': {'temperature': temperature},
+                'generationConfig': generation_config,
             },
             timeout=timeout,
         )
@@ -396,10 +400,21 @@ def generate_with_provider(settings, action, text, context=None):
     else:
         raise AIServiceError('Provedor de IA inválido.')
 
-    result_text = extract_text_from_provider(provider, data)
+    return extract_text_from_provider(provider, data)
+
+
+def generate_with_provider(settings, action, text, context=None):
+    provider = settings.provedor
+    model = settings.modelo or ''
+
+    if provider == AIProvider.LOCAL:
+        return AIResult(text=local_generate(settings, action, text, context), provider=provider, model=model)
+
+    prompt = build_prompt(settings, action, text, context)
+    result_text = call_provider(settings, prompt, action=action, text=text, context=context)
     if not result_text:
         raise AIServiceError('O provedor respondeu, mas não retornou texto utilizável.')
-    return AIResult(text=limit_text(result_text, settings.limite_caracteres_resposta), provider=provider, model=model, raw=data)
+    return AIResult(text=limit_text(result_text, settings.limite_caracteres_resposta), provider=provider, model=model)
 
 
 OS_ACTIONS = {
@@ -479,3 +494,165 @@ def sanitize_context(context):
         else:
             cleaned[key] = limit_text(str(value or ''), 1000)
     return cleaned
+
+
+# --------------------------------------------------------------------------- #
+# Geração de artigos completos para o blog do site público.
+# --------------------------------------------------------------------------- #
+BLOG_ARTICLE_MAX_TOKENS = 4000
+
+
+def build_blog_prompt(settings, subject):
+    parts = [
+        'Você é um redator de conteúdo para o blog de uma oficina mecânica multimarcas.',
+        settings.instrucoes_gerais or '',
+        f'Tom desejado: {settings.tom_resposta or "profissional, claro e acessível"}.',
+        f'Características da oficina: {settings.caracteristicas_oficina or "não informado"}.',
+        'Escreva em português do Brasil, com linguagem clara para o dono de veículo leigo.',
+        'Não invente dados técnicos específicos (medições, códigos de falha, preços ou prazos).',
+        f'Assunto do artigo: {subject}',
+        (
+            'Produza um artigo de blog completo e bem estruturado sobre o assunto, com introdução, '
+            'subtítulos, listas quando úteis e uma conclusão com uma chamada para o leitor procurar a oficina.'
+        ),
+        (
+            'Responda ESTRITAMENTE com um objeto JSON válido, sem nenhum texto antes ou depois, '
+            'exatamente no formato: {"titulo": "...", "resumo": "...", "conteudo": "..."}.'
+        ),
+        (
+            'O "titulo" deve ser chamativo (até 120 caracteres). O "resumo" deve ter 1 ou 2 frases '
+            '(até 280 caracteres). O "conteudo" deve ser HTML usando apenas as tags <h2>, <p>, <ul>, '
+            '<li> e <strong>, com vários parágrafos e ao menos dois subtítulos.'
+        ),
+    ]
+    return '\n'.join(part for part in parts if part)
+
+
+def _default_article_title(subject):
+    subject = clean_text(subject)
+    if not subject:
+        return 'Cuidados com o seu veículo'
+    title = subject if len(subject) <= 120 else subject[:117].rstrip() + '…'
+    return title[0].upper() + title[1:] if len(title) > 1 else title.upper()
+
+
+def parse_blog_response(raw, subject):
+    """Extrai titulo/resumo/conteudo da resposta do provedor.
+
+    Tenta interpretar um objeto JSON; se não conseguir, usa o texto bruto como
+    conteúdo e deriva um título do assunto.
+    """
+    raw = (raw or '').strip()
+    data = None
+    match = re.search(r'\{.*\}', raw, re.DOTALL)
+    if match:
+        try:
+            data = json.loads(match.group(0))
+        except (json.JSONDecodeError, ValueError):
+            data = None
+
+    if isinstance(data, dict) and (data.get('conteudo') or data.get('content')):
+        titulo = clean_text(data.get('titulo') or data.get('title')) or _default_article_title(subject)
+        resumo = clean_text(data.get('resumo') or data.get('summary'))
+        conteudo = (data.get('conteudo') or data.get('content') or '').strip()
+    else:
+        titulo = _default_article_title(subject)
+        resumo = ''
+        if '<' in raw and '>' in raw:
+            conteudo = raw
+        else:
+            paragraphs = [p.strip() for p in raw.split('\n\n') if p.strip()]
+            conteudo = ''.join(f'<p>{p}</p>' for p in paragraphs) or '<p></p>'
+
+    return {'titulo': titulo[:180], 'resumo': resumo[:300], 'conteudo': conteudo}
+
+
+def local_blog_article(settings, subject):
+    """Gera um artigo coerente sem provedor externo (provedor Local/simulado)."""
+    subject = clean_text(subject) or 'Cuidados com o seu veículo'
+    titulo = _default_article_title(subject)
+    tema = subject.lower()
+    resumo = f'Entenda a importância de {tema} e veja dicas práticas para manter o seu veículo seguro, econômico e confiável.'
+    conteudo = (
+        f'<p>Quando o assunto é <strong>{tema}</strong>, pequenos cuidados no dia a dia fazem toda a diferença '
+        'na segurança, na economia e na vida útil do seu veículo.</p>'
+        '<h2>Por que isso é importante</h2>'
+        f'<p>Manter a atenção a {tema} ajuda a evitar problemas maiores, reduz gastos com reparos inesperados '
+        'e garante mais tranquilidade na hora de dirigir. Um carro bem cuidado também mantém um valor de revenda mais alto.</p>'
+        '<h2>Sinais de alerta</h2>'
+        '<ul>'
+        '<li>Ruídos, vibrações ou cheiros incomuns durante a condução.</li>'
+        '<li>Luzes acesas no painel que não apagam.</li>'
+        '<li>Aumento no consumo de combustível sem explicação.</li>'
+        '<li>Qualquer mudança no comportamento do veículo em relação ao habitual.</li>'
+        '</ul>'
+        '<h2>Dicas práticas</h2>'
+        '<ul>'
+        '<li>Siga sempre os intervalos de manutenção indicados no manual do fabricante.</li>'
+        '<li>Faça revisões periódicas e não adie pequenos reparos.</li>'
+        '<li>Use peças de qualidade e procedência conhecida.</li>'
+        '<li>Na dúvida, procure um profissional de confiança antes que o problema cresça.</li>'
+        '</ul>'
+        '<h2>Conclusão</h2>'
+        f'<p>Cuidar de {tema} é investir na segurança e na durabilidade do seu carro. '
+        'Se precisar de ajuda, conte com a nossa equipe: fazemos um diagnóstico honesto e explicamos tudo com transparência. '
+        'Agende uma avaliação e rode tranquilo.</p>'
+    )
+    return {'titulo': titulo[:180], 'resumo': resumo[:300], 'conteudo': conteudo}
+
+
+def generate_blog_article(subject, user=None):
+    """Gera um artigo de blog completo a partir de um assunto.
+
+    Devolve um dict com 'titulo', 'resumo', 'conteudo' (HTML), 'provider' e 'model'.
+    """
+    settings = AISettings.get_solo()
+    subject = clean_text(subject)
+    if not subject:
+        raise AIServiceError('Informe o assunto do artigo.')
+    if not settings.ativo:
+        raise AIServiceError('O módulo de IA está desativado nas configurações.')
+
+    log = AIInteractionLog.objects.create(
+        acao=AIAssistantAction.BLOG_ARTICLE,
+        provedor=settings.provedor,
+        modelo=settings.modelo or '',
+        entrada=subject,
+        contexto={},
+        usuario=user if getattr(user, 'is_authenticated', False) else None,
+    )
+    logger.info(
+        'IA: artigo de blog provedor=%s modelo=%s usuário=%s assunto=%r',
+        settings.provedor,
+        settings.modelo or '-',
+        getattr(user, 'pk', None) or 'anon',
+        subject[:120],
+    )
+    try:
+        if settings.provedor == AIProvider.LOCAL:
+            article = local_blog_article(settings, subject)
+        else:
+            prompt = build_blog_prompt(settings, subject)
+            raw = call_provider(
+                settings,
+                prompt,
+                action=AIAssistantAction.BLOG_ARTICLE,
+                text=subject,
+                max_tokens=BLOG_ARTICLE_MAX_TOKENS,
+            )
+            if not raw:
+                raise AIServiceError('O provedor respondeu, mas não retornou texto utilizável.')
+            article = parse_blog_response(raw, subject)
+    except Exception as exc:
+        log.erro = str(exc)
+        log.sucesso = False
+        log.save(update_fields=['erro', 'sucesso'])
+        logger.warning('IA: falha ao gerar artigo provedor=%s erro=%s', settings.provedor, exc)
+        raise
+
+    log.resposta = article['conteudo']
+    log.sucesso = True
+    log.save(update_fields=['resposta', 'sucesso'])
+    article['provider'] = settings.provedor
+    article['model'] = settings.modelo or ''
+    return article

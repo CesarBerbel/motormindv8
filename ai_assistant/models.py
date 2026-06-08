@@ -21,6 +21,7 @@ class AIAssistantAction(models.TextChoices):
     IMPROVE_MESSAGE = 'improve_message', 'Melhorar mensagem/template'
     EMAIL_TEMPLATE = 'email_template', 'Gerar template de email'
     WHATSAPP_TEMPLATE = 'whatsapp_template', 'Gerar template de WhatsApp'
+    BLOG_ARTICLE = 'blog_article', 'Gerar artigo de blog'
     GENERAL = 'general', 'Ajuda geral'
 
 

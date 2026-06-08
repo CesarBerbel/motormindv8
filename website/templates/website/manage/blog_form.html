@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load static %}
 
 {% block title %}{{ title }} | MotorMind{% endblock %}
 
@@ -8,6 +9,22 @@
     <h1 class="page-title">{{ title }}</h1>
     <p class="text-base-content/70">Os artigos publicados aparecem no blog do site público.</p>
   </div>
+
+  {% if perms.ai_assistant.use_ai_assistant or request.user.is_superuser %}
+    <div class="card bg-base-100 shadow mb-6 border border-primary/20">
+      <div class="card-body">
+        <h2 class="card-title text-lg">✨ Gerar artigo com IA</h2>
+        <p class="text-sm text-base-content/70">Informe um assunto e a IA cria um rascunho completo (título, resumo e conteúdo). Revise sempre antes de publicar.</p>
+        <div class="flex flex-col gap-2 sm:flex-row">
+          <input type="text" id="blog-ai-subject" class="input input-bordered w-full"
+                 placeholder="Ex.: A importância de trocar o óleo no prazo certo">
+          <button type="button" class="btn btn-secondary whitespace-nowrap"
+                  data-blog-ai-generate data-blog-ai-url="{% url 'blog_generate_ai' %}">Gerar artigo</button>
+        </div>
+        <div data-blog-ai-notice class="mt-2 text-sm text-base-content/70"></div>
+      </div>
+    </div>
+  {% endif %}
 
   <form method="post" enctype="multipart/form-data" class="card-section">
     {% csrf_token %}
@@ -80,4 +97,10 @@
     </div>
   </form>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+  {% if perms.ai_assistant.use_ai_assistant or request.user.is_superuser %}
+    <script src="{% static 'js/blog-ai.js' %}"></script>
+  {% endif %}
 {% endblock %}

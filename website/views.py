@@ -1,7 +1,10 @@
+import json
+
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
-from django.http import HttpResponseRedirect
+from django.http import HttpResponseRedirect, JsonResponse
 from django.urls import reverse_lazy
+from django.views import View
 from django.views.generic import (
     CreateView,
     DeleteView,
@@ -12,6 +15,7 @@ from django.views.generic import (
     UpdateView,
 )
 
+from ai_assistant.services import AIServiceError, check_ai_rate_limit, generate_blog_article
 from core.views import FormTitleMixin
 from .forms import BlogPostForm, LeadForm, SiteSettingsForm
 from .models import BlogPost, PublicService, SiteSettings, Testimonial
@@ -177,3 +181,37 @@ class BlogPostDeleteView(LoginRequiredMixin, PermissionRequiredMixin, FormTitleM
     def form_valid(self, form):
         messages.success(self.request, 'Artigo excluído com sucesso.')
         return super().form_valid(form)
+
+
+class BlogArticleGenerateView(LoginRequiredMixin, View):
+    """Gera um rascunho completo de artigo a partir de um assunto, via IA."""
+
+    def post(self, request, *args, **kwargs):
+        user = request.user
+        if not user.has_perm('website.add_blogpost'):
+            return JsonResponse({'ok': False, 'error': 'Sem permissão para criar artigos.'}, status=403)
+        if not (user.is_superuser or user.has_perm('ai_assistant.use_ai_assistant')):
+            return JsonResponse({'ok': False, 'error': 'Sem permissão para usar o assistente de IA.'}, status=403)
+        if not check_ai_rate_limit(user):
+            return JsonResponse(
+                {'ok': False, 'error': 'Muitas solicitações de IA em pouco tempo. Aguarde um instante.'},
+                status=429,
+            )
+
+        try:
+            payload = json.loads(request.body.decode('utf-8') or '{}')
+        except json.JSONDecodeError:
+            return JsonResponse({'ok': False, 'error': 'JSON inválido.'}, status=400)
+
+        subject = (payload.get('assunto') or payload.get('text') or '').strip()
+        if not subject:
+            return JsonResponse({'ok': False, 'error': 'Informe o assunto do artigo.'}, status=400)
+
+        try:
+            article = generate_blog_article(subject, user=user)
+        except AIServiceError as exc:
+            return JsonResponse({'ok': False, 'error': str(exc)}, status=400)
+        except Exception as exc:  # pragma: no cover - defensivo
+            return JsonResponse({'ok': False, 'error': f'Erro inesperado ao chamar a IA: {exc}'}, status=500)
+
+        return JsonResponse({'ok': True, **article})

@@ -220,6 +220,68 @@ class BlogManageAccessTests(TestCase):
         self.assertFalse(BlogPost.objects.filter(pk=post.pk).exists())
 
 
+class BlogArticleGenerationTests(TestCase):
+    def setUp(self):
+        User = get_user_model()
+        self.editor = User.objects.create_user(
+            email='ia@example.com', password='senha-forte-123', nome_razao_social='IA Editor',
+        )
+        self.editor.user_permissions.add(Permission.objects.get(codename='add_blogpost'))
+        self.editor.user_permissions.add(Permission.objects.get(codename='use_ai_assistant'))
+        self.url = reverse('blog_generate_ai')
+
+    def test_service_generates_article_with_local_provider(self):
+        from ai_assistant.services import generate_blog_article
+        article = generate_blog_article('Importância da troca de óleo', user=self.editor)
+        self.assertTrue(article['titulo'])
+        self.assertIn('<', article['conteudo'])  # conteúdo em HTML
+        self.assertIn('óleo', article['conteudo'].lower())
+
+    def test_parse_blog_response_reads_json(self):
+        from ai_assistant.services import parse_blog_response
+        raw = '```json\n{"titulo": "T", "resumo": "R", "conteudo": "<p>C</p>"}\n```'
+        parsed = parse_blog_response(raw, 'assunto')
+        self.assertEqual(parsed['titulo'], 'T')
+        self.assertEqual(parsed['conteudo'], '<p>C</p>')
+
+    def test_parse_blog_response_fallback_wraps_plain_text(self):
+        from ai_assistant.services import parse_blog_response
+        parsed = parse_blog_response('Texto simples sem json', 'Troca de óleo')
+        self.assertIn('<p>', parsed['conteudo'])
+        self.assertTrue(parsed['titulo'])
+
+    def test_endpoint_requires_login(self):
+        response = self.client.post(self.url, data='{}', content_type='application/json')
+        self.assertEqual(response.status_code, 302)
+
+    def test_endpoint_forbidden_without_permissions(self):
+        User = get_user_model()
+        outsider = User.objects.create_user(
+            email='no@example.com', password='senha-forte-123', nome_razao_social='No',
+        )
+        self.client.force_login(outsider)
+        response = self.client.post(self.url, data='{"assunto": "x"}', content_type='application/json')
+        self.assertEqual(response.status_code, 403)
+
+    def test_endpoint_requires_subject(self):
+        self.client.force_login(self.editor)
+        response = self.client.post(self.url, data='{"assunto": ""}', content_type='application/json')
+        self.assertEqual(response.status_code, 400)
+
+    def test_endpoint_returns_article(self):
+        self.client.force_login(self.editor)
+        response = self.client.post(
+            self.url,
+            data='{"assunto": "Manutenção preventiva"}',
+            content_type='application/json',
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertTrue(data['ok'])
+        self.assertTrue(data['titulo'])
+        self.assertIn('<', data['conteudo'])
+
+
 class SiteSettingsManageTests(TestCase):
     def setUp(self):
         User = get_user_model()
