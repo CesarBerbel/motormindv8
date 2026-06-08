@@ -18,6 +18,8 @@ def env_list(name, default=''):
 SECRET_KEY = os.getenv('SECRET_KEY', 'unsafe-dev-secret-key')
 DEBUG = env_bool('DEBUG', True)
 ALLOWED_HOSTS = env_list('ALLOWED_HOSTS', '127.0.0.1,localhost')
+SITE_URL = os.getenv('SITE_URL', '').strip().rstrip('/')
+PUBLIC_BASE_URL = os.getenv('PUBLIC_BASE_URL', SITE_URL).strip().rstrip('/')
 
 INSTALLED_APPS = [
     'accounts',

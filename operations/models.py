@@ -636,10 +636,10 @@ class WorkOrder(SoftDeleteModel):
     def get_available_transitions(self):
         return WorkOrderStatus.next_statuses(self.status)
 
-    def transition_to(self, new_status, user=None, observacao=''):
+    def transition_to(self, new_status, user=None, observacao='', request=None):
         from operations.services.work_order_status import transition_to
 
-        return transition_to(self, new_status, user=user, observacao=observacao)
+        return transition_to(self, new_status, user=user, observacao=observacao, request=request)
 
     @property
     def status_badge_class(self):

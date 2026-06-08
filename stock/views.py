@@ -26,7 +26,6 @@ from .models import (
     StockCategory,
     StockMovement,
     StockMovementType,
-    UnitOfMeasure,
     ZERO_QUANTITY,
 )
 
@@ -54,7 +53,6 @@ class InventoryItemSearchMixin(SearchContextMixin):
         'tipo',
         'categoria',
         'marca',
-        'unidade',
         'estoque',
         'custo_min',
         'custo_max',
@@ -98,8 +96,6 @@ class InventoryItemSearchMixin(SearchContextMixin):
             | Q(descricao__icontains=term)
             | Q(categoria__nome__icontains=term)
             | Q(marca__nome__icontains=term)
-            | Q(unidade__nome__icontains=term)
-            | Q(unidade__sigla__icontains=term)
         )
 
     def apply_inventory_filters(self, queryset):
@@ -120,8 +116,6 @@ class InventoryItemSearchMixin(SearchContextMixin):
         if filters['marca'].isdigit():
             queryset = queryset.filter(marca_id=int(filters['marca']))
 
-        if filters['unidade'].isdigit():
-            queryset = queryset.filter(unidade_id=int(filters['unidade']))
 
         custo_min = self.parse_money_filter(filters['custo_min'])
         custo_max = self.parse_money_filter(filters['custo_max'])
@@ -289,7 +283,6 @@ class InventoryItemListView(LoginRequiredMixin, PermissionRequiredMixin, Invento
         context = super().get_context_data(**kwargs)
         context['category_choices'] = StockCategory.objects.order_by(Lower('nome'), 'pk')
         context['brand_choices'] = Brand.objects.order_by(Lower('nome'), 'pk')
-        context['unit_choices'] = UnitOfMeasure.objects.filter(ativo=True).order_by(Lower('nome'), 'pk')
         context['tipo_choices'] = InventoryItemType.choices
         context['stock_status_choices'] = self.stock_status_choices
         return context

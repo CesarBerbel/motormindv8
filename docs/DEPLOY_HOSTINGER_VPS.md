@@ -78,6 +78,8 @@ SECRET_KEY=gere-uma-chave-grande-e-unica
 DEBUG=False
 ALLOWED_HOSTS=seudominio.com,www.seudominio.com,IP_DA_VPS
 CSRF_TRUSTED_ORIGINS=https://seudominio.com,https://www.seudominio.com
+SITE_URL=https://seudominio.com
+PUBLIC_BASE_URL=https://seudominio.com
 DB_NAME=/var/www/motormind/current/db.sqlite3
 ```
 
@@ -137,6 +139,8 @@ SECURE_SSL_REDIRECT=True
 SESSION_COOKIE_SECURE=True
 CSRF_COOKIE_SECURE=True
 CSRF_TRUSTED_ORIGINS=https://seudominio.com,https://www.seudominio.com
+SITE_URL=https://seudominio.com
+PUBLIC_BASE_URL=https://seudominio.com
 ```
 
 Se ainda estiver testando sem HTTPS, deixe temporariamente:

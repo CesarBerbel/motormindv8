@@ -16,6 +16,12 @@
   }
 
 
+  [data-floating-dropdown][data-floating-dropdown-open="true"] .dropdown-content {
+    max-height: min(22rem, calc(100vh - 1rem));
+    overflow-y: auto;
+  }
+
+
   .app-toast-container {
     position: fixed;
     top: 1rem;

@@ -7,7 +7,7 @@ from django.utils import timezone
 logger = logging.getLogger(__name__)
 
 
-def transition_to(order, new_status, user=None, observacao=''):
+def transition_to(order, new_status, user=None, observacao='', request=None):
     from communications.services import send_work_order_status_change_message
     from operations.models import WorkOrderStatus, WorkOrderStatusTransition
     from stock.models import PurchaseOrder
@@ -80,7 +80,7 @@ def transition_to(order, new_status, user=None, observacao=''):
 
     if budget_to_send is not None:
         try:
-            budget_to_send.send_to_customer(user=user)
+            budget_to_send.send_to_customer(user=user, request=request)
         except Exception:
             logger.exception('Erro ao enviar orçamento de aprovação da OS %s.', order.pk)
 

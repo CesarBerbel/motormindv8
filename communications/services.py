@@ -423,13 +423,29 @@ def send_work_order_status_change_message(order, transition, user=None):
 
 
 
+def get_public_base_url():
+    base_url = (getattr(settings, 'PUBLIC_BASE_URL', '') or getattr(settings, 'SITE_URL', '') or '').strip().rstrip('/')
+    if base_url:
+        return base_url
+
+    blocked_hosts = {'*', 'localhost', '127.0.0.1', '[::1]', '0.0.0.0'}
+    host = next((item for item in getattr(settings, 'ALLOWED_HOSTS', []) if item and item not in blocked_hosts), '')
+    if host:
+        scheme = 'http' if getattr(settings, 'DEBUG', False) else 'https'
+        return f'{scheme}://{host}'.rstrip('/')
+
+    return ''
+
+
 def build_work_order_approval_url(budget, request=None):
     path = reverse('work_order_public_approval', kwargs={'token': budget.token})
     if request is not None:
         return request.build_absolute_uri(path)
-    base_url = getattr(settings, 'PUBLIC_BASE_URL', '') or getattr(settings, 'SITE_URL', '')
+
+    base_url = get_public_base_url()
     if base_url:
-        return f'{base_url.rstrip("/")}{path}'
+        return f'{base_url}{path}'
+
     return path
 
 

@@ -1611,3 +1611,11 @@ python -m compileall -q accounts ai_assistant core communications config stock o
 node --check static/js/ai-assistant.js
 npm run css:build
 ```
+
+
+## MotorMind v40 - ajustes de lista e aprovação
+
+- Removida a exibição/filtro de **Unidade** da lista principal de peças e insumos.
+- Ajustado o menu de **Ações** da lista de peças para flutuar fora da área rolável da tabela, evitando corte quando há poucos registros.
+- Links de aprovação enviados por email agora usam URL absoluta com domínio quando houver `request`, `PUBLIC_BASE_URL`, `SITE_URL` ou domínio válido em `ALLOWED_HOSTS`.
+- Adicionadas variáveis `SITE_URL` e `PUBLIC_BASE_URL` nos exemplos de `.env`. Em produção, configure ambas com o domínio público, por exemplo `https://seudominio.com`.

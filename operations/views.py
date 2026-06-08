@@ -1156,6 +1156,7 @@ class WorkOrderUpdateView(LoginRequiredMixin, PermissionRequiredMixin, WorkOrder
                     target_status,
                     user=self.request.user,
                     observacao='Alteração realizada no formulário da OS.',
+                    request=self.request,
                 )
             except ValidationError as exc:
                 messages.error(self.request, ' '.join(exc.messages) if hasattr(exc, 'messages') else str(exc))
@@ -1382,6 +1383,7 @@ class MechanicWorkOrderStartView(TechnicianRequiredMixin, View):
                     WorkOrderStatus.AGUARDANDO_PECA,
                     user=request.user,
                     observacao='Tentativa de iniciar serviço bloqueada por estoque insuficiente.',
+                    request=request,
                 )
             messages.error(
                 request,
@@ -1395,6 +1397,7 @@ class MechanicWorkOrderStartView(TechnicianRequiredMixin, View):
                 WorkOrderStatus.EM_EXECUCAO,
                 user=request.user,
                 observacao='Serviço iniciado pela área de mecânica.',
+                request=request,
             )
         except ValidationError as exc:
             if not order.checkins.filter(ativo=True, excluido_em__isnull=True).exists():
@@ -1425,7 +1428,7 @@ class WorkOrderStatusTransitionView(LoginRequiredMixin, PermissionRequiredMixin,
             return redirect(order.get_absolute_url())
 
         try:
-            transition = order.transition_to(new_status, user=request.user, observacao=observacao)
+            transition = order.transition_to(new_status, user=request.user, observacao=observacao, request=request)
         except ValidationError as exc:
             if new_status == WorkOrderStatus.EM_EXECUCAO and not order.checkins.filter(ativo=True, excluido_em__isnull=True).exists():
                 checkin_url = f'{reverse('vehicle_checkin_create')}?ordem_servico={order.pk}'
@@ -1443,6 +1446,7 @@ class WorkOrderStatusTransitionView(LoginRequiredMixin, PermissionRequiredMixin,
                     WorkOrderStatus.AGUARDANDO_PECA,
                     user=request.user,
                     observacao='Tentativa de mover para Em execução bloqueada por estoque insuficiente.',
+                    request=request,
                 )
                 messages.error(
                     request,
@@ -1487,12 +1491,16 @@ class WorkOrderSendApprovalBudgetView(LoginRequiredMixin, PermissionRequiredMixi
                     WorkOrderStatus.AGUARDANDO_APROVACAO,
                     user=request.user,
                     observacao='Orçamento enviado ao cliente.',
+                    request=request,
                 )
             except ValidationError as exc:
                 messages.error(request, ' '.join(exc.messages) if hasattr(exc, 'messages') else str(exc))
                 return redirect(order.get_absolute_url())
+            order.refresh_from_db()
+            budget = order.get_current_approval_budget()
+        else:
+            budget = order.get_or_create_pending_approval_budget(user=request.user, send_email=True, request=request)
 
-        budget = order.get_or_create_pending_approval_budget(user=request.user, send_email=True, request=request)
         if budget.email_enviado:
             messages.success(request, 'Orçamento enviado ao cliente por email.')
         else:
@@ -1561,6 +1569,7 @@ class WorkOrderNewApprovalBudgetView(LoginRequiredMixin, PermissionRequiredMixin
                     WorkOrderStatus.ORCAMENTO,
                     user=request.user,
                     observacao='Novo orçamento solicitado; itens liberados para revisão antes de nova aprovação.',
+                    request=request,
                 )
             except ValidationError:
                 previous_status = order.status
