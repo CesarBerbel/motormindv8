@@ -13,8 +13,8 @@ from django.views.generic import (
 )
 
 from core.views import FormTitleMixin
-from .forms import BlogPostForm, LeadForm
-from .models import BlogPost, PublicService, Testimonial
+from .forms import BlogPostForm, LeadForm, SiteSettingsForm
+from .models import BlogPost, PublicService, SiteSettings, Testimonial
 from .services import notify_new_lead
 
 
@@ -105,6 +105,25 @@ class PublicContactView(FormView):
     def form_invalid(self, form):
         messages.error(self.request, 'Revise os campos destacados e tente novamente.')
         return super().form_invalid(form)
+
+
+# --------------------------------------------------------------------------- #
+# Área restrita: configurações do site (oficina).
+# --------------------------------------------------------------------------- #
+class SiteSettingsView(LoginRequiredMixin, PermissionRequiredMixin, FormTitleMixin, UpdateView):
+    model = SiteSettings
+    form_class = SiteSettingsForm
+    template_name = 'website/manage/site_settings_form.html'
+    success_url = reverse_lazy('site_settings')
+    permission_required = 'website.change_sitesettings'
+    title = 'Configurações da oficina'
+
+    def get_object(self, queryset=None):
+        return SiteSettings.get_solo()
+
+    def form_valid(self, form):
+        messages.success(self.request, 'Configurações da oficina atualizadas com sucesso.')
+        return super().form_valid(form)
 
 
 # --------------------------------------------------------------------------- #

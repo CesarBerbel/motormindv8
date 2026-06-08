@@ -1,0 +1,94 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ title }} | MotorMind{% endblock %}
+
+{% block content %}
+<div class="mx-auto max-w-4xl">
+  <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
+    <div>
+      <h1 class="page-title">{{ title }}</h1>
+      <p class="text-base-content/70">Dados exibidos no site público da oficina.</p>
+    </div>
+    <a href="{% url 'public_home' %}" target="_blank" rel="noopener" class="btn btn-ghost btn-sm whitespace-nowrap">Ver site público</a>
+  </div>
+
+  <form method="post" enctype="multipart/form-data" class="space-y-6">
+    {% csrf_token %}
+    {% if form.non_field_errors %}
+      <div class="alert alert-error"><div>{% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}</div></div>
+    {% endif %}
+
+    <div class="card bg-base-100 shadow">
+      <div class="card-body space-y-4">
+        <h2 class="card-title text-lg">Identidade</h2>
+        <div class="grid gap-4 md:grid-cols-2">
+          {% include 'website/manage/_field.html' with field=form.nome_fantasia required=True %}
+          {% include 'website/manage/_field.html' with field=form.slogan %}
+        </div>
+        {% include 'website/manage/_field.html' with field=form.logo %}
+        {% include 'website/manage/_field.html' with field=form.sobre %}
+      </div>
+    </div>
+
+    <div class="card bg-base-100 shadow">
+      <div class="card-body space-y-4">
+        <h2 class="card-title text-lg">Topo da home (hero)</h2>
+        {% include 'website/manage/_field.html' with field=form.hero_titulo %}
+        {% include 'website/manage/_field.html' with field=form.hero_subtitulo %}
+      </div>
+    </div>
+
+    <div class="card bg-base-100 shadow">
+      <div class="card-body space-y-4">
+        <h2 class="card-title text-lg">Contato</h2>
+        <div class="grid gap-4 md:grid-cols-2">
+          {% include 'website/manage/_field.html' with field=form.telefone_principal %}
+          {% include 'website/manage/_field.html' with field=form.telefone_secundario %}
+          {% include 'website/manage/_field.html' with field=form.whatsapp %}
+          {% include 'website/manage/_field.html' with field=form.email_contato %}
+        </div>
+      </div>
+    </div>
+
+    <div class="card bg-base-100 shadow">
+      <div class="card-body space-y-4">
+        <h2 class="card-title text-lg">Endereço</h2>
+        <div class="grid gap-4 md:grid-cols-2">
+          {% include 'website/manage/_field.html' with field=form.endereco %}
+          {% include 'website/manage/_field.html' with field=form.bairro %}
+          {% include 'website/manage/_field.html' with field=form.cidade %}
+          {% include 'website/manage/_field.html' with field=form.uf %}
+          {% include 'website/manage/_field.html' with field=form.cep %}
+        </div>
+        {% include 'website/manage/_field.html' with field=form.google_maps_embed %}
+      </div>
+    </div>
+
+    <div class="card bg-base-100 shadow">
+      <div class="card-body space-y-4">
+        <h2 class="card-title text-lg">Horário de funcionamento</h2>
+        <div class="grid gap-4 md:grid-cols-3">
+          {% include 'website/manage/_field.html' with field=form.horario_semana %}
+          {% include 'website/manage/_field.html' with field=form.horario_sabado %}
+          {% include 'website/manage/_field.html' with field=form.horario_domingo %}
+        </div>
+      </div>
+    </div>
+
+    <div class="card bg-base-100 shadow">
+      <div class="card-body space-y-4">
+        <h2 class="card-title text-lg">Redes sociais</h2>
+        <div class="grid gap-4 md:grid-cols-2">
+          {% include 'website/manage/_field.html' with field=form.instagram_url %}
+          {% include 'website/manage/_field.html' with field=form.facebook_url %}
+        </div>
+      </div>
+    </div>
+
+    <div class="flex justify-end gap-2">
+      <a href="{% url 'dashboard' %}" class="btn btn-ghost whitespace-nowrap">Cancelar</a>
+      <button type="submit" class="btn btn-primary whitespace-nowrap">Salvar</button>
+    </div>
+  </form>
+</div>
+{% endblock %}

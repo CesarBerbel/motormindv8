@@ -218,3 +218,63 @@ class BlogManageAccessTests(TestCase):
         response = self.client.post(reverse('blog_manage_delete', kwargs={'pk': post.pk}))
         self.assertRedirects(response, reverse('blog_manage_list'))
         self.assertFalse(BlogPost.objects.filter(pk=post.pk).exists())
+
+
+class SiteSettingsManageTests(TestCase):
+    def setUp(self):
+        User = get_user_model()
+        self.manager = User.objects.create_user(
+            email='gestor@example.com', password='senha-forte-123', nome_razao_social='Gestor',
+        )
+        self.manager.user_permissions.add(Permission.objects.get(codename='change_sitesettings'))
+        self.outsider = User.objects.create_user(
+            email='ze@example.com', password='senha-forte-123', nome_razao_social='Ze',
+        )
+
+    def test_requires_login(self):
+        response = self.client.get(reverse('site_settings'))
+        self.assertEqual(response.status_code, 302)
+        self.assertIn('/login/', response['Location'])
+
+    def test_user_without_permission_is_forbidden(self):
+        self.client.force_login(self.outsider)
+        response = self.client.get(reverse('site_settings'))
+        self.assertEqual(response.status_code, 403)
+
+    def test_manager_can_view_form(self):
+        self.client.force_login(self.manager)
+        response = self.client.get(reverse('site_settings'))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Configurações da oficina')
+
+    def test_manager_can_update_settings(self):
+        self.client.force_login(self.manager)
+        response = self.client.post(reverse('site_settings'), {
+            'nome_fantasia': 'Oficina Nova',
+            'slogan': 'Slogan novo',
+            'sobre': 'Texto sobre',
+            'hero_titulo': 'Hero',
+            'hero_subtitulo': 'Sub',
+            'telefone_principal': '(11) 90000-0000',
+            'telefone_secundario': '',
+            'whatsapp': '5511900000000',
+            'email_contato': 'novo@oficina.com',
+            'endereco': 'Rua X, 10',
+            'bairro': 'Centro',
+            'cidade': 'São Paulo',
+            'uf': 'SP',
+            'cep': '01000-000',
+            'google_maps_embed': '',
+            'horario_semana': '08h às 18h',
+            'horario_sabado': '08h às 12h',
+            'horario_domingo': 'Fechado',
+            'instagram_url': '',
+            'facebook_url': '',
+        })
+        self.assertRedirects(response, reverse('site_settings'))
+        site = SiteSettings.get_solo()
+        self.assertEqual(site.nome_fantasia, 'Oficina Nova')
+        self.assertEqual(site.email_contato, 'novo@oficina.com')
+        # Sempre singleton (pk=1).
+        self.assertEqual(site.pk, 1)
+        self.assertEqual(SiteSettings.objects.count(), 1)

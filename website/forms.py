@@ -1,7 +1,7 @@
 from django import forms
 
 from core.forms import BASE_CHECKBOX_CLASS, BASE_INPUT_CLASS, BASE_SELECT_CLASS, format_phone
-from .models import BlogPost, Lead, PublicService
+from .models import BlogPost, Lead, PublicService, SiteSettings
 
 BASE_TEXTAREA_CLASS = 'textarea textarea-bordered min-h-32 w-full'
 BASE_FILE_CLASS = 'file-input file-input-bordered w-full'
@@ -71,3 +71,39 @@ class BlogPostForm(forms.ModelForm):
         self.fields['slug'].required = False
         self.fields['resumo'].required = False
         self.fields['imagem'].required = False
+
+
+class SiteSettingsForm(forms.ModelForm):
+    class Meta:
+        model = SiteSettings
+        fields = [
+            'nome_fantasia', 'slogan', 'sobre', 'logo',
+            'hero_titulo', 'hero_subtitulo',
+            'telefone_principal', 'telefone_secundario', 'whatsapp', 'email_contato',
+            'endereco', 'bairro', 'cidade', 'uf', 'cep', 'google_maps_embed',
+            'horario_semana', 'horario_sabado', 'horario_domingo',
+            'instagram_url', 'facebook_url',
+        ]
+        widgets = {
+            'nome_fantasia': forms.TextInput(attrs={'class': BASE_INPUT_CLASS}),
+            'slogan': forms.TextInput(attrs={'class': BASE_INPUT_CLASS}),
+            'sobre': forms.Textarea(attrs={'class': BASE_TEXTAREA_CLASS}),
+            'logo': forms.ClearableFileInput(attrs={'class': BASE_FILE_CLASS, 'accept': 'image/*'}),
+            'hero_titulo': forms.TextInput(attrs={'class': BASE_INPUT_CLASS}),
+            'hero_subtitulo': forms.TextInput(attrs={'class': BASE_INPUT_CLASS}),
+            'telefone_principal': forms.TextInput(attrs={'class': BASE_INPUT_CLASS, 'placeholder': '(11) 90000-0000'}),
+            'telefone_secundario': forms.TextInput(attrs={'class': BASE_INPUT_CLASS, 'placeholder': '(11) 90000-0000'}),
+            'whatsapp': forms.TextInput(attrs={'class': BASE_INPUT_CLASS, 'placeholder': '5511900000000'}),
+            'email_contato': forms.EmailInput(attrs={'class': BASE_INPUT_CLASS, 'placeholder': 'contato@oficina.com'}),
+            'endereco': forms.TextInput(attrs={'class': BASE_INPUT_CLASS}),
+            'bairro': forms.TextInput(attrs={'class': BASE_INPUT_CLASS}),
+            'cidade': forms.TextInput(attrs={'class': BASE_INPUT_CLASS}),
+            'uf': forms.TextInput(attrs={'class': BASE_INPUT_CLASS, 'maxlength': 2}),
+            'cep': forms.TextInput(attrs={'class': BASE_INPUT_CLASS, 'placeholder': '00000-000'}),
+            'google_maps_embed': forms.URLInput(attrs={'class': BASE_INPUT_CLASS, 'placeholder': 'https://www.google.com/maps/embed?...'}),
+            'horario_semana': forms.TextInput(attrs={'class': BASE_INPUT_CLASS}),
+            'horario_sabado': forms.TextInput(attrs={'class': BASE_INPUT_CLASS}),
+            'horario_domingo': forms.TextInput(attrs={'class': BASE_INPUT_CLASS}),
+            'instagram_url': forms.URLInput(attrs={'class': BASE_INPUT_CLASS, 'placeholder': 'https://instagram.com/...'}),
+            'facebook_url': forms.URLInput(attrs={'class': BASE_INPUT_CLASS, 'placeholder': 'https://facebook.com/...'}),
+        }

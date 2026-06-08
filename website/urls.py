@@ -12,6 +12,7 @@ urlpatterns = [
     path('contato/', views.PublicContactView.as_view(), name='public_contact'),
 
     # Área restrita: gestão do conteúdo do site.
+    path('painel/oficina/', views.SiteSettingsView.as_view(), name='site_settings'),
     path('painel/artigos/', views.BlogPostManageListView.as_view(), name='blog_manage_list'),
     path('painel/artigos/novo/', views.BlogPostCreateView.as_view(), name='blog_manage_create'),
     path('painel/artigos/<int:pk>/editar/', views.BlogPostUpdateView.as_view(), name='blog_manage_update'),
