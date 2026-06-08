@@ -1,9 +1,15 @@
 from django.urls import path
+from django.views.generic import TemplateView
 
 from . import views
 
 urlpatterns = [
     path('healthz/', views.HealthCheckView.as_view(), name='health_check'),
+    path(
+        'sw.js',
+        TemplateView.as_view(template_name='pwa/sw.js', content_type='application/javascript'),
+        name='service_worker',
+    ),
     path('dashboard/', views.DashboardView.as_view(), name='dashboard'),
 
     path('clientes/', views.CustomerListView.as_view(), name='customer_list'),
