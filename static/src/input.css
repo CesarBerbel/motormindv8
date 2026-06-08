@@ -80,3 +80,14 @@
     }
   }
 }
+
+/* Marca d'água global "motormindv8", adaptada ao tema ativo. */
+body {
+  background-image: url('/static/img/motormind-bg-light.png');
+  background-repeat: repeat;
+}
+
+[data-theme='dark'] body,
+[data-theme='bandeirantes-dark'] body {
+  background-image: url('/static/img/motormind-bg-dark.png');
+}

@@ -1,14 +1,34 @@
 {% load static %}
 <!doctype html>
-<html lang="pt-br" data-theme="light">
+<html lang="pt-br" data-theme="light" data-theme-light="light" data-theme-dark="dark">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script>
+    // Aplica o tema guardado antes da renderização (evita flash de tema errado).
+    (function () {
+      var r = document.documentElement;
+      var dark = r.getAttribute('data-theme-dark') || 'dark';
+      var light = r.getAttribute('data-theme-light') || 'light';
+      var p = 'light';
+      try { p = localStorage.getItem('mm-theme') === 'dark' ? 'dark' : 'light'; } catch (e) {}
+      var q = (location.search.match(/[?&]theme=(dark|light)/) || [])[1];
+      if (q) { p = q; try { localStorage.setItem('mm-theme', q); } catch (e) {} }
+      r.setAttribute('data-theme', p === 'dark' ? dark : light);
+    })();
+  </script>
   <meta name="csrf-token" content="{{ csrf_token }}">
   <title>{% block title %}MotorMind{% endblock %}</title>
   <link rel="stylesheet" href="{% static 'css/styles.css' %}">
+
+  <link rel="manifest" href="{% static 'manifest.webmanifest' %}">
+  <meta name="theme-color" content="#1f2937">
+  <link rel="apple-touch-icon" href="{% static 'img/pwa/apple-touch-icon.png' %}">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="MotorMind">
 </head>
-<body class="min-h-screen bg-base-200" style="background-image: url('{% static 'img/motormind-bg-light.png' %}'); background-repeat: repeat;">
+<body class="min-h-screen bg-base-200">
   <div class="navbar bg-base-100 shadow-sm" data-main-navbar>
     <div class="navbar-start gap-2">
       {% if request.user.is_authenticated %}
@@ -332,6 +352,9 @@
     </div>
 
     <div class="navbar-end gap-2">
+      <button type="button" class="btn btn-ghost btn-sm btn-circle" data-theme-toggle aria-label="Alternar tema claro/escuro">
+        <span data-theme-icon>🌙</span>
+      </button>
       {% if request.user.is_authenticated %}
         <span class="hidden max-w-64 truncate text-sm md:inline">{{ request.user.email }}</span>
         <a href="{% url 'password_change' %}" class="btn btn-ghost btn-sm whitespace-nowrap">Minha senha</a>
@@ -369,6 +392,8 @@
   <script src="{% static 'js/toasts.js' %}"></script>
   <script src="{% static 'js/money.js' %}"></script>
   <script src="{% static 'js/floating-dropdown.js' %}"></script>
+  <script src="{% static 'js/theme-toggle.js' %}"></script>
+  <script src="{% static 'js/pwa.js' %}"></script>
   {% block extra_js %}{% endblock %}
 </body>
 </html>

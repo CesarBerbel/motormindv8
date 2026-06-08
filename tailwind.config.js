@@ -44,6 +44,31 @@ module.exports = {
           'error': '#dc2626',
           'error-content': '#ffffff'
         }
+      },
+      {
+        // Variante escura do tema da vitrine pública.
+        'bandeirantes-dark': {
+          'primary': '#3b82f6',
+          'primary-content': '#0b1220',
+          'secondary': '#60a5fa',
+          'secondary-content': '#0b1220',
+          'accent': '#22d3ee',
+          'accent-content': '#0b1220',
+          'neutral': '#0b1220',
+          'neutral-content': '#e5e7eb',
+          'base-100': '#1f2937',
+          'base-200': '#161f2b',
+          'base-300': '#374151',
+          'base-content': '#e5e7eb',
+          'info': '#0ea5e9',
+          'info-content': '#0b1220',
+          'success': '#22c55e',
+          'success-content': '#0b1220',
+          'warning': '#f59e0b',
+          'warning-content': '#1c1917',
+          'error': '#ef4444',
+          'error-content': '#0b1220'
+        }
       }
     ]
   }

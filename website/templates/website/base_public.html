@@ -1,15 +1,35 @@
 {% load static %}
 <!doctype html>
-<html lang="pt-br" data-theme="bandeirantes">
+<html lang="pt-br" data-theme="bandeirantes" data-theme-light="bandeirantes" data-theme-dark="bandeirantes-dark">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script>
+    // Aplica o tema guardado antes da renderização (evita flash de tema errado).
+    (function () {
+      var r = document.documentElement;
+      var dark = r.getAttribute('data-theme-dark') || 'dark';
+      var light = r.getAttribute('data-theme-light') || 'light';
+      var p = 'light';
+      try { p = localStorage.getItem('mm-theme') === 'dark' ? 'dark' : 'light'; } catch (e) {}
+      var q = (location.search.match(/[?&]theme=(dark|light)/) || [])[1];
+      if (q) { p = q; try { localStorage.setItem('mm-theme', q); } catch (e) {} }
+      r.setAttribute('data-theme', p === 'dark' ? dark : light);
+    })();
+  </script>
   <meta name="csrf-token" content="{{ csrf_token }}">
   <title>{% block title %}{{ site.nome_fantasia }}{% endblock %}</title>
   <meta name="description" content="{% block meta_description %}{{ site.slogan }} — {{ site.nome_fantasia }}{% endblock %}">
   <link rel="stylesheet" href="{% static 'css/styles.css' %}">
+
+  <link rel="manifest" href="{% static 'manifest.webmanifest' %}">
+  <meta name="theme-color" content="#1f2937">
+  <link rel="apple-touch-icon" href="{% static 'img/pwa/apple-touch-icon.png' %}">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="MotorMind">
 </head>
-<body class="min-h-screen bg-base-100 flex flex-col" style="background-image: url('{% static 'img/motormind-bg-light.png' %}'); background-repeat: repeat;">
+<body class="min-h-screen bg-base-100 flex flex-col">
   <header class="navbar sticky top-0 z-50 bg-base-100/95 backdrop-blur shadow-sm">
     <div class="container mx-auto flex w-full items-center px-4">
       <div class="navbar-start">
@@ -37,6 +57,9 @@
       </nav>
 
       <div class="navbar-end gap-2">
+        <button type="button" class="btn btn-ghost btn-sm btn-circle" data-theme-toggle aria-label="Alternar tema claro/escuro">
+          <span data-theme-icon>🌙</span>
+        </button>
         {% if site.whatsapp_link %}
           <a href="{{ site.whatsapp_link }}" target="_blank" rel="noopener"
              class="btn btn-success btn-sm hidden text-success-content sm:inline-flex">
@@ -128,6 +151,8 @@
   {% endif %}
 
   <script src="{% static 'js/toasts.js' %}"></script>
+  <script src="{% static 'js/theme-toggle.js' %}"></script>
+  <script src="{% static 'js/pwa.js' %}"></script>
   {% block extra_js %}{% endblock %}
 </body>
 </html>
