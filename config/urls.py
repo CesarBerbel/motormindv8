@@ -3,6 +3,9 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.urls import include, path
 
+def trigger_error(request):
+    division_by_zero = 1 / 0
+
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', include('core.urls')),
@@ -10,7 +13,7 @@ urlpatterns = [
     path('', include('communications.urls')),
     path('', include('stock.urls')),
     path('', include('operations.urls')),
-    path('', include('ai_assistant.urls')),
+    path('', include('ai_assistant.urls')),  
 ]
 
 if settings.DEBUG:
