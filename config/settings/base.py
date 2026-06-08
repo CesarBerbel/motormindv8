@@ -238,3 +238,9 @@ LOGGING = {
         },
     },
 }
+
+# Monitorizacao opcional de erros (Sentry). No-op sem SENTRY_DSN; ver
+# config/monitoring.py para as variaveis de ambiente suportadas.
+from config.monitoring import init_sentry  # noqa: E402
+
+SENTRY_ENABLED = init_sentry()
