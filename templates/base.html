@@ -8,7 +8,7 @@
   <title>{% block title %}MotorMind{% endblock %}</title>
   <link rel="stylesheet" href="{% static 'css/styles.css' %}">
 </head>
-<body class="min-h-screen bg-base-200">
+<body class="min-h-screen bg-base-200" style="background-image: url('{% static 'img/motormind-bg-light.png' %}'); background-repeat: repeat;">
   <div class="navbar bg-base-100 shadow-sm" data-main-navbar>
     <div class="navbar-start gap-2">
       {% if request.user.is_authenticated %}
