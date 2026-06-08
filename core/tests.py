@@ -1,9 +1,13 @@
+import json
 from decimal import Decimal
+from unittest import mock
 
 from django import forms
+from django.core.cache import cache
 from django.test import SimpleTestCase
 
 from core.money import MoneyField, format_money_br, normalize_money
+from core.views import FipeProxyBaseView
 
 
 class NormalizeMoneyTests(SimpleTestCase):
@@ -51,3 +55,40 @@ class MoneyFieldTests(SimpleTestCase):
 
     def test_get_prep_value_normalizes(self):
         self.assertEqual(self.field.get_prep_value('10,50'), Decimal('10.50'))
+
+
+class FipeCacheTests(SimpleTestCase):
+    def setUp(self):
+        cache.clear()
+        self.addCleanup(cache.clear)
+
+    def _fake_response(self, payload):
+        resp = mock.MagicMock()
+        resp.read.return_value = json.dumps(payload).encode('utf-8')
+        resp.headers.get_content_charset.return_value = 'utf-8'
+        resp.__enter__.return_value = resp
+        resp.__exit__.return_value = False
+        return resp
+
+    def test_second_call_is_served_from_cache(self):
+        view = FipeProxyBaseView()
+        payload = [{'code': '1', 'name': 'Fiat'}]
+        with mock.patch('core.views.urlopen', return_value=self._fake_response(payload)) as urlopen_mock:
+            first = view.fetch_json('/cars/brands')
+            second = view.fetch_json('/cars/brands')
+
+        self.assertEqual(first, payload)
+        self.assertEqual(second, payload)
+        # A segunda chamada vem do cache: urlopen so e invocado uma vez.
+        self.assertEqual(urlopen_mock.call_count, 1)
+
+    def test_different_paths_are_cached_separately(self):
+        view = FipeProxyBaseView()
+        with mock.patch('core.views.urlopen', side_effect=[
+            self._fake_response([{'code': '1', 'name': 'A'}]),
+            self._fake_response([{'code': '2', 'name': 'B'}]),
+        ]) as urlopen_mock:
+            view.fetch_json('/cars/brands')
+            view.fetch_json('/trucks/brands')
+
+        self.assertEqual(urlopen_mock.call_count, 2)
