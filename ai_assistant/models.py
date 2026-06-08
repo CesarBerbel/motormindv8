@@ -2,6 +2,8 @@ from django.conf import settings
 from django.db import models
 from django.utils import timezone
 
+from core.encryption import EncryptedTextField
+
 
 class AIProvider(models.TextChoices):
     LOCAL = 'local', 'Local / simulado'
@@ -46,7 +48,7 @@ class AISettings(models.Model):
     ativo = models.BooleanField('IA ativa?', default=True)
     provedor = models.CharField('Provedor', max_length=30, choices=AIProvider.choices, default=AIProvider.LOCAL)
     modelo = models.CharField('Modelo', max_length=120, blank=True, default='gpt-4o-mini')
-    api_key = models.CharField('Chave de API', max_length=500, blank=True)
+    api_key = EncryptedTextField('Chave de API', blank=True, default='')
     endpoint_base = models.URLField('Endpoint/base URL', blank=True)
     temperatura = models.DecimalField('Temperatura', max_digits=3, decimal_places=2, default=0.30)
     timeout_segundos = models.PositiveIntegerField('Timeout em segundos', default=20)

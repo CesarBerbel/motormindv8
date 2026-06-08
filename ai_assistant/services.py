@@ -1,16 +1,87 @@
 import json
+import logging
 import re
 from dataclasses import dataclass
 from urllib import request as urlrequest
 from urllib import error as urlerror
+from urllib.parse import urlparse
 
+from django.core.cache import cache
 from django.utils.html import strip_tags
 
 from .models import AIAssistantAction, AIInteractionLog, AIProvider, AISettings
 
+logger = logging.getLogger('ai_assistant')
+
+# Limites de timeout para evitar chamadas que bloqueiam o worker indefinidamente.
+MIN_TIMEOUT = 1
+MAX_TIMEOUT = 60
+DEFAULT_TIMEOUT = 20
+
+# Rate limiting por utilizador (janela deslizante simples via cache).
+AI_RATE_LIMIT = 20
+AI_RATE_WINDOW_SECONDS = 60
+
+# Hosts de loopback onde se aceita http simples (ex.: Ollama local).
+LOOPBACK_HOSTS = {'localhost', '127.0.0.1', '::1', '0.0.0.0'}
+
 
 class AIServiceError(Exception):
     pass
+
+
+class AIRateLimitError(AIServiceError):
+    pass
+
+
+def clamp_timeout(value):
+    try:
+        value = int(value)
+    except (TypeError, ValueError):
+        value = DEFAULT_TIMEOUT
+    return max(MIN_TIMEOUT, min(value or DEFAULT_TIMEOUT, MAX_TIMEOUT))
+
+
+def mask_secret(value):
+    if not value:
+        return ''
+    if len(value) <= 8:
+        return '••••'
+    return f'{value[:4]}••••{value[-4:]}'
+
+
+def validate_provider_url(url):
+    """Valida o endpoint antes de qualquer chamada externa (anti-SSRF).
+
+    - Apenas http/https sao aceites (bloqueia file://, gopher:// etc.).
+    - http simples so e permitido para hosts de loopback; endpoints externos
+      tem de usar HTTPS.
+    """
+    if not url:
+        raise AIServiceError('Endpoint da IA não configurado.')
+    parsed = urlparse(url)
+    if parsed.scheme not in {'http', 'https'}:
+        raise AIServiceError('O endpoint da IA deve usar http ou https.')
+    if not parsed.hostname:
+        raise AIServiceError('Endpoint da IA inválido.')
+    host = parsed.hostname.lower()
+    if parsed.scheme == 'http' and host not in LOOPBACK_HOSTS:
+        raise AIServiceError('Endpoints externos da IA devem usar HTTPS.')
+    return url
+
+
+def check_ai_rate_limit(user, limit=AI_RATE_LIMIT, window=AI_RATE_WINDOW_SECONDS):
+    """Devolve True se o pedido for permitido dentro da janela atual."""
+    user_id = getattr(user, 'pk', None) or 'anon'
+    key = f'ai_assist_rate:{user_id}'
+    if cache.add(key, 1, timeout=window):
+        return True
+    try:
+        current = cache.incr(key)
+    except ValueError:
+        cache.set(key, 1, timeout=window)
+        return True
+    return current <= limit
 
 
 @dataclass
@@ -195,6 +266,8 @@ def local_generate(settings, action, text, context=None):
 
 
 def post_json(url, payload, headers=None, timeout=20):
+    validate_provider_url(url)
+    timeout = clamp_timeout(timeout)
     data = json.dumps(payload).encode('utf-8')
     req = urlrequest.Request(url, data=data, headers={
         'Content-Type': 'application/json',
@@ -251,7 +324,7 @@ def generate_with_provider(settings, action, text, context=None):
     prompt = build_prompt(settings, action, text, context)
     provider = settings.provedor
     model = settings.modelo or ''
-    timeout = settings.timeout_segundos or 20
+    timeout = clamp_timeout(settings.timeout_segundos)
     temperature = float(settings.temperatura or 0.3)
 
     if provider == AIProvider.LOCAL:
@@ -329,6 +402,26 @@ def generate_with_provider(settings, action, text, context=None):
     return AIResult(text=limit_text(result_text, settings.limite_caracteres_resposta), provider=provider, model=model, raw=data)
 
 
+OS_ACTIONS = {
+    AIAssistantAction.IMPROVE_PROBLEM,
+    AIAssistantAction.IMPROVE_DIAGNOSIS,
+    AIAssistantAction.SUGGEST_OBSERVATION,
+}
+MESSAGE_ACTIONS = {
+    AIAssistantAction.IMPROVE_MESSAGE,
+    AIAssistantAction.EMAIL_TEMPLATE,
+    AIAssistantAction.WHATSAPP_TEMPLATE,
+}
+
+
+def ensure_action_enabled(settings, action):
+    """Aplica as regras de negocio de habilitacao da IA por tipo de acao."""
+    if action in OS_ACTIONS and not settings.habilitar_os:
+        raise AIServiceError('A IA para campos da OS está desabilitada nas configurações.')
+    if action in MESSAGE_ACTIONS and not settings.habilitar_mensagens:
+        raise AIServiceError('A IA para mensagens/templates está desabilitada nas configurações.')
+
+
 def generate_ai_text(action, text='', context=None, user=None):
     settings = AISettings.get_solo()
     context = context or {}
@@ -336,6 +429,7 @@ def generate_ai_text(action, text='', context=None, user=None):
         raise AIServiceError('O módulo de IA está desativado nas configurações.')
     if action not in AIAssistantAction.values:
         raise AIServiceError('Ação de IA inválida.')
+    ensure_action_enabled(settings, action)
 
     log = AIInteractionLog.objects.create(
         acao=action,
@@ -345,12 +439,21 @@ def generate_ai_text(action, text='', context=None, user=None):
         contexto=context,
         usuario=user if getattr(user, 'is_authenticated', False) else None,
     )
+    logger.info(
+        'IA: ação=%s provedor=%s modelo=%s usuário=%s chave=%s',
+        action,
+        settings.provedor,
+        settings.modelo or '-',
+        getattr(user, 'pk', None) or 'anon',
+        mask_secret(settings.api_key),
+    )
     try:
         result = generate_with_provider(settings, action, text, context)
     except Exception as exc:
         log.erro = str(exc)
         log.sucesso = False
         log.save(update_fields=['erro', 'sucesso'])
+        logger.warning('IA: falha ação=%s provedor=%s erro=%s', action, settings.provedor, exc)
         raise
 
     log.resposta = result.text
