@@ -26,12 +26,8 @@
         <th>Tipo</th>
         <th>Status</th>
         <th>Destinatário</th>
-        <th>Email</th>
-        <th>Template</th>
-        <th>OS</th>
-        <th>Status OS</th>
         <th>Assunto</th>
-        <th>Erro</th>
+        <th class="text-right">Detalhes</th>
       </tr>
     </thead>
     <tbody>
@@ -48,46 +44,102 @@
               <span class="badge badge-warning">Pendente</span>
             {% endif %}
           </td>
-          <td class="whitespace-nowrap">{{ item.destinatario_nome }}</td>
-          <td class="whitespace-nowrap">{{ item.destinatario_email }}</td>
-          <td class="whitespace-nowrap">
-            {% if item.template %}
-              {{ item.template.nome }}
-            {% else %}
-              <span class="text-base-content/50">-</span>
-            {% endif %}
-          </td>
-          <td class="whitespace-nowrap">
-            {% if item.ordem_servico_codigo %}
-              {{ item.ordem_servico_codigo }}
-            {% else %}
-              <span class="text-base-content/50">-</span>
-            {% endif %}
-          </td>
-          <td class="whitespace-nowrap">
-            {% if item.ordem_servico_status %}
-              {{ item.get_ordem_servico_status_display }}
-            {% else %}
-              <span class="text-base-content/50">-</span>
-            {% endif %}
-          </td>
-          <td class="min-w-64">{{ item.assunto }}</td>
-          <td class="max-w-md">
-            {% if item.erro %}
-              <span class="text-error">{{ item.erro|truncatechars:120 }}</span>
-            {% else %}
-              <span class="text-base-content/50">-</span>
-            {% endif %}
+          <td class="max-w-48 truncate" title="{{ item.destinatario_nome }} <{{ item.destinatario_email }}>">{{ item.destinatario_nome }}</td>
+          <td class="max-w-xs truncate" title="{{ item.assunto }}">{{ item.assunto }}</td>
+          <td class="text-right">
+            <label for="msg-modal-{{ item.pk }}" class="btn btn-ghost btn-xs btn-circle" title="Ver detalhes" aria-label="Ver detalhes">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-4 w-4">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" />
+                <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+              </svg>
+            </label>
           </td>
         </tr>
       {% empty %}
         <tr>
-          <td colspan="10" class="text-center">Nenhuma mensagem registrada.</td>
+          <td colspan="6" class="text-center">Nenhuma mensagem registrada.</td>
         </tr>
       {% endfor %}
     </tbody>
   </table>
 </div>
+
+{% comment %} Modais de detalhe (um por mensagem). {% endcomment %}
+{% for item in messages_history %}
+  <input type="checkbox" id="msg-modal-{{ item.pk }}" class="modal-toggle" />
+  <div class="modal" role="dialog">
+    <div class="modal-box max-w-2xl">
+      <div class="mb-4 flex items-start justify-between gap-4">
+        <h3 class="text-lg font-bold">Detalhes da mensagem</h3>
+        {% if item.status == 'sent' %}
+          <span class="badge badge-success">Enviado</span>
+        {% elif item.status == 'error' %}
+          <span class="badge badge-error">Erro</span>
+        {% else %}
+          <span class="badge badge-warning">Pendente</span>
+        {% endif %}
+      </div>
+
+      <dl class="grid grid-cols-1 gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
+        <div>
+          <dt class="text-base-content/60">Data</dt>
+          <dd>{{ item.criado_em|date:'d/m/Y H:i' }}</dd>
+        </div>
+        <div>
+          <dt class="text-base-content/60">Tipo</dt>
+          <dd>{{ item.get_tipo_display }}</dd>
+        </div>
+        <div>
+          <dt class="text-base-content/60">Destinatário</dt>
+          <dd>{{ item.destinatario_nome }}</dd>
+        </div>
+        <div>
+          <dt class="text-base-content/60">Email</dt>
+          <dd class="break-all">{{ item.destinatario_email }}</dd>
+        </div>
+        <div>
+          <dt class="text-base-content/60">Template</dt>
+          <dd>{{ item.template.nome|default:'-' }}</dd>
+        </div>
+        <div>
+          <dt class="text-base-content/60">Enviado em</dt>
+          <dd>{{ item.enviado_em|date:'d/m/Y H:i'|default:'-' }}</dd>
+        </div>
+        <div>
+          <dt class="text-base-content/60">OS</dt>
+          <dd>{{ item.ordem_servico_codigo|default:'-' }}</dd>
+        </div>
+        <div>
+          <dt class="text-base-content/60">Status da OS</dt>
+          <dd>{% if item.ordem_servico_status %}{{ item.get_ordem_servico_status_display }}{% else %}-{% endif %}</dd>
+        </div>
+        <div class="sm:col-span-2">
+          <dt class="text-base-content/60">Assunto</dt>
+          <dd>{{ item.assunto }}</dd>
+        </div>
+        {% if item.erro %}
+          <div class="sm:col-span-2">
+            <dt class="text-base-content/60">Erro</dt>
+            <dd class="text-error">{{ item.erro }}</dd>
+          </div>
+        {% endif %}
+        {% if item.corpo %}
+          <div class="sm:col-span-2">
+            <dt class="mb-1 text-base-content/60">Conteúdo</dt>
+            <dd class="max-h-64 overflow-y-auto rounded-box border border-base-300 bg-base-200/50 p-3 text-xs">
+              <pre class="whitespace-pre-wrap break-words font-sans">{{ item.corpo }}</pre>
+            </dd>
+          </div>
+        {% endif %}
+      </dl>
+
+      <div class="modal-action">
+        <label for="msg-modal-{{ item.pk }}" class="btn">Fechar</label>
+      </div>
+    </div>
+    <label class="modal-backdrop" for="msg-modal-{{ item.pk }}">Fechar</label>
+  </div>
+{% endfor %}
 
 {% include 'includes/pagination.html' %}
 {% endblock %}
