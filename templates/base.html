@@ -29,7 +29,7 @@
   <meta name="apple-mobile-web-app-title" content="MotorMind">
 </head>
 <body class="min-h-screen bg-base-200">
-  <div class="navbar bg-base-100 shadow-sm" data-main-navbar>
+  <div class="navbar sticky top-0 z-50 bg-base-100 shadow-sm" data-main-navbar>
     <div class="navbar-start gap-2">
       {% if request.user.is_authenticated %}
         <details class="dropdown lg:hidden" data-menu-root>
@@ -356,8 +356,18 @@
         <span data-theme-icon>🌙</span>
       </button>
       {% if request.user.is_authenticated %}
-        <span class="hidden max-w-64 truncate text-sm md:inline">{{ request.user.email }}</span>
-        <a href="{% url 'password_change' %}" class="btn btn-ghost btn-sm whitespace-nowrap">Minha senha</a>
+        <details class="dropdown dropdown-end" data-menu-root>
+          <summary class="btn btn-ghost btn-sm list-none whitespace-nowrap">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-4 w-4">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M17.982 18.725A7.488 7.488 0 0 0 12 15.75a7.488 7.488 0 0 0-5.982 2.975m11.963 0a9 9 0 1 0-11.963 0m11.963 0A8.966 8.966 0 0 1 12 21a8.966 8.966 0 0 1-5.982-2.275M15 9.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+            </svg>
+            <span class="hidden max-w-40 truncate md:inline">{{ request.user.email }}</span>
+          </summary>
+          <ul class="menu dropdown-content z-50 mt-3 w-60 rounded-box bg-base-100 p-2 shadow">
+            <li class="menu-title"><span class="truncate">{{ request.user.email }}</span></li>
+            <li><a href="{% url 'password_change' %}" class="whitespace-nowrap">Minha senha</a></li>
+          </ul>
+        </details>
         <form action="{% url 'logout' %}" method="post">
           {% csrf_token %}
           <button type="submit" class="btn btn-outline btn-sm whitespace-nowrap">Sair</button>
