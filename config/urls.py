@@ -14,6 +14,7 @@ urlpatterns = [
     path('', include('stock.urls')),
     path('', include('operations.urls')),
     path('', include('ai_assistant.urls')),  
+    path('sentry-debug/', trigger_error),
 ]
 
 if settings.DEBUG:
