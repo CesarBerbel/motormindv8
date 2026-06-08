@@ -1,8 +1,19 @@
 from django.contrib import messages
+from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
+from django.http import HttpResponseRedirect
 from django.urls import reverse_lazy
-from django.views.generic import DetailView, FormView, ListView, TemplateView
+from django.views.generic import (
+    CreateView,
+    DeleteView,
+    DetailView,
+    FormView,
+    ListView,
+    TemplateView,
+    UpdateView,
+)
 
-from .forms import LeadForm
+from core.views import FormTitleMixin
+from .forms import BlogPostForm, LeadForm
 from .models import BlogPost, PublicService, Testimonial
 from .services import notify_new_lead
 
@@ -94,3 +105,56 @@ class PublicContactView(FormView):
     def form_invalid(self, form):
         messages.error(self.request, 'Revise os campos destacados e tente novamente.')
         return super().form_invalid(form)
+
+
+# --------------------------------------------------------------------------- #
+# Área restrita: gestão de artigos do blog.
+# --------------------------------------------------------------------------- #
+class BlogPostManageListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
+    template_name = 'website/manage/blog_list.html'
+    context_object_name = 'posts'
+    paginate_by = 20
+    permission_required = 'website.view_blogpost'
+    queryset = BlogPost.objects.all()
+
+
+class BlogPostCreateView(LoginRequiredMixin, PermissionRequiredMixin, FormTitleMixin, CreateView):
+    model = BlogPost
+    form_class = BlogPostForm
+    template_name = 'website/manage/blog_form.html'
+    success_url = reverse_lazy('blog_manage_list')
+    permission_required = 'website.add_blogpost'
+    title = 'Novo artigo do blog'
+
+    def form_valid(self, form):
+        if form.instance.autor_id is None:
+            form.instance.autor = self.request.user
+        messages.success(self.request, 'Artigo criado com sucesso.')
+        return super().form_valid(form)
+
+
+class BlogPostUpdateView(LoginRequiredMixin, PermissionRequiredMixin, FormTitleMixin, UpdateView):
+    model = BlogPost
+    form_class = BlogPostForm
+    template_name = 'website/manage/blog_form.html'
+    success_url = reverse_lazy('blog_manage_list')
+    permission_required = 'website.change_blogpost'
+    title = 'Editar artigo do blog'
+    queryset = BlogPost.objects.all()
+
+    def form_valid(self, form):
+        messages.success(self.request, 'Artigo atualizado com sucesso.')
+        return super().form_valid(form)
+
+
+class BlogPostDeleteView(LoginRequiredMixin, PermissionRequiredMixin, FormTitleMixin, DeleteView):
+    model = BlogPost
+    template_name = 'core/confirm_delete.html'
+    success_url = reverse_lazy('blog_manage_list')
+    permission_required = 'website.delete_blogpost'
+    title = 'Excluir artigo do blog'
+    queryset = BlogPost.objects.all()
+
+    def form_valid(self, form):
+        messages.success(self.request, 'Artigo excluído com sucesso.')
+        return super().form_valid(form)

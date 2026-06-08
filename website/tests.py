@@ -1,3 +1,5 @@
+from django.contrib.auth import get_user_model
+from django.contrib.auth.models import Permission
 from django.core import mail
 from django.test import TestCase
 from django.urls import reverse
@@ -50,11 +52,11 @@ class BlogPostModelTests(TestCase):
         self.assertIsNotNone(post.publicado_em)
 
     def test_published_manager_excludes_drafts(self):
-        BlogPost.objects.create(titulo='Rascunho', conteudo='x', publicado=False)
+        draft = BlogPost.objects.create(titulo='Rascunho', conteudo='x', publicado=False)
         published = BlogPost.objects.create(titulo='No ar', conteudo='x', publicado=True)
         slugs = list(BlogPost.publicados.values_list('slug', flat=True))
         self.assertIn(published.slug, slugs)
-        self.assertEqual(len(slugs), 1)
+        self.assertNotIn(draft.slug, slugs)
 
 
 class TestimonialModelTests(TestCase):
@@ -151,3 +153,68 @@ class LeadSubmissionTests(TestCase):
         lead = Lead.objects.create(nome='X', telefone='11999999999')
         # DEFAULT_FROM_EMAIL pode estar definido; apenas garantimos que não levanta.
         notify_new_lead(lead)
+
+
+class BlogManageAccessTests(TestCase):
+    def setUp(self):
+        User = get_user_model()
+        self.editor = User.objects.create_user(
+            email='editor@example.com', password='senha-forte-123', nome_razao_social='Editor',
+        )
+        for codename in ('view_blogpost', 'add_blogpost', 'change_blogpost', 'delete_blogpost'):
+            self.editor.user_permissions.add(Permission.objects.get(codename=codename))
+        self.outsider = User.objects.create_user(
+            email='outro@example.com', password='senha-forte-123', nome_razao_social='Outro',
+        )
+
+    def test_list_requires_login(self):
+        response = self.client.get(reverse('blog_manage_list'))
+        self.assertEqual(response.status_code, 302)
+        self.assertIn('/login/', response['Location'])
+
+    def test_user_without_permission_is_forbidden(self):
+        self.client.force_login(self.outsider)
+        response = self.client.get(reverse('blog_manage_list'))
+        self.assertEqual(response.status_code, 403)
+
+    def test_editor_can_view_list(self):
+        self.client.force_login(self.editor)
+        response = self.client.get(reverse('blog_manage_list'))
+        self.assertEqual(response.status_code, 200)
+
+    def test_editor_can_create_post_and_author_is_set(self):
+        self.client.force_login(self.editor)
+        response = self.client.post(reverse('blog_manage_create'), {
+            'titulo': 'Novo artigo de teste',
+            'slug': '',
+            'resumo': 'Resumo',
+            'conteudo': '<p>Conteúdo do artigo</p>',
+            'publicado': 'on',
+        })
+        self.assertRedirects(response, reverse('blog_manage_list'))
+        post = BlogPost.objects.get(titulo='Novo artigo de teste')
+        self.assertEqual(post.autor, self.editor)
+        self.assertTrue(post.publicado)
+        self.assertIsNotNone(post.publicado_em)
+        self.assertEqual(post.slug, 'novo-artigo-de-teste')
+
+    def test_editor_can_update_post(self):
+        post = BlogPost.objects.create(titulo='Original', conteudo='x')
+        self.client.force_login(self.editor)
+        response = self.client.post(reverse('blog_manage_update', kwargs={'pk': post.pk}), {
+            'titulo': 'Atualizado',
+            'slug': post.slug,
+            'resumo': '',
+            'conteudo': '<p>novo</p>',
+            'publicado': 'on',
+        })
+        self.assertRedirects(response, reverse('blog_manage_list'))
+        post.refresh_from_db()
+        self.assertEqual(post.titulo, 'Atualizado')
+
+    def test_editor_can_delete_post(self):
+        post = BlogPost.objects.create(titulo='Para excluir', conteudo='x')
+        self.client.force_login(self.editor)
+        response = self.client.post(reverse('blog_manage_delete', kwargs={'pk': post.pk}))
+        self.assertRedirects(response, reverse('blog_manage_list'))
+        self.assertFalse(BlogPost.objects.filter(pk=post.pk).exists())

@@ -1,0 +1,64 @@
+{% extends 'base.html' %}
+
+{% block title %}Artigos do blog | MotorMind{% endblock %}
+
+{% block content %}
+<div class="mb-6 flex items-center justify-between gap-4">
+  <div>
+    <h1 class="page-title">Artigos do blog</h1>
+    <p class="text-base-content/70">Crie e edite os artigos exibidos no blog do site público.</p>
+  </div>
+  {% if perms.website.add_blogpost %}
+    <a href="{% url 'blog_manage_create' %}" class="btn btn-primary whitespace-nowrap">Novo artigo</a>
+  {% endif %}
+</div>
+
+<div class="overflow-x-auto rounded-box bg-base-100 shadow">
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Título</th>
+        <th>Status</th>
+        <th>Publicado em</th>
+        <th>Autor</th>
+        <th class="text-right">Ações</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for post in posts %}
+        <tr>
+          <td class="font-medium">{{ post.titulo }}</td>
+          <td class="whitespace-nowrap">
+            {% if post.publicado %}
+              <span class="badge badge-success">Publicado</span>
+            {% else %}
+              <span class="badge badge-ghost">Rascunho</span>
+            {% endif %}
+          </td>
+          <td class="whitespace-nowrap">{{ post.publicado_em|date:"d/m/Y H:i"|default:"-" }}</td>
+          <td class="whitespace-nowrap">{% if post.autor %}{{ post.autor.get_full_name|default:post.autor.email }}{% else %}-{% endif %}</td>
+          <td class="text-right whitespace-nowrap">
+            <div class="flex justify-end gap-2 whitespace-nowrap">
+              {% if post.publicado %}
+                <a href="{{ post.get_absolute_url }}" target="_blank" rel="noopener" class="btn btn-ghost btn-xs whitespace-nowrap">Ver</a>
+              {% endif %}
+              {% if perms.website.change_blogpost %}
+                <a href="{% url 'blog_manage_update' post.pk %}" class="btn btn-ghost btn-xs whitespace-nowrap">Editar</a>
+              {% endif %}
+              {% if perms.website.delete_blogpost %}
+                <a href="{% url 'blog_manage_delete' post.pk %}" class="btn btn-error btn-xs whitespace-nowrap">Excluir</a>
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+      {% empty %}
+        <tr>
+          <td colspan="5" class="text-center">Nenhum artigo cadastrado.</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% include 'includes/pagination.html' %}
+{% endblock %}

@@ -105,6 +105,18 @@
               </li>
             {% endif %}
 
+            {% if perms.website.view_blogpost %}
+              <li>
+                <details data-menu-nested>
+                  <summary class="whitespace-nowrap">Site</summary>
+                  <ul>
+                    <li><a href="{% url 'blog_manage_list' %}" class="whitespace-nowrap">Artigos do blog</a></li>
+                    <li><a href="{% url 'public_home' %}" target="_blank" rel="noopener" class="whitespace-nowrap">Ver site público</a></li>
+                  </ul>
+                </details>
+              </li>
+            {% endif %}
+
             {% if perms.core.view_category or perms.accounts.view_user or perms.communications.change_messagesettings or perms.operations.change_workordersettings or perms.operations.view_servicecategory or perms.ai_assistant.change_aisettings or perms.stock.view_stockcategory or perms.stock.view_brand or request.user.is_superuser %}
               <li>
                 <details data-menu-nested>
@@ -246,6 +258,18 @@
                   {% if perms.communications.view_messagelog %}
                     <li><a href="{% url 'message_history' %}" class="whitespace-nowrap">Histórico de mensagens</a></li>
                   {% endif %}
+                </ul>
+              </details>
+            </li>
+          {% endif %}
+
+          {% if perms.website.view_blogpost %}
+            <li>
+              <details data-menu-root>
+                <summary class="whitespace-nowrap">Site</summary>
+                <ul class="z-50 w-56 rounded-box bg-base-100 p-2 shadow">
+                  <li><a href="{% url 'blog_manage_list' %}" class="whitespace-nowrap">Artigos do blog</a></li>
+                  <li><a href="{% url 'public_home' %}" target="_blank" rel="noopener" class="whitespace-nowrap">Ver site público</a></li>
                 </ul>
               </details>
             </li>
