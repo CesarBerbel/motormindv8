@@ -3,8 +3,10 @@ from urllib.parse import quote
 from urllib.request import Request, urlopen
 import json
 
+from django.conf import settings as dj_settings
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
+from django.core.cache import cache
 from django.db.models import Q
 from django.db.models.functions import Lower
 from django.http import JsonResponse
@@ -604,11 +606,21 @@ class FipeProxyBaseView(LoginRequiredMixin, PermissionRequiredMixin, View):
         return tipo
 
     def fetch_json(self, path):
+        # As tabelas FIPE mudam mensalmente, por isso as respostas sao cacheadas
+        # para evitar repetir chamadas externas a cada interacao do utilizador.
+        cache_key = f'fipe:{path}'
+        cached = cache.get(cache_key)
+        if cached is not None:
+            return cached
+
         url = f'{self.base_url}{path}'
         request = Request(url, headers={'User-Agent': 'MotorMind/1.0'})
         with urlopen(request, timeout=12) as response:
             charset = response.headers.get_content_charset() or 'utf-8'
-            return json.loads(response.read().decode(charset))
+            data = json.loads(response.read().decode(charset))
+
+        cache.set(cache_key, data, getattr(dj_settings, 'FIPE_CACHE_TIMEOUT', 24 * 60 * 60))
+        return data
 
     def error_response(self, message, status=502):
         return JsonResponse({'results': [], 'error': message}, status=status)

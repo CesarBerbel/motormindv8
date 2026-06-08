@@ -1,10 +1,19 @@
+"""Definicoes comuns a todos os ambientes.
+
+A selecao do ambiente e feita em config/settings/__init__.py atraves da
+variavel DJANGO_ENV (development | production | testing). Quase tudo aqui e
+controlado por variaveis de ambiente; os modulos por ambiente apenas ajustam
+defaults seguros.
+"""
+
 from pathlib import Path
 import os
 
 from django.core.exceptions import ImproperlyConfigured
 from dotenv import load_dotenv
 
-BASE_DIR = Path(__file__).resolve().parent.parent
+# config/settings/base.py -> sobe tres niveis ate a raiz do projeto.
+BASE_DIR = Path(__file__).resolve().parent.parent.parent
 load_dotenv(BASE_DIR / '.env')
 
 
@@ -106,6 +115,21 @@ def build_database_config():
 DATABASES = {
     'default': build_database_config(),
 }
+
+# Cache. Por defeito em memoria (por processo); configuravel para um backend
+# partilhado em producao (ex.: Redis/Memcached) via variaveis de ambiente.
+# Um cache partilhado tambem torna o rate limiting da IA consistente entre
+# varios workers do Gunicorn.
+CACHES = {
+    'default': {
+        'BACKEND': os.getenv('CACHE_BACKEND', 'django.core.cache.backends.locmem.LocMemCache'),
+        'LOCATION': os.getenv('CACHE_LOCATION', 'motormind-default'),
+        'TIMEOUT': int(os.getenv('CACHE_TIMEOUT', '300')),
+    }
+}
+
+# Tempo de vida do cache das consultas FIPE (tabela muda mensalmente).
+FIPE_CACHE_TIMEOUT = int(os.getenv('FIPE_CACHE_TIMEOUT', str(24 * 60 * 60)))
 
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
