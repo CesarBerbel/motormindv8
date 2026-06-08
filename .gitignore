@@ -7,3 +7,8 @@ node_modules/
 staticfiles/
 logs/
 .DS_Store
+
+# Uploads de utilizador (media), exceto o logo da marca já versionado.
+/media/
+!/media/site/
+!/media/site/logo.png
