@@ -18,7 +18,7 @@ function renderAutocompleteResults(resultsBox, input, results) {
 
   if (!results.length) {
     const emptyItem = document.createElement('div');
-    emptyItem.className = 'px-4 py-3 text-sm text-base-content/60';
+    emptyItem.className = 'px-3 py-2 text-sm text-base-content/60';
     emptyItem.textContent = 'Nenhum resultado encontrado.';
     resultsBox.appendChild(emptyItem);
     resultsBox.classList.remove('hidden');
@@ -29,10 +29,10 @@ function renderAutocompleteResults(resultsBox, input, results) {
   results.forEach((item) => {
     const button = document.createElement('button');
     button.type = 'button';
-    button.className = 'block w-full px-4 py-3 text-left hover:bg-base-200 focus:bg-base-200 focus:outline-none';
+    button.className = 'block w-full px-3 py-2 text-left hover:bg-base-200 focus:bg-base-200 focus:outline-none';
 
     const label = document.createElement('span');
-    label.className = 'block font-medium';
+    label.className = 'block truncate text-sm font-medium';
     label.textContent = item.label;
 
     const subtitle = document.createElement('span');

@@ -5,6 +5,7 @@ module.exports = {
     './accounts/templates/**/*.html',
     './core/templates/**/*.html',
     './communications/templates/**/*.html',
+    './audit/templates/**/*.html',
     './stock/templates/**/*.html',
     './operations/templates/**/*.html',
     './website/templates/**/*.html',

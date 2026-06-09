@@ -125,6 +125,28 @@ class AuditListViewTests(TestCase):
             200,
         )
 
+    def test_autocomplete_returns_matching_suggestions(self):
+        AuditLog.objects.create(
+            acao=AuditAction.EDITAR,
+            categoria=AuditCategory.DADOS,
+            usuario=self.viewer,
+            usuario_email=self.viewer.email,
+            objeto_modelo='Customer',
+            objeto_id='42',
+            objeto_descricao='Cliente Ana Maria',
+            descricao='Alterou o cadastro do cliente Ana Maria',
+            caminho='/clientes/42/editar/',
+            ip='127.0.0.1',
+        )
+        self.client.force_login(self.viewer)
+
+        response = self.client.get(reverse('audit_autocomplete'), {'q': 'Ana'})
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertTrue(payload['results'])
+        self.assertTrue(any('Ana Maria' in item['label'] for item in payload['results']))
+
 
 class AuditPruneCommandTests(TestCase):
     def test_prune_removes_old_records(self):
