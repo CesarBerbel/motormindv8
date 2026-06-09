@@ -50,6 +50,7 @@ INSTALLED_APPS = [
     'operations',
     'ai_assistant',
     'website',
+    'audit',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -64,6 +65,7 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'audit.middleware.AuditMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
@@ -234,6 +236,11 @@ LOGGING = {
             'propagate': False,
         },
         'ai_assistant': {
+            'handlers': ['console', 'file'],
+            'level': LOG_LEVEL,
+            'propagate': False,
+        },
+        'audit': {
             'handlers': ['console', 'file'],
             'level': LOG_LEVEL,
             'propagate': False,
