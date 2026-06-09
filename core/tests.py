@@ -4,7 +4,7 @@ from unittest import mock
 
 from django import forms
 from django.core.cache import cache
-from django.test import SimpleTestCase
+from django.test import SimpleTestCase, TestCase
 
 from core.money import MoneyField, format_money_br, normalize_money
 from core.views import FipeProxyBaseView
@@ -92,3 +92,13 @@ class FipeCacheTests(SimpleTestCase):
             view.fetch_json('/trucks/brands')
 
         self.assertEqual(urlopen_mock.call_count, 2)
+
+
+class PWAServiceWorkerTests(TestCase):
+    def test_service_worker_served_as_javascript(self):
+        response = self.client.get('/sw.js')
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('javascript', response['Content-Type'])
+        body = response.content.decode('utf-8').lower()
+        self.assertIn('addeventlistener', body)
+        self.assertIn('caches', body)
