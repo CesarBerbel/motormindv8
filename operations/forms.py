@@ -83,9 +83,10 @@ class ServiceForm(DaisyFormMixin, forms.ModelForm):
 class ServiceDefaultPartForm(DaisyFormMixin, forms.ModelForm):
     class Meta:
         model = ServiceDefaultPart
-        fields = ['item', 'quantidade', 'observacao']
+        fields = ['item', 'quantidade', 'obrigatoria', 'observacao']
         widgets = {
             'quantidade': forms.NumberInput(attrs={'step': '1', 'min': '1'}),
+            'obrigatoria': forms.CheckboxInput(),
             'observacao': forms.TextInput(),
         }
 
@@ -99,9 +100,11 @@ class ServiceDefaultPartForm(DaisyFormMixin, forms.ModelForm):
             'inputmode': 'numeric',
         })
         self.fields['quantidade'].required = False
+        self.fields['obrigatoria'].required = False
         self.fields['observacao'].required = False
         if not self.instance.pk:
             self.fields['quantidade'].initial = None
+            self.fields['obrigatoria'].initial = True
 
     def clean_quantidade(self):
         value = self.cleaned_data.get('quantidade')
@@ -516,6 +519,32 @@ WorkOrderServiceItemFormSet = inlineformset_factory(
 )
 
 
+class WorkOrderDiagnosisForm(DaisyFormMixin, forms.ModelForm):
+    class Meta:
+        model = WorkOrder
+        fields = ['diagnostico']
+        widgets = {
+            'diagnostico': forms.Textarea(attrs={
+                'rows': 8,
+                'placeholder': 'Descreva o diagnóstico técnico, testes realizados, causa provável e orientação para orçamento.',
+            }),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.apply_daisy_classes()
+        self.fields['diagnostico'].required = True
+        self.fields['diagnostico'].widget.attrs.update({
+            'class': 'textarea textarea-bordered w-full min-h-48 text-base leading-relaxed',
+        })
+
+    def clean_diagnostico(self):
+        value = (self.cleaned_data.get('diagnostico') or '').strip()
+        if not value:
+            raise forms.ValidationError('Informe o diagnóstico antes de salvar.')
+        return value
+
+
 class WorkOrderComboItemForm(DaisyFormMixin, forms.ModelForm):
     class Meta:
         model = WorkOrderComboItem
@@ -844,9 +873,11 @@ class WorkOrderApprovalDecisionForm(forms.Form):
             self.fields['local'].required = False
             self.fields['local'].widget = forms.HiddenInput()
         self.fields['itens_aprovados'].queryset = (
-            budget.itens.all().order_by('tipo', 'nome', 'pk') if budget else WorkOrderApprovalBudgetItem.objects.none()
+            budget.customer_visible_items_queryset().select_related('parent').order_by('hierarquia_ordem', 'pk')
+            if budget
+            else WorkOrderApprovalBudgetItem.objects.none()
         )
-        self.fields['itens_aprovados'].label_from_instance = lambda obj: f'{obj.get_tipo_display()} - {obj.nome} ({obj.quantidade} x {obj.valor_unitario})'
+        self.fields['itens_aprovados'].label_from_instance = lambda obj: f'{obj.display_tipo} - {obj.nome} ({obj.quantidade} x {obj.valor_unitario})'
 
     def clean_documento(self):
         value = self.cleaned_data.get('documento') or ''
@@ -859,11 +890,60 @@ class WorkOrderApprovalDecisionForm(forms.Form):
         from .models import WorkOrderApprovalDecision
         decision = cleaned_data.get('decisao')
         approved_items = cleaned_data.get('itens_aprovados')
-        if decision == WorkOrderApprovalDecision.APPROVE_PARTIAL and not approved_items:
-            self.add_error('itens_aprovados', 'Selecione ao menos um item para aprovação parcial.')
+        if decision == WorkOrderApprovalDecision.APPROVE_PARTIAL:
+            if self.budget and not self.budget.allows_partial_approval:
+                self.add_error(
+                    'decisao',
+                    self.budget.partial_approval_block_reason()
+                    or 'Este orçamento não permite aprovação parcial. Aprove integralmente ou recuse tudo.',
+                )
+            if not approved_items:
+                self.add_error('itens_aprovados', 'Selecione ao menos um item para aprovação parcial.')
         method = cleaned_data.get('metodo')
         signature = cleaned_data.get('assinatura_base64') or ''
         from .models import WorkOrderApprovalMethod
         if method == WorkOrderApprovalMethod.PRESENTIAL and not signature.startswith('data:image/png;base64,'):
             self.add_error('assinatura_base64', 'Colete a assinatura do cliente para aprovação presencial.')
         return cleaned_data
+
+
+class CustomerVehicleAccessRequestForm(forms.Form):
+    placa = forms.CharField(
+        label='Placa do veículo',
+        max_length=8,
+        widget=forms.TextInput(attrs={
+            'class': BASE_INPUT_CLASS + ' input-lg text-center uppercase tracking-widest font-mono',
+            'placeholder': 'ABC1D23',
+            'autocomplete': 'off',
+            'inputmode': 'text',
+        }),
+    )
+
+    def clean_placa(self):
+        from core.models import format_plate, only_alnum_upper
+
+        placa = format_plate(self.cleaned_data.get('placa'))
+        raw = only_alnum_upper(placa)
+        if len(raw) != 7:
+            raise forms.ValidationError('Informe uma placa válida com 7 caracteres.')
+        return placa
+
+
+class CustomerVehicleAccessCodeForm(forms.Form):
+    codigo = forms.CharField(
+        label='Código de acesso',
+        min_length=6,
+        max_length=6,
+        widget=forms.TextInput(attrs={
+            'class': BASE_INPUT_CLASS + ' input-lg text-center font-mono text-2xl tracking-[0.45em]',
+            'placeholder': '000000',
+            'autocomplete': 'one-time-code',
+            'inputmode': 'numeric',
+        }),
+    )
+
+    def clean_codigo(self):
+        code = ''.join(ch for ch in str(self.cleaned_data.get('codigo') or '') if ch.isdigit())
+        if len(code) != 6:
+            raise forms.ValidationError('Informe o código de 6 dígitos enviado por e-mail.')
+        return code

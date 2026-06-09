@@ -1,6 +1,9 @@
+from datetime import timedelta
 from decimal import Decimal
+import secrets
 import uuid
 
+from django.contrib.auth.hashers import check_password, make_password
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.db.models import Q
@@ -8,7 +11,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from core.money import MoneyField
-from stock.models import InventoryItem, MIN_QUANTITY
+from stock.models import InventoryItem, InventoryItemType, MIN_QUANTITY
 
 
 class ActiveOperationsManager(models.Manager):
@@ -133,7 +136,8 @@ class Service(SoftDeleteModel):
 
         total = Decimal('0.00')
         for part in self.pecas_associadas.select_related('item'):
-            total += inventory_sale_price(part.item) * part.quantidade
+            if part.item.tipo == InventoryItemType.PECA:
+                total += inventory_sale_price(part.item) * part.quantidade
         return total.quantize(Decimal('0.01'))
 
     @property
@@ -158,6 +162,11 @@ class ServiceDefaultPart(models.Model):
         'Quantidade padrão',
         default=MIN_QUANTITY,
         validators=[MinValueValidator(MIN_QUANTITY)],
+    )
+    obrigatoria = models.BooleanField(
+        'Obrigatória?',
+        default=True,
+        help_text='Peças obrigatórias acompanham o serviço. Se forem recusadas no orçamento, o serviço inteiro é recusado.',
     )
     observacao = models.CharField('Observação', max_length=180, blank=True)
     criado_em = models.DateTimeField('Criado em', auto_now_add=True)
@@ -523,6 +532,15 @@ class WorkOrder(SoftDeleteModel):
         blank=True,
         null=True,
     )
+    tecnico_responsavel = models.ForeignKey(
+        'accounts.User',
+        verbose_name='Técnico responsável',
+        on_delete=models.SET_NULL,
+        related_name='ordens_servico_responsavel',
+        blank=True,
+        null=True,
+        db_index=True,
+    )
 
     class Meta:
         verbose_name = 'Ordem de serviço'
@@ -686,6 +704,18 @@ class WorkOrder(SoftDeleteModel):
         from operations.services.work_order_totals import subtotal_pecas
 
         return subtotal_pecas(self)
+
+    @property
+    def subtotal_insumos(self):
+        from operations.services.work_order_totals import subtotal_insumos
+
+        return subtotal_insumos(self)
+
+    @property
+    def custo_insumos(self):
+        from operations.services.work_order_totals import custo_insumos
+
+        return custo_insumos(self)
 
     @property
     def subtotal(self):
@@ -935,15 +965,29 @@ class WorkOrderPartItem(models.Model):
         return f'{self.ordem_servico.codigo or self.ordem_servico_id} - {self.item.nome}'
 
     def save(self, *args, **kwargs):
-        if self.valor_unitario is None and self.item_id:
+        if self.item_id and self.item.tipo == InventoryItemType.INSUMO:
+            self.valor_unitario = Decimal('0.00')
+        elif self.valor_unitario is None and self.item_id:
             from operations.services.work_order_pricing import inventory_sale_price
 
             self.valor_unitario = inventory_sale_price(self.item)
         super().save(*args, **kwargs)
 
     @property
+    def is_internal_supply(self):
+        return bool(self.item_id and self.item.tipo == InventoryItemType.INSUMO)
+
+    @property
     def subtotal(self):
+        if self.is_internal_supply:
+            return Decimal('0.00')
         return ((self.valor_unitario or Decimal('0.00')) * self.quantidade).quantize(Decimal('0.01'))
+
+    @property
+    def custo_total(self):
+        if not self.item_id:
+            return Decimal('0.00')
+        return ((self.item.preco_custo or Decimal('0.00')) * self.quantidade).quantize(Decimal('0.01'))
 
 
 class WorkOrderApprovalStatus(models.TextChoices):
@@ -1050,11 +1094,62 @@ class WorkOrderApprovalBudget(models.Model):
         return create_budget_from_work_order(cls, order, user=user)
 
     def snapshot_current_items(self, order):
-        items = []
+        from operations.services.work_order_pricing import inventory_sale_price, money
+
+        display_order = 0
+
+        def next_order():
+            nonlocal display_order
+            display_order += 10
+            return display_order
+
+        def create_item(**kwargs):
+            kwargs.setdefault('hierarquia_ordem', next_order())
+            return WorkOrderApprovalBudgetItem.objects.create(orcamento=self, **kwargs)
+
+        def create_stock_item(item, quantidade, *, parent=None, origem_tipo='', origem_codigo='', origem_nome='', origem_observacao='', obrigatoria=True):
+            if not item or not quantidade:
+                return None
+            is_internal_supply = item.tipo == InventoryItemType.INSUMO
+            valor_unitario = Decimal('0.00') if is_internal_supply else inventory_sale_price(item)
+            quantidade = int(quantidade or 0)
+            return create_item(
+                tipo=WorkOrderApprovalItemType.PART,
+                parent=parent,
+                referencia_id=item.pk,
+                codigo=item.sku or '',
+                nome=item.nome,
+                quantidade=quantidade,
+                quantidade_base=quantidade,
+                valor_unitario=valor_unitario,
+                subtotal=Decimal('0.00') if is_internal_supply else money(valor_unitario * quantidade),
+                origem_tipo='Insumo interno' if is_internal_supply else origem_tipo,
+                origem_codigo=origem_codigo,
+                origem_nome=origem_nome,
+                origem_observacao=(
+                    'Insumo interno da oficina. Fica oculto para o cliente, não compõe o valor da OS e serve apenas para rastrear despesa/estoque.'
+                    if is_internal_supply
+                    else origem_observacao
+                ),
+                peca_obrigatoria=bool(obrigatoria),
+            )
+
+        source_rows = list(order.get_stock_requirement_sources())
+        for row in self._apply_stock_requirement_overrides_to_sources(order, source_rows):
+            row['_quantidade_snapshot'] = row['quantidade']
+
+        direct_part_rows = [row for row in source_rows if row.get('origem_tipo') == 'Peça avulsa']
+        direct_service_rows = {}
+        combo_service_rows = {}
+        for row in source_rows:
+            if row.get('origem_tipo') == 'Serviço' and row.get('service_id'):
+                direct_service_rows.setdefault(row['service_id'], []).append(row)
+            elif row.get('origem_tipo') == 'Combo' and row.get('combo_id'):
+                combo_service_rows.setdefault(row['combo_id'], []).append(row)
+
         for service_item in order.servicos_os.select_related('service').order_by('service__nome'):
             service = service_item.service
-            items.append(WorkOrderApprovalBudgetItem(
-                orcamento=self,
+            service_budget_item = create_item(
                 tipo=WorkOrderApprovalItemType.SERVICE,
                 referencia_id=service.pk,
                 codigo=service.codigo or '',
@@ -1065,11 +1160,21 @@ class WorkOrderApprovalBudget(models.Model):
                 origem_tipo='Serviço',
                 origem_codigo=service.codigo or '',
                 origem_nome=service.nome,
-            ))
+            )
+            for row in sorted(direct_service_rows.get(service.pk, []), key=lambda item: (item['item'].nome.lower(), item.get('service_default_part_id') or 0)):
+                create_stock_item(
+                    row['item'],
+                    row.get('_quantidade_snapshot', row['quantidade']),
+                    parent=service_budget_item,
+                    origem_tipo='Peça do serviço',
+                    origem_codigo=row.get('origem_codigo') or service.codigo or '',
+                    origem_nome=row.get('origem_nome') or service.nome,
+                    origem_observacao=row.get('origem_observacao') or 'Peça padrão vinculada ao serviço.',
+                    obrigatoria=row.get('peca_obrigatoria', True),
+                )
         for combo_item in order.combos_os.select_related('combo').order_by('combo__nome'):
             combo = combo_item.combo
-            items.append(WorkOrderApprovalBudgetItem(
-                orcamento=self,
+            combo_budget_item = create_item(
                 tipo=WorkOrderApprovalItemType.COMBO,
                 referencia_id=combo.pk,
                 codigo=combo.codigo or '',
@@ -1080,36 +1185,212 @@ class WorkOrderApprovalBudget(models.Model):
                 origem_tipo='Combo',
                 origem_codigo=combo.codigo or '',
                 origem_nome=combo.nome,
-            ))
-        for row in order.get_stock_requirements():
-            item = row['item']
-            items.append(WorkOrderApprovalBudgetItem(
-                orcamento=self,
-                tipo=WorkOrderApprovalItemType.PART,
-                referencia_id=item.pk,
-                codigo=item.sku or '',
-                nome=item.nome,
-                quantidade=row['quantidade'],
-                quantidade_base=row.get('quantidade_base') or row['quantidade'],
-                valor_unitario=row['valor_unitario'],
-                subtotal=row['subtotal'],
-                origem_tipo='Peça/Insumo',
-                origem_codigo=item.sku or '',
-                origem_nome=item.nome,
-                origem_observacao='Peças avulsas e peças padrão consolidadas no momento do orçamento.',
-            ))
-        WorkOrderApprovalBudgetItem.objects.bulk_create(items)
+            )
+            for row in sorted(combo_service_rows.get(combo.pk, []), key=lambda item: (item.get('service_nome') or '', item['item'].nome.lower(), item.get('service_default_part_id') or 0)):
+                create_stock_item(
+                    row['item'],
+                    row.get('_quantidade_snapshot', row['quantidade']),
+                    parent=combo_budget_item,
+                    origem_tipo='Peça do combo',
+                    origem_codigo=row.get('origem_codigo') or combo.codigo or '',
+                    origem_nome=row.get('origem_nome') or combo.nome,
+                    origem_observacao=row.get('origem_observacao') or 'Peça padrão vinculada ao serviço dentro do combo.',
+                    obrigatoria=row.get('peca_obrigatoria', True),
+                )
+
+        for row in sorted(direct_part_rows, key=lambda item: item['item'].nome.lower()):
+            create_stock_item(
+                row['item'],
+                row.get('_quantidade_snapshot', row['quantidade']),
+                parent=None,
+                origem_tipo='Peça',
+                origem_codigo=row.get('origem_codigo') or row['item'].sku or '',
+                origem_nome=row.get('origem_nome') or row['item'].nome,
+                origem_observacao=row.get('origem_observacao') or 'Adicionada diretamente na OS.',
+                obrigatoria=True,
+            )
+
+    def _apply_stock_requirement_overrides_to_sources(self, order, source_rows):
+        requirements = {row['item'].pk: int(row['quantidade'] or 0) for row in order.get_stock_requirements()}
+        grouped = {}
+        for row in source_rows:
+            grouped.setdefault(row['item'].pk, []).append(row)
+
+        for item_id, rows in grouped.items():
+            target_quantity = requirements.get(item_id)
+            if target_quantity is None:
+                continue
+            base_quantity = sum(int(row.get('quantidade') or 0) for row in rows)
+            diff = target_quantity - base_quantity
+            if not diff:
+                continue
+            if diff > 0:
+                rows[0]['quantidade'] = int(rows[0].get('quantidade') or 0) + diff
+                continue
+            remaining_to_remove = abs(diff)
+            for row in reversed(rows):
+                current = int(row.get('quantidade') or 0)
+                reduction = min(current, remaining_to_remove)
+                row['quantidade'] = current - reduction
+                remaining_to_remove -= reduction
+                if not remaining_to_remove:
+                    break
+        return source_rows
+
+    @staticmethod
+    def internal_supply_reference_ids_queryset():
+        return InventoryItem.objects.filter(tipo=InventoryItemType.INSUMO).values('pk')
+
+    def internal_supply_items_queryset(self):
+        return self.itens.filter(
+            tipo=WorkOrderApprovalItemType.PART,
+            referencia_id__in=self.internal_supply_reference_ids_queryset(),
+        )
+
+    def customer_visible_items_queryset(self):
+        return self.itens.exclude(
+            tipo=WorkOrderApprovalItemType.PART,
+            referencia_id__in=self.internal_supply_reference_ids_queryset(),
+        )
+
+    @property
+    def customer_visible_items_ordered(self):
+        return self.customer_visible_items_queryset().select_related('parent').order_by('hierarquia_ordem', 'pk')
+
+    @property
+    def internal_supply_items_ordered(self):
+        return self.internal_supply_items_queryset().select_related('parent').order_by('hierarquia_ordem', 'pk')
+
+    @staticmethod
+    def _legacy_linked_part_matches_parent(item, parent):
+        """Identify linked parts from budgets generated before hierarchy fields.
+
+        Older pending approval budgets may have service default parts saved as
+        top-level items because the parent field did not exist yet. They still
+        carry origin metadata, so the approval rules must treat them as children
+        of their service/combo instead of allowing the customer to uncheck a
+        mandatory linked part independently.
+        """
+        if item.parent_id or item.tipo != WorkOrderApprovalItemType.PART:
+            return False
+        origem_tipo = (item.origem_tipo or '').lower()
+        if parent.tipo == WorkOrderApprovalItemType.SERVICE and 'serv' not in origem_tipo:
+            return False
+        if parent.tipo == WorkOrderApprovalItemType.COMBO and 'combo' not in origem_tipo:
+            return False
+
+        child_origin_names = {value for value in [item.origem_nome, item.origem_codigo] if value}
+        parent_origin_names = {value for value in [parent.nome, parent.codigo, parent.origem_nome, parent.origem_codigo] if value}
+        return bool(child_origin_names & parent_origin_names)
+
+    def _visible_children_for_parent(self, visible_items, parent):
+        children = []
+        for item in visible_items:
+            if item.pk == parent.pk:
+                continue
+            if item.parent_id == parent.pk:
+                children.append(item)
+                continue
+            if self._legacy_linked_part_matches_parent(item, parent):
+                children.append(item)
+        return children
+
+    def _visible_unrelated_items_for_parent(self, visible_items, parent, children):
+        child_ids = {item.pk for item in children}
+        return [item for item in visible_items if item.pk != parent.pk and item.pk not in child_ids]
+
+    def _single_visible_service_group(self):
+        """Return the single visible service group when the budget is service-only.
+
+        The approval screen uses this to treat a one-service OS as a package:
+        the service itself and its mandatory linked parts cannot be removed
+        independently. Optional linked parts remain selectable when they exist.
+        """
+        visible_items = list(self.customer_visible_items_ordered)
+        service_parents = [
+            item
+            for item in visible_items
+            if item.tipo == WorkOrderApprovalItemType.SERVICE and not item.parent_id
+        ]
+        if len(service_parents) != 1:
+            return None
+
+        parent = service_parents[0]
+        children = self._visible_children_for_parent(visible_items, parent)
+        unrelated_items = self._visible_unrelated_items_for_parent(visible_items, parent, children)
+        if unrelated_items:
+            return None
+
+        child_parts = [item for item in children if item.tipo == WorkOrderApprovalItemType.PART]
+        return {
+            'parent': parent,
+            'children': children,
+            'child_parts': child_parts,
+            'mandatory_parts': [item for item in child_parts if item.peca_obrigatoria],
+            'optional_parts': [item for item in child_parts if not item.peca_obrigatoria],
+        }
+
+    def partial_approval_block_reason(self):
+        """Return a human-readable reason when partial approval is indivisible.
+
+        A single service with no customer-visible parts, or a single service
+        whose visible linked parts are all mandatory, has no valid partial
+        approval path for the customer. In this case the customer must either
+        approve the complete budget or reject it entirely.
+        """
+        service_group = self._single_visible_service_group()
+        if not service_group:
+            return ''
+
+        child_parts = service_group['child_parts']
+        if not child_parts:
+            return 'Este orçamento possui apenas um serviço sem peças. Aprove integralmente ou recuse tudo.'
+
+        if all(child.peca_obrigatoria for child in child_parts):
+            return 'Este orçamento possui apenas um serviço com peças obrigatórias. Aprove integralmente ou recuse tudo.'
+
+        return ''
+
+    @property
+    def allows_partial_approval(self):
+        return not bool(self.partial_approval_block_reason())
+
+    def partial_approval_locked_item_ids(self):
+        """IDs that must stay approved during partial approval.
+
+        In a one-service budget with optional linked parts, partial approval is
+        meant only to accept or reject optional parts. The service itself and
+        mandatory linked parts stay locked as approved. This protects the same
+        business rule in both the UI and POSTs crafted manually.
+        """
+        service_group = self._single_visible_service_group()
+        if not service_group or not service_group['optional_parts']:
+            return set()
+        locked_ids = {service_group['parent'].pk}
+        locked_ids.update(item.pk for item in service_group['mandatory_parts'])
+        return locked_ids
+
+    def partial_approval_lock_reason_for_item(self, item):
+        locked_ids = self.partial_approval_locked_item_ids()
+        if item.pk not in locked_ids:
+            return ''
+        if item.tipo == WorkOrderApprovalItemType.SERVICE:
+            return 'Serviço único bloqueado na aprovação parcial; recuse tudo para rejeitar este serviço.'
+        return 'Peça obrigatória vinculada ao serviço único; não pode ser removida separadamente.'
 
     def subtotal_by_type(self, item_type):
         total = Decimal('0.00')
-        for item in self.itens.filter(tipo=item_type, aprovado=True):
+        queryset = self.itens.filter(tipo=item_type, aprovado=True)
+        if item_type == WorkOrderApprovalItemType.PART:
+            queryset = queryset.exclude(referencia_id__in=self.internal_supply_reference_ids_queryset())
+        for item in queryset:
             total += item.subtotal or Decimal('0.00')
         return total.quantize(Decimal('0.01'))
 
     @property
     def subtotal_aprovado(self):
         total = Decimal('0.00')
-        for item in self.itens.filter(aprovado=True):
+        for item in self.customer_visible_items_queryset().filter(aprovado=True):
             total += item.subtotal or Decimal('0.00')
         return total.quantize(Decimal('0.01'))
 
@@ -1126,8 +1407,20 @@ class WorkOrderApprovalBudget(models.Model):
         return self.itens.count()
 
     @property
+    def total_itens_cliente(self):
+        return self.customer_visible_items_queryset().count()
+
+    @property
+    def total_itens_internos(self):
+        return self.internal_supply_items_queryset().count()
+
+    @property
     def total_itens_aprovados(self):
         return self.itens.filter(aprovado=True).count()
+
+    @property
+    def total_itens_aprovados_cliente(self):
+        return self.customer_visible_items_queryset().filter(aprovado=True).count()
 
     @property
     def total_itens_rejeitados(self):
@@ -1144,15 +1437,22 @@ class WorkOrderApprovalBudget(models.Model):
             inventory_item = inventory_map.get(row.referencia_id)
             if not inventory_item:
                 continue
+            is_internal_supply = inventory_item.tipo == InventoryItemType.INSUMO
+            custo_unitario = (inventory_item.preco_custo or Decimal('0.00')).quantize(Decimal('0.01'))
+            quantidade = int(row.quantidade or 0)
             rows.append({
                 'item': inventory_item,
-                'quantidade': int(row.quantidade or 0),
-                'valor_unitario': (row.valor_unitario or Decimal('0.00')).quantize(Decimal('0.01')),
-                'subtotal': (row.subtotal or Decimal('0.00')).quantize(Decimal('0.01')),
-                'origem_tipo': 'Orçamento aprovado',
+                'quantidade': quantidade,
+                'valor_unitario': Decimal('0.00') if is_internal_supply else (row.valor_unitario or Decimal('0.00')).quantize(Decimal('0.01')),
+                'subtotal': Decimal('0.00') if is_internal_supply else (row.subtotal or Decimal('0.00')).quantize(Decimal('0.01')),
+                'custo_unitario': custo_unitario,
+                'custo_total': (custo_unitario * quantidade).quantize(Decimal('0.01')),
+                'is_internal_supply': is_internal_supply,
+                'is_billable_to_customer': not is_internal_supply,
+                'origem_tipo': 'Insumo interno' if is_internal_supply else 'Orçamento aprovado',
                 'origem_nome': row.nome,
                 'origem_codigo': row.codigo or '',
-                'origem_observacao': f'{self.codigo}: item aprovado no snapshot versionado.',
+                'origem_observacao': f'{self.codigo}: item aprovado no snapshot versionado.' + (' Uso interno da oficina; não cobrado do cliente.' if is_internal_supply else ''),
             })
         return rows
 
@@ -1211,6 +1511,14 @@ class WorkOrderApprovalBudgetItem(models.Model):
         on_delete=models.CASCADE,
         related_name='itens',
     )
+    parent = models.ForeignKey(
+        'self',
+        verbose_name='Item pai',
+        on_delete=models.CASCADE,
+        related_name='filhos',
+        blank=True,
+        null=True,
+    )
     tipo = models.CharField('Tipo', max_length=20, choices=WorkOrderApprovalItemType.choices, db_index=True)
     referencia_id = models.PositiveBigIntegerField('ID de referência', blank=True, null=True, db_index=True)
     codigo = models.CharField('Código/SKU', max_length=40, blank=True)
@@ -1223,6 +1531,12 @@ class WorkOrderApprovalBudgetItem(models.Model):
     origem_codigo = models.CharField('Código de origem', max_length=40, blank=True)
     origem_nome = models.CharField('Nome da origem', max_length=220, blank=True)
     origem_observacao = models.CharField('Observação da origem', max_length=255, blank=True)
+    peca_obrigatoria = models.BooleanField(
+        'Peça obrigatória?',
+        default=True,
+        help_text='Usado para peças vinculadas a serviço/combo. Peças obrigatórias recusadas reprovam o item pai.',
+    )
+    hierarquia_ordem = models.PositiveIntegerField('Ordem hierárquica', default=0, db_index=True)
     aprovado = models.BooleanField('Aprovado?', blank=True, null=True, db_index=True)
     respondido_em = models.DateTimeField('Respondido em', blank=True, null=True)
     criado_em = models.DateTimeField('Criado em', auto_now_add=True)
@@ -1231,17 +1545,43 @@ class WorkOrderApprovalBudgetItem(models.Model):
     class Meta:
         verbose_name = 'Item do orçamento versionado'
         verbose_name_plural = 'Itens do orçamento versionado'
-        ordering = ['tipo', 'nome', 'pk']
+        ordering = ['hierarquia_ordem', 'pk']
         indexes = [models.Index(fields=['orcamento', 'tipo', 'aprovado'])]
 
     def __str__(self):
         return f'{self.orcamento.codigo} - {self.get_tipo_display()} - {self.nome}'
 
+    @property
+    def is_internal_supply(self):
+        if self.tipo != WorkOrderApprovalItemType.PART or not self.referencia_id:
+            return False
+        return InventoryItem.objects.filter(pk=self.referencia_id, tipo=InventoryItemType.INSUMO).exists()
+
+    @property
+    def customer_visible(self):
+        return not self.is_internal_supply
+
+    @property
+    def is_child_item(self):
+        return bool(self.parent_id)
+
+    @property
+    def is_optional_part(self):
+        return self.tipo == WorkOrderApprovalItemType.PART and self.parent_id and not self.peca_obrigatoria
+
+    @property
+    def display_tipo(self):
+        if self.tipo == WorkOrderApprovalItemType.PART:
+            return 'Insumo interno' if self.is_internal_supply else 'Peça'
+        return self.get_tipo_display()
+
     def to_snapshot_dict(self):
         return {
             'id': self.pk,
             'tipo': self.tipo,
-            'tipo_label': self.get_tipo_display(),
+            'tipo_label': self.display_tipo,
+            'interno_oficina': self.is_internal_supply,
+            'visivel_cliente': self.customer_visible,
             'referencia_id': self.referencia_id,
             'codigo': self.codigo,
             'nome': self.nome,
@@ -1252,6 +1592,9 @@ class WorkOrderApprovalBudgetItem(models.Model):
             'origem_tipo': self.origem_tipo,
             'origem_codigo': self.origem_codigo,
             'origem_nome': self.origem_nome,
+            'parent_id': self.parent_id,
+            'peca_obrigatoria': self.peca_obrigatoria,
+            'hierarquia_ordem': self.hierarquia_ordem,
             'aprovado': self.aprovado,
         }
 
@@ -1293,6 +1636,112 @@ class WorkOrderApprovalAudit(models.Model):
 
     def __str__(self):
         return f'{self.orcamento.codigo} - {self.get_decisao_display()} - {self.nome_responsavel}'
+
+
+class CustomerVehicleAccessToken(models.Model):
+    token = models.UUIDField('Token público', default=uuid.uuid4, unique=True, editable=False, db_index=True)
+    cliente = models.ForeignKey(
+        'core.Customer',
+        verbose_name='Cliente',
+        on_delete=models.CASCADE,
+        related_name='tokens_acesso_historico_veiculo',
+    )
+    veiculo = models.ForeignKey(
+        'core.Vehicle',
+        verbose_name='Veículo',
+        on_delete=models.CASCADE,
+        related_name='tokens_acesso_historico',
+    )
+    placa = models.CharField('Placa solicitada', max_length=8, db_index=True)
+    email = models.EmailField('Email de envio')
+    codigo_hash = models.CharField('Hash do código', max_length=128)
+    tentativas = models.PositiveSmallIntegerField('Tentativas', default=0)
+    expira_em = models.DateTimeField('Expira em', db_index=True)
+    verificado_em = models.DateTimeField('Verificado em', blank=True, null=True)
+    revogado_em = models.DateTimeField('Revogado em', blank=True, null=True)
+    ip_solicitacao = models.GenericIPAddressField('IP da solicitação', blank=True, null=True)
+    user_agent_solicitacao = models.TextField('User agent da solicitação', blank=True)
+    ip_verificacao = models.GenericIPAddressField('IP da verificação', blank=True, null=True)
+    criado_em = models.DateTimeField('Criado em', auto_now_add=True, db_index=True)
+    atualizado_em = models.DateTimeField('Atualizado em', auto_now=True)
+
+    class Meta:
+        verbose_name = 'Token de acesso ao histórico do veículo'
+        verbose_name_plural = 'Tokens de acesso ao histórico do veículo'
+        ordering = ['-criado_em', '-pk']
+        indexes = [
+            models.Index(fields=['token', 'expira_em']),
+            models.Index(fields=['placa', 'email']),
+        ]
+
+    def __str__(self):
+        return f'{self.placa} - {self.email} - expira {self.expira_em:%d/%m/%Y %H:%M}'
+
+    @staticmethod
+    def generate_code():
+        return f'{secrets.randbelow(1_000_000):06d}'
+
+    @classmethod
+    def create_for_vehicle(cls, veiculo, code=None, validity_hours=5, request=None):
+        def request_ip(req):
+            if req is None:
+                return None
+            forwarded_for = req.META.get('HTTP_X_FORWARDED_FOR', '')
+            if forwarded_for:
+                return forwarded_for.split(',')[0].strip()
+            return req.META.get('REMOTE_ADDR') or None
+
+        def request_user_agent(req):
+            if req is None:
+                return ''
+            return (req.META.get('HTTP_USER_AGENT', '') or '')[:1000]
+
+        code = code or cls.generate_code()
+        access = cls.objects.create(
+            cliente=veiculo.cliente,
+            veiculo=veiculo,
+            placa=veiculo.placa,
+            email=veiculo.cliente.email,
+            codigo_hash=make_password(code),
+            expira_em=timezone.now() + timedelta(hours=validity_hours),
+            ip_solicitacao=request_ip(request),
+            user_agent_solicitacao=request_user_agent(request),
+        )
+        access.raw_code = code
+        return access
+
+    @property
+    def expirado(self):
+        return timezone.now() >= self.expira_em
+
+    @property
+    def ativo_para_verificacao(self):
+        return not self.revogado_em and not self.expirado and self.tentativas < 8
+
+    @property
+    def ativo_para_acesso(self):
+        return bool(self.verificado_em and not self.revogado_em and not self.expirado)
+
+    def revoke(self):
+        self.revogado_em = timezone.now()
+        self.save(update_fields=['revogado_em', 'atualizado_em'])
+
+    def validate_code(self, code, request=None):
+        if not self.ativo_para_verificacao:
+            return False
+        self.tentativas += 1
+        is_valid = check_password(str(code or '').strip(), self.codigo_hash)
+        update_fields = ['tentativas', 'atualizado_em']
+        if is_valid:
+            self.verificado_em = timezone.now()
+            if request is not None:
+                forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR', '')
+                self.ip_verificacao = forwarded_for.split(',')[0].strip() if forwarded_for else (request.META.get('REMOTE_ADDR') or None)
+            else:
+                self.ip_verificacao = None
+            update_fields.extend(['verificado_em', 'ip_verificacao'])
+        self.save(update_fields=update_fields)
+        return is_valid
 
 
 class VehicleCheckInFuelLevel(models.TextChoices):

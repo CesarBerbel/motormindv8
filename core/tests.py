@@ -3,11 +3,13 @@ from decimal import Decimal
 from unittest import mock
 
 from django import forms
+from django.contrib.auth import get_user_model
 from django.core.cache import cache
 from django.test import SimpleTestCase, TestCase
 
 from core.money import MoneyField, format_money_br, normalize_money
 from core.views import FipeProxyBaseView
+from website.models import SiteSettings
 
 
 class NormalizeMoneyTests(SimpleTestCase):
@@ -102,3 +104,58 @@ class PWAServiceWorkerTests(TestCase):
         body = response.content.decode('utf-8').lower()
         self.assertIn('addeventlistener', body)
         self.assertIn('caches', body)
+
+
+class DashboardViewTests(TestCase):
+    def test_admin_dashboard_renders_administrative_context(self):
+        User = get_user_model()
+        user = User.objects.create_superuser(
+            email='admin.dashboard@example.com',
+            password='segredo-forte-123',
+            nome_razao_social='Admin Dashboard',
+        )
+        self.client.force_login(user)
+
+        response = self.client.get('/dashboard/')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Visão consolidada da oficina')
+        self.assertContains(response, 'OS por status')
+        self.assertContains(response, 'Financeiro administrativo')
+
+    def test_staff_dashboard_renders_same_route_for_non_admin_user(self):
+        User = get_user_model()
+        user = User.objects.create_user(
+            email='atendente.dashboard@example.com',
+            password='segredo-forte-123',
+            nome_razao_social='Atendente Dashboard',
+            role='atendente',
+        )
+        self.client.force_login(user)
+
+        response = self.client.get('/dashboard/')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Painel operacional')
+        self.assertContains(response, 'OS ativas')
+
+
+    def test_authenticated_pages_render_dynamic_company_watermark(self):
+        site = SiteSettings.get_solo()
+        site.nome_fantasia = 'Oficina Premium Teste'
+        site.save()
+        User = get_user_model()
+        user = User.objects.create_user(
+            email='watermark.dashboard@example.com',
+            password='segredo-forte-123',
+            nome_razao_social='Watermark Dashboard',
+            role='atendente',
+        )
+        self.client.force_login(user)
+
+        response = self.client.get('/dashboard/')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'data-company-watermark')
+        self.assertContains(response, 'Oficina Premium Teste')
+        self.assertContains(response, 'company-watermark.js')

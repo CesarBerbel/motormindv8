@@ -85,6 +85,7 @@
         <div><span class="text-sm text-base-content/60">Previsão</span><p>{{ order.previsao_entrega|date:'d/m/Y H:i'|default:'-' }}</p></div>
         <div><span class="text-sm text-base-content/60">Finalização</span><p>{{ order.data_finalizacao|date:'d/m/Y H:i'|default:'-' }}</p></div>
         <div><span class="text-sm text-base-content/60">KM atual</span><p>{{ order.km_atual|default:'-' }}</p></div>
+        <div><span class="text-sm text-base-content/60">Técnico responsável</span><p>{% if order.tecnico_responsavel_id %}{{ order.tecnico_responsavel.nome_razao_social|default:order.tecnico_responsavel.email }}{% else %}-{% endif %}</p></div>
         <div><span class="text-sm text-base-content/60">Duração estimada</span><p>{{ order.duracao_formatada }}</p></div>
         <div><span class="text-sm text-base-content/60">Estoque</span><p>{% if order.estoque_baixado %}<span class="badge badge-success">Baixado</span>{% else %}<span class="badge badge-warning">Pendente</span>{% endif %}</p></div>
       </div>
@@ -102,7 +103,8 @@
       <div class="stats stats-vertical shadow-none">
         <div class="stat px-0"><div class="stat-title">Serviços</div><div class="stat-value text-2xl">{{ order.subtotal_servicos|money_br }}</div></div>
         <div class="stat px-0"><div class="stat-title">Combos</div><div class="stat-value text-2xl">{{ order.subtotal_combos|money_br }}</div></div>
-        <div class="stat px-0"><div class="stat-title">Peças e insumos</div><div class="stat-value text-2xl">{{ order.subtotal_pecas|money_br }}</div><div class="stat-desc">Avulsas + padrão de serviços/combos</div></div>
+        <div class="stat px-0"><div class="stat-title">Peças</div><div class="stat-value text-2xl">{{ order.subtotal_pecas|money_br }}</div><div class="stat-desc">Somente itens cobrados do cliente</div></div>
+        <div class="stat px-0"><div class="stat-title">Insumos internos</div><div class="stat-value text-2xl">{{ order.custo_insumos|money_br }}</div><div class="stat-desc">Despesa da oficina; não soma no total</div></div>
         <div class="stat px-0"><div class="stat-title">Desconto</div><div class="stat-value text-2xl">{{ order.valor_desconto|money_br }}</div><div class="stat-desc">{{ order.desconto_percentual|default:'0,00' }}%</div></div>
         <div class="stat px-0"><div class="stat-title">Total</div><div class="stat-value text-2xl">{{ order.valor_total|money_br }}</div></div>
       </div>
@@ -120,7 +122,7 @@
     <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
       <div>
         <h2 class="card-title">Orçamento versionado</h2>
-        <p class="text-sm text-base-content/60">Snapshot congelado dos itens da OS para aprovação do cliente.</p>
+        <p class="text-sm text-base-content/60">Snapshot congelado dos itens da OS para aprovação do cliente. Insumos internos ficam visíveis apenas para a oficina.</p>
       </div>
       <div class="flex flex-wrap gap-2">
         <a href="{% url 'work_order_approval_detail' current_approval_budget.pk %}" class="btn btn-sm btn-outline">Ver orçamento</a>
@@ -174,8 +176,14 @@
         <tbody>
           {% for item in current_approval_budget.itens.all %}
             <tr>
-              <td><span class="badge badge-outline">{{ item.get_tipo_display }}</span></td>
-              <td><span class="font-mono text-xs">{{ item.codigo|default:'-' }}</span><br>{{ item.nome }}</td>
+              <td><span class="badge badge-outline">{{ item.display_tipo }}</span></td>
+              <td>
+                <div class="{% if item.parent_id %}border-l-2 border-base-300 pl-4{% endif %}">
+                  {% if item.parent_id %}<span class="text-xs font-medium text-base-content/50">↳ Peça vinculada a {{ item.origem_nome|default:'serviço' }}</span><br>{% endif %}
+                  <span class="font-mono text-xs">{{ item.codigo|default:'-' }}</span><br>{{ item.nome }}
+                  {% if item.parent_id %}{% if item.peca_obrigatoria %}<span class="badge badge-primary badge-outline badge-sm ml-1">Obrigatória</span>{% else %}<span class="badge badge-warning badge-outline badge-sm ml-1">Opcional</span>{% endif %}{% endif %}
+                </div>
+              </td>
               <td>{{ item.quantidade }}</td>
               <td>{{ item.valor_unitario|money_br }}</td>
               <td>{{ item.subtotal|money_br }}</td>
@@ -228,13 +236,14 @@
 <div class="mt-6 card bg-base-100 shadow">
   <div class="card-body">
     <h2 class="card-title">Peças e insumos avulsos</h2>
+    <p class="text-sm text-base-content/60">Peças somam no valor da OS. Insumos são despesa interna e ficam fora do orçamento do cliente.</p>
     <div class="overflow-x-auto">
       <table class="table">
-        <thead><tr><th>SKU</th><th>Peça/Insumo</th><th>Qtd</th><th>Estoque atual</th><th>Valor unit.</th><th>Subtotal</th></tr></thead>
+        <thead><tr><th>SKU</th><th>Peça/Insumo</th><th>Qtd</th><th>Estoque atual</th><th>Valor unit.</th><th>Subtotal</th><th>Custo interno</th></tr></thead>
         <tbody>
           {% for item in order.pecas_os.all %}
-            <tr><td class="font-mono whitespace-nowrap">{{ item.item.sku }}</td><td>{{ item.item.nome }}</td><td>{{ item.quantidade }} {{ item.item.unidade.sigla }}</td><td>{{ item.item.estoque_atual }} {{ item.item.unidade.sigla }}</td><td>{{ item.valor_unitario|money_br }}</td><td>{{ item.subtotal|money_br }}</td></tr>
-          {% empty %}<tr><td colspan="6" class="text-center">Nenhuma peça avulsa.</td></tr>{% endfor %}
+            <tr><td class="font-mono whitespace-nowrap">{{ item.item.sku }}</td><td>{{ item.item.nome }} <span class="badge badge-outline badge-sm ml-2">{{ item.item.get_tipo_display }}</span></td><td>{{ item.quantidade }} {{ item.item.unidade.sigla }}</td><td>{{ item.item.estoque_atual }} {{ item.item.unidade.sigla }}</td><td>{% if item.is_internal_supply %}Interno{% else %}{{ item.valor_unitario|money_br }}{% endif %}</td><td>{% if item.is_internal_supply %}<span class="text-base-content/60">Não cobra</span>{% else %}{{ item.subtotal|money_br }}{% endif %}</td><td>{{ item.custo_total|money_br }}</td></tr>
+          {% empty %}<tr><td colspan="7" class="text-center">Nenhuma peça avulsa.</td></tr>{% endfor %}
         </tbody>
       </table>
     </div>
@@ -246,7 +255,7 @@
     <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
       <div>
         <h2 class="card-title">Peças e insumos da OS</h2>
-        <p class="text-sm text-base-content/60">Inclui peças avulsas, peças padrão dos serviços e peças padrão dos serviços associados aos combos. Os valores entram no subtotal de peças da OS.</p>
+        <p class="text-sm text-base-content/60">Inclui peças e insumos avulsos, padrões de serviços e padrões de combos. Apenas peças entram no subtotal cobrado; insumos ficam como custo interno.</p>
         <p class="text-sm text-base-content/60">A quantidade ajustada vale somente para esta OS e será usada na validação e na baixa de estoque.</p>
       </div>
       {% if can_adjust_stock_requirements and stock_requirements %}
@@ -260,7 +269,7 @@
         <input type="hidden" name="next" value="{{ request.get_full_path }}">
         <div class="overflow-x-auto">
           <table class="table">
-            <thead><tr><th>SKU</th><th>Peça/Insumo</th><th>Qtd padrão</th><th>Qtd desta OS</th><th>Estoque atual</th><th>Valor unit.</th><th>Subtotal</th></tr></thead>
+            <thead><tr><th>SKU</th><th>Peça/Insumo</th><th>Qtd padrão</th><th>Qtd desta OS</th><th>Estoque atual</th><th>Valor unit.</th><th>Subtotal</th><th>Custo interno</th></tr></thead>
             <tbody>
               {% for row in stock_requirements %}
                 <tr>
@@ -274,10 +283,11 @@
                     <input type="number" name="quantidade_prevista_{{ row.item.pk }}" value="{{ row.quantidade }}" min="1" step="1" inputmode="numeric" class="input input-bordered input-sm w-28">
                   </td>
                   <td>{{ row.item.estoque_atual }} {{ row.item.unidade.sigla }}</td>
-                  <td>{{ row.valor_unitario|money_br }}</td>
-                  <td>{{ row.subtotal|money_br }}</td>
+                  <td>{% if row.is_internal_supply %}<span class="text-base-content/60">Não cobra</span>{% else %}{{ row.valor_unitario|money_br }}{% endif %}</td>
+                  <td>{% if row.is_internal_supply %}<span class="text-base-content/60">Não soma</span>{% else %}{{ row.subtotal|money_br }}{% endif %}</td>
+                  <td>{{ row.custo_total|money_br }}</td>
                 </tr>
-              {% empty %}<tr><td colspan="7" class="text-center">Nenhuma peça prevista para baixa.</td></tr>{% endfor %}
+              {% empty %}<tr><td colspan="8" class="text-center">Nenhuma peça prevista para baixa.</td></tr>{% endfor %}
             </tbody>
           </table>
         </div>
@@ -288,7 +298,7 @@
     {% else %}
       <div class="mt-4 overflow-x-auto">
         <table class="table">
-          <thead><tr><th>SKU</th><th>Peça/Insumo</th><th>Qtd padrão</th><th>Qtd desta OS</th><th>Estoque atual</th><th>Valor unit.</th><th>Subtotal</th></tr></thead>
+          <thead><tr><th>SKU</th><th>Peça/Insumo</th><th>Qtd padrão</th><th>Qtd desta OS</th><th>Estoque atual</th><th>Valor unit.</th><th>Subtotal</th><th>Custo interno</th></tr></thead>
           <tbody>
             {% for row in stock_requirements %}
               <tr>
@@ -297,10 +307,11 @@
                 <td>{{ row.quantidade_base }} {{ row.item.unidade.sigla }}</td>
                 <td>{{ row.quantidade }} {{ row.item.unidade.sigla }}</td>
                 <td>{{ row.item.estoque_atual }} {{ row.item.unidade.sigla }}</td>
-                <td>{{ row.valor_unitario|money_br }}</td>
-                <td>{{ row.subtotal|money_br }}</td>
+                <td>{% if row.is_internal_supply %}<span class="text-base-content/60">Não cobra</span>{% else %}{{ row.valor_unitario|money_br }}{% endif %}</td>
+                <td>{% if row.is_internal_supply %}<span class="text-base-content/60">Não soma</span>{% else %}{{ row.subtotal|money_br }}{% endif %}</td>
+                <td>{{ row.custo_total|money_br }}</td>
               </tr>
-            {% empty %}<tr><td colspan="7" class="text-center">Nenhuma peça prevista para baixa.</td></tr>{% endfor %}
+            {% empty %}<tr><td colspan="8" class="text-center">Nenhuma peça prevista para baixa.</td></tr>{% endfor %}
           </tbody>
         </table>
       </div>
@@ -316,8 +327,8 @@
               <td><span class="badge badge-outline whitespace-nowrap">{{ row.origem_tipo }}</span><p class="mt-1 text-xs text-base-content/60">{% if row.origem_codigo %}{{ row.origem_codigo }} - {% endif %}{{ row.origem_nome }}</p></td>
               <td><span class="font-mono text-xs">{{ row.item.sku }}</span><br>{{ row.item.nome }}</td>
               <td>{{ row.quantidade }} {{ row.item.unidade.sigla }}</td>
-              <td>{{ row.valor_unitario|money_br }}</td>
-              <td>{{ row.subtotal|money_br }}</td>
+              <td>{% if row.is_internal_supply %}<span class="text-base-content/60">Não cobra</span>{% else %}{{ row.valor_unitario|money_br }}{% endif %}</td>
+              <td>{% if row.is_internal_supply %}<span class="text-base-content/60">Não soma</span>{% else %}{{ row.subtotal|money_br }}{% endif %}</td>
               <td class="text-sm text-base-content/70">{{ row.origem_observacao|default:'-' }}</td>
             </tr>
           {% empty %}<tr><td colspan="6" class="text-center">Nenhuma origem de peça prevista.</td></tr>{% endfor %}

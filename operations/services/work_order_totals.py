@@ -1,6 +1,12 @@
 from decimal import Decimal
 
+from stock.models import InventoryItemType
+
 from .work_order_pricing import money
+
+
+def _is_customer_billable_stock_item(item):
+    return getattr(item, 'tipo', None) == InventoryItemType.PECA
 
 
 def subtotal_servicos(order):
@@ -22,7 +28,11 @@ def subtotal_combos(order):
 
 
 def subtotal_pecas_avulsas(order):
-    return money(sum((item.subtotal for item in order.pecas_os.all()), Decimal('0.00')))
+    total = Decimal('0.00')
+    for item in order.pecas_os.select_related('item'):
+        if _is_customer_billable_stock_item(item.item):
+            total += item.subtotal
+    return money(total)
 
 
 def subtotal_pecas(order):
@@ -31,7 +41,26 @@ def subtotal_pecas(order):
     budget = order.get_effective_approval_budget()
     if budget:
         return budget.subtotal_by_type(WorkOrderApprovalItemType.PART)
-    return money(sum((row['subtotal'] for row in order.get_stock_requirements()), Decimal('0.00')))
+    return money(
+        sum(
+            (row['subtotal'] for row in order.get_stock_requirements() if row.get('is_billable_to_customer')),
+            Decimal('0.00'),
+        )
+    )
+
+
+def custo_insumos(order):
+    return money(
+        sum(
+            (row.get('custo_total', Decimal('0.00')) for row in order.get_stock_requirements() if row.get('is_internal_supply')),
+            Decimal('0.00'),
+        )
+    )
+
+
+def subtotal_insumos(order):
+    # Alias semântico para uso nas telas: insumo não é receita, é custo interno.
+    return custo_insumos(order)
 
 
 def subtotal(order):

@@ -86,7 +86,7 @@
               <td>
                 <div class="flex max-w-md flex-wrap gap-1">
                   {% for part in item.service.pecas_associadas.all %}
-                    <span class="badge badge-outline whitespace-nowrap">{{ part.item.sku }} - {{ part.item.nome }} · {{ part.quantidade }} {{ part.item.unidade.sigla }}</span>
+                    <span class="badge badge-outline whitespace-nowrap">{{ part.item.sku }} - {{ part.item.nome }} · {{ part.quantidade }} {{ part.item.unidade.sigla }} · {% if part.obrigatoria %}obrigatória{% else %}opcional{% endif %}</span>
                   {% empty %}
                     <span class="text-base-content/60">-</span>
                   {% endfor %}

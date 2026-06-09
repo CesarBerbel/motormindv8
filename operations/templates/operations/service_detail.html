@@ -68,6 +68,7 @@
             <th>Categoria</th>
             <th>Marca</th>
             <th>Quantidade</th>
+            <th>Obrigatória?</th>
             <th>Custo unitário</th>
             <th>Venda unitária</th>
             <th>Custo total</th>
@@ -85,6 +86,9 @@
               <td class="whitespace-nowrap">{{ part.item.categoria.nome }}</td>
               <td class="whitespace-nowrap">{{ part.item.marca.nome|default:'-' }}</td>
               <td class="whitespace-nowrap">{{ part.quantidade }} {{ part.item.unidade.sigla }}</td>
+              <td class="whitespace-nowrap">
+                {% if part.obrigatoria %}<span class="badge badge-primary badge-outline">Obrigatória</span>{% else %}<span class="badge badge-warning badge-outline">Opcional</span>{% endif %}
+              </td>
               <td class="whitespace-nowrap">{{ part.item.preco_custo|money_br }}</td>
               <td class="whitespace-nowrap">{{ part.item.valor_venda|money_br }}</td>
               <td class="whitespace-nowrap">{{ part.custo_total|money_br }}</td>
@@ -93,7 +97,7 @@
             </tr>
           {% empty %}
             <tr>
-              <td colspan="10" class="text-center">Nenhuma peça padrão associada.</td>
+              <td colspan="11" class="text-center">Nenhuma peça padrão associada.</td>
             </tr>
           {% endfor %}
         </tbody>

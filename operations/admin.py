@@ -13,6 +13,7 @@ from .models import (
     WorkOrderSettings,
     WorkOrderStatusTransition,
     WorkOrderStockRequirementOverride,
+    CustomerVehicleAccessToken,
     WorkOrderComboItem,
     WorkOrderPartItem,
     WorkOrderServiceItem,
@@ -33,6 +34,7 @@ class ServiceDefaultPartInline(admin.TabularInline):
     model = ServiceDefaultPart
     extra = 1
     autocomplete_fields = ('item',)
+    fields = ('item', 'quantidade', 'obrigatoria', 'observacao')
 
 
 @admin.register(Service)
@@ -50,7 +52,8 @@ class ServiceAdmin(admin.ModelAdmin):
 
 @admin.register(ServiceDefaultPart)
 class ServiceDefaultPartAdmin(admin.ModelAdmin):
-    list_display = ('service', 'item', 'quantidade', 'observacao')
+    list_display = ('service', 'item', 'quantidade', 'obrigatoria', 'observacao')
+    list_filter = ('obrigatoria',)
     search_fields = ('service__codigo', 'service__nome', 'item__sku', 'item__nome', 'observacao')
     autocomplete_fields = ('service', 'item')
 
@@ -83,7 +86,7 @@ class ServiceComboItemAdmin(admin.ModelAdmin):
 class WorkOrderApprovalBudgetItemInline(admin.TabularInline):
     model = WorkOrderApprovalBudgetItem
     extra = 0
-    readonly_fields = ('tipo', 'referencia_id', 'codigo', 'nome', 'quantidade', 'quantidade_base', 'valor_unitario', 'subtotal', 'aprovado', 'respondido_em')
+    readonly_fields = ('parent', 'tipo', 'referencia_id', 'codigo', 'nome', 'quantidade', 'quantidade_base', 'valor_unitario', 'subtotal', 'peca_obrigatoria', 'hierarquia_ordem', 'aprovado', 'respondido_em')
     can_delete = False
 
 
@@ -106,10 +109,10 @@ class WorkOrderApprovalBudgetAdmin(admin.ModelAdmin):
 
 @admin.register(WorkOrderApprovalBudgetItem)
 class WorkOrderApprovalBudgetItemAdmin(admin.ModelAdmin):
-    list_display = ('orcamento', 'tipo', 'codigo', 'nome', 'quantidade', 'valor_unitario', 'subtotal', 'aprovado')
-    list_filter = ('tipo', 'aprovado')
+    list_display = ('orcamento', 'parent', 'tipo', 'codigo', 'nome', 'quantidade', 'peca_obrigatoria', 'valor_unitario', 'subtotal', 'aprovado')
+    list_filter = ('tipo', 'peca_obrigatoria', 'aprovado')
     search_fields = ('orcamento__ordem_servico__codigo', 'codigo', 'nome')
-    autocomplete_fields = ('orcamento',)
+    autocomplete_fields = ('orcamento', 'parent')
 
 
 @admin.register(WorkOrderApprovalAudit)
@@ -119,6 +122,33 @@ class WorkOrderApprovalAuditAdmin(admin.ModelAdmin):
     search_fields = ('orcamento__ordem_servico__codigo', 'nome_responsavel', 'documento', 'observacao', 'ip')
     autocomplete_fields = ('orcamento', 'usuario_interno')
     readonly_fields = ('itens_aprovados_snapshot', 'itens_rejeitados_snapshot', 'assinatura_base64', 'assinatura_nome', 'criado_em')
+
+
+@admin.register(CustomerVehicleAccessToken)
+class CustomerVehicleAccessTokenAdmin(admin.ModelAdmin):
+    list_display = ('placa', 'cliente', 'veiculo', 'email', 'expira_em', 'verificado_em', 'tentativas', 'criado_em')
+    list_filter = ('verificado_em', 'revogado_em', 'expira_em', 'criado_em')
+    search_fields = ('placa', 'email', 'cliente__nome_razao_social', 'veiculo__placa')
+    autocomplete_fields = ('cliente', 'veiculo')
+    readonly_fields = (
+        'token',
+        'codigo_hash',
+        'tentativas',
+        'expira_em',
+        'verificado_em',
+        'revogado_em',
+        'ip_solicitacao',
+        'user_agent_solicitacao',
+        'ip_verificacao',
+        'criado_em',
+        'atualizado_em',
+    )
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return request.user.is_superuser
 
 
 @admin.register(WorkOrderSettings)
@@ -162,16 +192,16 @@ class WorkOrderStockRequirementOverrideInline(admin.TabularInline):
 
 @admin.register(WorkOrder)
 class WorkOrderAdmin(admin.ModelAdmin):
-    list_display = ('codigo', 'cliente', 'veiculo', 'status', 'data_abertura', 'data_finalizacao', 'valor_total', 'estoque_baixado')
-    list_filter = ('status', 'estoque_baixado', 'data_abertura')
-    search_fields = ('codigo', 'cliente__nome_razao_social', 'veiculo__placa', 'problema_relatado', 'diagnostico')
-    autocomplete_fields = ('cliente', 'veiculo')
+    list_display = ('codigo', 'cliente', 'veiculo', 'status', 'tecnico_responsavel', 'data_abertura', 'data_finalizacao', 'valor_total', 'estoque_baixado')
+    list_filter = ('status', 'tecnico_responsavel', 'estoque_baixado', 'data_abertura')
+    search_fields = ('codigo', 'cliente__nome_razao_social', 'veiculo__placa', 'problema_relatado', 'diagnostico', 'tecnico_responsavel__email', 'tecnico_responsavel__nome_razao_social')
+    autocomplete_fields = ('cliente', 'veiculo', 'tecnico_responsavel')
     readonly_fields = ('codigo', 'data_abertura', 'estoque_baixado', 'estoque_baixado_em', 'estoque_baixado_por')
     exclude = ('ativo', 'excluido_em')
     inlines = [WorkOrderServiceItemInline, WorkOrderComboItemInline, WorkOrderPartItemInline, WorkOrderStockRequirementOverrideInline]
 
     def get_queryset(self, request):
-        return WorkOrder.objects.select_related('cliente', 'veiculo').prefetch_related('servicos_os__service', 'combos_os__combo', 'pecas_os__item')
+        return WorkOrder.objects.select_related('cliente', 'veiculo', 'tecnico_responsavel').prefetch_related('servicos_os__service', 'combos_os__combo', 'pecas_os__item')
 
 
 @admin.register(WorkOrderStatusTransition)

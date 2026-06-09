@@ -30,14 +30,21 @@
 <div class="card bg-base-100 shadow mt-6">
   <div class="card-body">
     <h2 class="card-title">Itens do snapshot</h2>
+    {% if budget.total_itens_internos %}<p class="text-sm text-base-content/60">Itens marcados como <strong>Insumo interno</strong> são visíveis apenas para a oficina, não para o cliente.</p>{% endif %}
     <div class="overflow-x-auto">
       <table class="table">
         <thead><tr><th>Tipo</th><th>Item</th><th>Qtd</th><th>Valor unit.</th><th>Subtotal</th><th>Resposta</th></tr></thead>
         <tbody>
           {% for item in budget.itens.all %}
             <tr>
-              <td><span class="badge badge-outline">{{ item.get_tipo_display }}</span></td>
-              <td><span class="font-mono text-xs">{{ item.codigo|default:'-' }}</span><br>{{ item.nome }}</td>
+              <td><span class="badge badge-outline">{{ item.display_tipo }}</span></td>
+              <td>
+                <div class="{% if item.parent_id %}border-l-2 border-base-300 pl-4{% endif %}">
+                  {% if item.parent_id %}<span class="text-xs font-medium text-base-content/50">↳ Peça vinculada a {{ item.origem_nome|default:'serviço' }}</span><br>{% endif %}
+                  <span class="font-mono text-xs">{{ item.codigo|default:'-' }}</span><br>{{ item.nome }}
+                  {% if item.parent_id %}{% if item.peca_obrigatoria %}<span class="badge badge-primary badge-outline badge-sm ml-1">Obrigatória</span>{% else %}<span class="badge badge-warning badge-outline badge-sm ml-1">Opcional</span>{% endif %}{% endif %}
+                </div>
+              </td>
               <td>{{ item.quantidade }}</td>
               <td>{{ item.valor_unitario|money_br }}</td>
               <td>{{ item.subtotal|money_br }}</td>

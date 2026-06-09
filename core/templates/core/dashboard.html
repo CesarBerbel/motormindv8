@@ -1,57 +1,411 @@
 {% extends 'base.html' %}
+{% load money %}
 
 {% block title %}Dashboard | MotorMind{% endblock %}
 
 {% block content %}
-<div class="mb-6">
-  <h1 class="page-title">Dashboard</h1>
-  <p class="text-base-content/70">Bem-vindo ao painel interno do MotorMind.</p>
-</div>
-
-<div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-  {% if perms.core.view_customer %}
-    <a href="{% url 'customer_list' %}" class="card bg-base-100 shadow hover:shadow-xl transition">
-      <div class="card-body">
-        <h2 class="card-title">Clientes</h2>
-        <p>Cadastros de clientes sem acesso ao sistema.</p>
+<div class="space-y-6">
+  <div class="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+    <div>
+      <div class="flex flex-wrap items-center gap-2">
+        <h1 class="page-title">Dashboard</h1>
+        {% if dashboard_is_admin %}
+          <span class="badge badge-primary badge-outline">Administrativo</span>
+        {% else %}
+          <span class="badge badge-outline">Operação</span>
+        {% endif %}
       </div>
-    </a>
+      <p class="text-sm text-base-content/65">
+        {% if dashboard_is_admin %}
+          Visão consolidada da oficina: operação, aprovações, estoque, compras, mensagens, IA e auditoria.
+        {% else %}
+          Painel operacional com atalhos e filas do seu dia de trabalho.
+        {% endif %}
+      </p>
+    </div>
+    <div class="text-sm text-base-content/60">
+      Atualizado em {{ dashboard_updated_at|date:'d/m/Y H:i' }}
+    </div>
+  </div>
+
+  {% if quick_actions %}
+    <div class="card border border-base-300 bg-base-100 shadow-sm">
+      <div class="card-body gap-3 p-4">
+        <div class="flex items-center justify-between gap-3">
+          <h2 class="font-semibold">Atalhos rápidos</h2>
+          <span class="text-xs text-base-content/50">Ações mais usadas</span>
+        </div>
+        <div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
+          {% for action in quick_actions %}
+            <a href="{{ action.url }}" class="btn {{ action.tone }} min-h-14 h-auto justify-start text-left">
+              <span>
+                <span class="block font-semibold">{{ action.label }}</span>
+                <span class="block text-xs font-normal opacity-75">{{ action.description }}</span>
+              </span>
+            </a>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
   {% endif %}
 
-  {% if perms.core.view_vehicle %}
-    <a href="{% url 'vehicle_list' %}" class="card bg-base-100 shadow hover:shadow-xl transition">
-      <div class="card-body">
-        <h2 class="card-title">Veículos</h2>
-        <p>Veículos vinculados aos clientes, com dados FIPE.</p>
-      </div>
-    </a>
-  {% endif %}
+  {% if dashboard_is_admin %}
+    <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      {% for kpi in admin_kpis %}
+        <a href="{{ kpi.url }}" class="card border {% if kpi.danger %}border-error/30 bg-error/5{% elif kpi.warning %}border-warning/30 bg-warning/5{% else %}border-base-300 bg-base-100{% endif %} shadow-sm transition hover:shadow-md">
+          <div class="card-body gap-2 p-4">
+            <p class="text-xs font-semibold uppercase tracking-wide text-base-content/55">{{ kpi.label }}</p>
+            <p class="text-2xl font-bold text-base-content">{{ kpi.value }}</p>
+            <p class="text-xs text-base-content/60">{{ kpi.hint }}</p>
+          </div>
+        </a>
+      {% endfor %}
+    </div>
 
-  {% if perms.core.view_supplier %}
-    <a href="{% url 'supplier_list' %}" class="card bg-base-100 shadow hover:shadow-xl transition">
-      <div class="card-body">
-        <h2 class="card-title">Fornecedores</h2>
-        <p>Cadastros de fornecedores sem usuário de login.</p>
-      </div>
-    </a>
-  {% endif %}
+    <div class="grid gap-4 xl:grid-cols-3">
+      <section class="card border border-base-300 bg-base-100 shadow-sm xl:col-span-2">
+        <div class="card-body p-4">
+          <div class="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+            <h2 class="card-title text-base">OS por status</h2>
+            <span class="text-xs text-base-content/55">Distribuição atual do fluxo</span>
+          </div>
+          <div class="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            {% for item in status_cards %}
+              <div class="rounded-box border border-base-200 bg-base-200/40 p-3">
+                <div class="flex items-center justify-between gap-3">
+                  <span class="text-sm text-base-content/70">{{ item.label }}</span>
+                  <span class="badge badge-neutral badge-sm">{{ item.count }}</span>
+                </div>
+              </div>
+            {% empty %}
+              <p class="text-sm text-base-content/60">Nenhuma OS cadastrada.</p>
+            {% endfor %}
+          </div>
+        </div>
+      </section>
 
-  {% if perms.core.view_category %}
-    <a href="{% url 'category_list' %}" class="card bg-base-100 shadow hover:shadow-xl transition">
-      <div class="card-body">
-        <h2 class="card-title">Categorias</h2>
-        <p>Categorias separadas para clientes ou fornecedores.</p>
-      </div>
-    </a>
-  {% endif %}
+      <section class="card border border-base-300 bg-base-100 shadow-sm">
+        <div class="card-body p-4">
+          <h2 class="card-title text-base">Capacidade da oficina</h2>
+          <div class="mt-2 flex items-end justify-between">
+            <div>
+              <p class="text-3xl font-bold">{{ capacity.occupied }}/{{ capacity.total }}</p>
+              <p class="text-sm text-base-content/60">vagas ocupadas</p>
+            </div>
+            <span class="badge badge-outline">{{ capacity.available }} livres</span>
+          </div>
+          <progress class="progress progress-primary mt-4" value="{{ capacity.percent }}" max="100"></progress>
+          <p class="text-xs text-base-content/55">{{ capacity.percent }}% da capacidade configurada.</p>
+        </div>
+      </section>
+    </div>
 
-  {% if perms.accounts.view_user %}
-    <a href="{% url 'employee_list' %}" class="card bg-base-100 shadow hover:shadow-xl transition">
-      <div class="card-body">
-        <h2 class="card-title">Funcionários</h2>
-        <p>Usuários internos com login por email e permissões por função.</p>
-      </div>
-    </a>
+    <div class="grid gap-4 xl:grid-cols-3">
+      <section class="card border border-base-300 bg-base-100 shadow-sm">
+        <div class="card-body p-4">
+          <h2 class="card-title text-base">Resumo operacional</h2>
+          <div class="mt-2 grid grid-cols-2 gap-2 text-sm">
+            <div class="rounded-box bg-base-200/60 p-3"><p class="text-base-content/55">OS hoje</p><p class="text-xl font-semibold">{{ operations_summary.opened_today }}</p></div>
+            <div class="rounded-box bg-base-200/60 p-3"><p class="text-base-content/55">OS 30 dias</p><p class="text-xl font-semibold">{{ operations_summary.opened_30d }}</p></div>
+            <div class="rounded-box bg-base-200/60 p-3"><p class="text-base-content/55">Finalizadas 30d</p><p class="text-xl font-semibold">{{ operations_summary.completed_30d }}</p></div>
+            <div class="rounded-box bg-base-200/60 p-3"><p class="text-base-content/55">Check-ins hoje</p><p class="text-xl font-semibold">{{ operations_summary.checkins_today }}</p></div>
+            <div class="rounded-box bg-base-200/60 p-3"><p class="text-base-content/55">Aprovados 30d</p><p class="text-xl font-semibold">{{ operations_summary.approved_30d }}</p></div>
+            <div class="rounded-box bg-base-200/60 p-3"><p class="text-base-content/55">Recusados 30d</p><p class="text-xl font-semibold">{{ operations_summary.rejected_30d }}</p></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="card border border-base-300 bg-base-100 shadow-sm">
+        <div class="card-body p-4">
+          <h2 class="card-title text-base">Financeiro administrativo</h2>
+          <div class="mt-2 space-y-3 text-sm">
+            <div class="flex justify-between gap-3"><span class="text-base-content/60">Orçamentos pendentes</span><strong>{{ financial_summary.pending_budget_value|money_br }}</strong></div>
+            <div class="flex justify-between gap-3"><span class="text-base-content/60">Aprovado em 30 dias</span><strong>{{ financial_summary.approved_budget_value_30d|money_br }}</strong></div>
+            <div class="flex justify-between gap-3"><span class="text-base-content/60">Recusado em 30 dias</span><strong>{{ financial_summary.rejected_budget_value_30d|money_br }}</strong></div>
+            <div class="divider my-1"></div>
+            <div class="flex justify-between gap-3"><span class="text-base-content/60">Custo do estoque</span><strong>{{ financial_summary.inventory_cost_value|money_br }}</strong></div>
+            <div class="flex justify-between gap-3"><span class="text-base-content/60">Potencial venda peças</span><strong>{{ financial_summary.inventory_sale_value|money_br }}</strong></div>
+            <div class="flex justify-between gap-3"><span class="text-base-content/60">Compras abertas</span><strong>{{ financial_summary.purchase_open_value|money_br }}</strong></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="card border border-base-300 bg-base-100 shadow-sm">
+        <div class="card-body p-4">
+          <h2 class="card-title text-base">Clientes e base</h2>
+          <div class="mt-2 grid grid-cols-2 gap-2 text-sm">
+            <a href="{% url 'customer_list' %}" class="rounded-box bg-base-200/60 p-3 hover:bg-base-200"><p class="text-base-content/55">Clientes</p><p class="text-xl font-semibold">{{ customer_summary.customers }}</p></a>
+            <a href="{% url 'vehicle_list' %}" class="rounded-box bg-base-200/60 p-3 hover:bg-base-200"><p class="text-base-content/55">Veículos</p><p class="text-xl font-semibold">{{ customer_summary.vehicles }}</p></a>
+            <a href="{% url 'supplier_list' %}" class="rounded-box bg-base-200/60 p-3 hover:bg-base-200"><p class="text-base-content/55">Fornecedores</p><p class="text-xl font-semibold">{{ customer_summary.suppliers }}</p></a>
+            <div class="rounded-box bg-base-200/60 p-3"><p class="text-base-content/55">Sem FIPE</p><p class="text-xl font-semibold">{{ customer_summary.vehicles_without_fipe }}</p></div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <div class="grid gap-4 xl:grid-cols-2">
+      <section class="card border border-base-300 bg-base-100 shadow-sm">
+        <div class="card-body p-4">
+          <div class="flex items-center justify-between gap-3">
+            <h2 class="card-title text-base">Alertas de OS</h2>
+            <a href="{% url 'work_order_list' %}" class="link text-sm">Ver OS</a>
+          </div>
+          <div class="mt-2 overflow-x-auto">
+            <table class="table table-sm">
+              <thead><tr><th>OS</th><th>Cliente</th><th>Status</th><th>Previsão</th></tr></thead>
+              <tbody>
+                {% for order in delayed_orders %}
+                  <tr>
+                    <td><a href="{% url 'work_order_detail' order.pk %}" class="link font-mono">{{ order.codigo }}</a></td>
+                    <td>{{ order.cliente.nome_razao_social }}</td>
+                    <td>{{ order.get_status_display }}</td>
+                    <td>{{ order.previsao_entrega|date:'d/m H:i' }}</td>
+                  </tr>
+                {% empty %}
+                  <tr><td colspan="4" class="text-base-content/60">Nenhuma OS atrasada.</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section class="card border border-base-300 bg-base-100 shadow-sm">
+        <div class="card-body p-4">
+          <div class="flex items-center justify-between gap-3">
+            <h2 class="card-title text-base">Aprovações pendentes</h2>
+            <a href="{% url 'work_order_list' %}" class="link text-sm">Ver orçamentos</a>
+          </div>
+          <div class="mt-2 overflow-x-auto">
+            <table class="table table-sm">
+              <thead><tr><th>Orçamento</th><th>Cliente</th><th>Valor</th><th>Desde</th></tr></thead>
+              <tbody>
+                {% for budget in pending_budgets %}
+                  <tr>
+                    <td><a href="{% url 'work_order_approval_detail' budget.pk %}" class="link font-mono">{{ budget.codigo }}</a></td>
+                    <td>{{ budget.ordem_servico.cliente.nome_razao_social }}</td>
+                    <td>{{ budget.valor_total_snapshot|money_br }}</td>
+                    <td>{{ budget.criado_em|date:'d/m H:i' }}</td>
+                  </tr>
+                {% empty %}
+                  <tr><td colspan="4" class="text-base-content/60">Nenhum orçamento pendente.</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <div class="grid gap-4 xl:grid-cols-3">
+      <section class="card border border-base-300 bg-base-100 shadow-sm">
+        <div class="card-body p-4">
+          <h2 class="card-title text-base">Estoque e compras</h2>
+          <div class="mt-2 grid grid-cols-2 gap-2 text-sm">
+            <div class="rounded-box bg-base-200/60 p-3"><p class="text-base-content/55">Itens</p><p class="text-xl font-semibold">{{ stock_summary.items }}</p></div>
+            <div class="rounded-box bg-base-200/60 p-3"><p class="text-base-content/55">Críticos</p><p class="text-xl font-semibold">{{ stock_summary.low_stock }}</p></div>
+            <div class="rounded-box bg-base-200/60 p-3"><p class="text-base-content/55">Peças</p><p class="text-xl font-semibold">{{ stock_summary.pieces }}</p></div>
+            <div class="rounded-box bg-base-200/60 p-3"><p class="text-base-content/55">Insumos</p><p class="text-xl font-semibold">{{ stock_summary.supplies }}</p></div>
+            <div class="rounded-box bg-base-200/60 p-3"><p class="text-base-content/55">Pedidos abertos</p><p class="text-xl font-semibold">{{ stock_summary.purchase_open }}</p></div>
+            <div class="rounded-box bg-base-200/60 p-3"><p class="text-base-content/55">Mov. 7 dias</p><p class="text-xl font-semibold">{{ stock_summary.movements_7d }}</p></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="card border border-base-300 bg-base-100 shadow-sm xl:col-span-2">
+        <div class="card-body p-4">
+          <div class="flex items-center justify-between gap-3">
+            <h2 class="card-title text-base">Peças/insumos abaixo do mínimo</h2>
+            <a href="{% url 'inventory_item_list' %}" class="link text-sm">Ver estoque</a>
+          </div>
+          <div class="mt-2 overflow-x-auto">
+            <table class="table table-sm">
+              <thead><tr><th>Item</th><th>Tipo</th><th>Atual</th><th>Mínimo</th></tr></thead>
+              <tbody>
+                {% for item in low_stock_items %}
+                  <tr>
+                    <td><a href="{% url 'inventory_item_detail' item.pk %}" class="link">{{ item.nome }}</a></td>
+                    <td>{{ item.get_tipo_display }}</td>
+                    <td>{{ item.estoque_atual }} {{ item.unidade.sigla }}</td>
+                    <td>{{ item.estoque_minimo }} {{ item.unidade.sigla }}</td>
+                  </tr>
+                {% empty %}
+                  <tr><td colspan="4" class="text-base-content/60">Estoque dentro dos mínimos configurados.</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <div class="grid gap-4 xl:grid-cols-3">
+      <section class="card border border-base-300 bg-base-100 shadow-sm">
+        <div class="card-body p-4">
+          <h2 class="card-title text-base">Carga por técnico</h2>
+          <div class="mt-2 space-y-2">
+            {% for row in technician_workload %}
+              <div class="flex items-center justify-between gap-3 rounded-box bg-base-200/60 px-3 py-2 text-sm">
+                <span class="truncate">{{ row.name }}</span>
+                <span class="badge badge-neutral badge-sm">{{ row.count }}</span>
+              </div>
+            {% empty %}
+              <p class="text-sm text-base-content/60">Sem OS atribuídas.</p>
+            {% endfor %}
+          </div>
+        </div>
+      </section>
+
+      <section class="card border border-base-300 bg-base-100 shadow-sm">
+        <div class="card-body p-4">
+          <h2 class="card-title text-base">Serviços mais lançados - 30 dias</h2>
+          <div class="mt-2 space-y-2">
+            {% for row in top_services %}
+              <div class="flex items-center justify-between gap-3 rounded-box bg-base-200/60 px-3 py-2 text-sm">
+                <span class="truncate">{{ row.service__nome }}</span>
+                <span class="badge badge-outline badge-sm">{{ row.total }}</span>
+              </div>
+            {% empty %}
+              <p class="text-sm text-base-content/60">Sem serviços no período.</p>
+            {% endfor %}
+          </div>
+        </div>
+      </section>
+
+      <section class="card border border-base-300 bg-base-100 shadow-sm">
+        <div class="card-body p-4">
+          <h2 class="card-title text-base">Mensagens, IA e auditoria</h2>
+          <div class="mt-2 space-y-3 text-sm">
+            <div class="rounded-box bg-base-200/60 p-3">
+              <div class="flex justify-between"><span>Mensagens 7 dias</span><strong>{{ message_summary.total_7d }}</strong></div>
+              <p class="text-xs text-base-content/55">{{ message_summary.sent_7d }} enviadas · {{ message_summary.error_7d }} com erro · {{ message_summary.pending }} pendentes</p>
+            </div>
+            <div class="rounded-box bg-base-200/60 p-3">
+              <div class="flex justify-between"><span>Uso de IA 7 dias</span><strong>{{ ai_summary.total_7d }}</strong></div>
+              <p class="text-xs text-base-content/55">{{ ai_summary.success_7d }} sucesso · {{ ai_summary.error_7d }} erro</p>
+            </div>
+            <div class="rounded-box bg-base-200/60 p-3">
+              <div class="flex justify-between"><span>Auditoria 24h</span><strong>{{ audit_summary.events_24h }}</strong></div>
+              <p class="text-xs text-base-content/55">{{ audit_summary.failed_logins_24h }} falhas de login · {{ audit_summary.actions_24h }} ações</p>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <div class="grid gap-4 xl:grid-cols-2">
+      <section class="card border border-base-300 bg-base-100 shadow-sm">
+        <div class="card-body p-4">
+          <h2 class="card-title text-base">Últimas OS</h2>
+          <div class="mt-2 overflow-x-auto">
+            <table class="table table-sm">
+              <thead><tr><th>OS</th><th>Cliente</th><th>Veículo</th><th>Status</th></tr></thead>
+              <tbody>
+                {% for order in recent_work_orders %}
+                  <tr>
+                    <td><a href="{% url 'work_order_detail' order.pk %}" class="link font-mono">{{ order.codigo }}</a></td>
+                    <td>{{ order.cliente.nome_razao_social }}</td>
+                    <td>{% if order.veiculo %}{{ order.veiculo.placa }}{% else %}-{% endif %}</td>
+                    <td>{{ order.get_status_display }}</td>
+                  </tr>
+                {% empty %}
+                  <tr><td colspan="4" class="text-base-content/60">Sem OS cadastrada.</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section class="card border border-base-300 bg-base-100 shadow-sm">
+        <div class="card-body p-4">
+          <h2 class="card-title text-base">Equipe e leads</h2>
+          <div class="grid gap-3 md:grid-cols-2">
+            <div>
+              <p class="mb-2 text-sm font-semibold">Funcionários</p>
+              <div class="space-y-2">
+                {% for role in employee_summary.roles %}
+                  <div class="flex justify-between rounded-box bg-base-200/60 px-3 py-2 text-sm"><span>{{ role.label }}</span><strong>{{ role.count }}</strong></div>
+                {% endfor %}
+              </div>
+            </div>
+            <div>
+              <p class="mb-2 text-sm font-semibold">Leads do site</p>
+              <div class="space-y-2">
+                {% for lead in lead_summary %}
+                  <div class="flex justify-between rounded-box bg-base-200/60 px-3 py-2 text-sm"><span>{{ lead.label }}</span><strong>{{ lead.count }}</strong></div>
+                {% endfor %}
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+  {% else %}
+    <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      {% for kpi in staff_kpis %}
+        <a href="{{ kpi.url }}" class="card border border-base-300 bg-base-100 shadow-sm transition hover:shadow-md">
+          <div class="card-body gap-2 p-4">
+            <p class="text-xs font-semibold uppercase tracking-wide text-base-content/55">{{ kpi.label }}</p>
+            <p class="text-3xl font-bold">{{ kpi.value }}</p>
+          </div>
+        </a>
+      {% endfor %}
+    </div>
+
+    <div class="grid gap-4 xl:grid-cols-2">
+      <section class="card border border-base-300 bg-base-100 shadow-sm">
+        <div class="card-body p-4">
+          <div class="flex items-center justify-between gap-3">
+            <h2 class="card-title text-base">{% if staff_can_access_technical_area %}Minhas OS{% else %}OS ativas{% endif %}</h2>
+            <a href="{{ staff_board_url }}" class="link text-sm">{{ staff_board_label }}</a>
+          </div>
+          <div class="mt-2 overflow-x-auto">
+            <table class="table table-sm">
+              <thead><tr><th>OS</th><th>Cliente</th><th>Status</th><th>Previsão</th></tr></thead>
+              <tbody>
+                {% for order in my_orders %}
+                  <tr>
+                    <td><a href="{% url 'work_order_detail' order.pk %}" class="link font-mono">{{ order.codigo }}</a></td>
+                    <td>{{ order.cliente.nome_razao_social }}</td>
+                    <td>{{ order.get_status_display }}</td>
+                    <td>{{ order.previsao_entrega|date:'d/m H:i'|default:'-' }}</td>
+                  </tr>
+                {% empty %}
+                  <tr><td colspan="4" class="text-base-content/60">{% if staff_can_access_technical_area %}Você não possui OS atribuída no momento.{% else %}Nenhuma OS ativa no momento.{% endif %}</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section class="card border border-base-300 bg-base-100 shadow-sm">
+        <div class="card-body p-4">
+          <div class="flex items-center justify-between gap-3">
+            <h2 class="card-title text-base">{% if staff_can_access_technical_area %}OS disponíveis para puxar{% else %}Fila operacional{% endif %}</h2>
+            <a href="{{ staff_board_url }}" class="link text-sm">{{ staff_board_label }}</a>
+          </div>
+          <div class="mt-2 overflow-x-auto">
+            <table class="table table-sm">
+              <thead><tr><th>OS</th><th>Cliente</th><th>Status</th><th>Abertura</th></tr></thead>
+              <tbody>
+                {% for order in available_orders %}
+                  <tr>
+                    <td><a href="{% url 'work_order_detail' order.pk %}" class="link font-mono">{{ order.codigo }}</a></td>
+                    <td>{{ order.cliente.nome_razao_social }}</td>
+                    <td>{{ order.get_status_display }}</td>
+                    <td>{{ order.data_abertura|date:'d/m H:i' }}</td>
+                  </tr>
+                {% empty %}
+                  <tr><td colspan="4" class="text-base-content/60">{% if staff_can_access_technical_area %}Nenhuma OS livre na fila técnica.{% else %}Sem OS em diagnóstico livre.{% endif %}</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </div>
   {% endif %}
 </div>
 {% endblock %}

@@ -96,17 +96,25 @@
     <section class="card bg-base-100 shadow-sm border border-base-300">
       <div class="card-body">
         <h2 class="card-title">2. Decisão sobre o orçamento</h2>
-        <div class="grid gap-3 md:grid-cols-3">
+        <p class="text-sm text-base-content/60">{% if partial_approval_allowed %}Escolha entre aprovação integral, aprovação parcial ou recusa integral.{% else %}Este orçamento não permite aprovação parcial. Registre aprovação integral ou recusa total.{% endif %}</p>
+        {% if not partial_approval_allowed %}
+          <div class="alert alert-warning mt-3 text-sm">
+            <span>{{ partial_approval_block_reason }}</span>
+          </div>
+        {% endif %}
+        <div class="grid gap-3 {% if partial_approval_allowed %}md:grid-cols-3{% else %}md:grid-cols-2{% endif %} mt-2">
           <label class="decision-card cursor-pointer rounded-box border border-base-300 p-4 transition hover:border-success" data-decision-card="approve_all">
-            <input type="radio" name="decisao" value="approve_all" class="radio radio-success mb-3" {% if form.decisao.value == 'approve_all' or not form.decisao.value %}checked{% endif %}>
+            <input type="radio" name="decisao" value="approve_all" class="radio radio-success mb-3" {% if form.decisao.value == 'approve_all' or not form.decisao.value or not partial_approval_allowed %}checked{% endif %}>
             <p class="font-semibold">Aprovar tudo</p>
             <p class="text-sm text-base-content/60">Todos os itens do snapshot entram na OS aprovada.</p>
           </label>
-          <label class="decision-card cursor-pointer rounded-box border border-base-300 p-4 transition hover:border-warning" data-decision-card="approve_partial">
-            <input type="radio" name="decisao" value="approve_partial" class="radio radio-warning mb-3" {% if form.decisao.value == 'approve_partial' %}checked{% endif %}>
-            <p class="font-semibold">Aprovar parcialmente</p>
-            <p class="text-sm text-base-content/60">Marque abaixo somente os itens liberados pelo cliente.</p>
-          </label>
+          {% if partial_approval_allowed %}
+            <label class="decision-card cursor-pointer rounded-box border border-base-300 p-4 transition hover:border-warning" data-decision-card="approve_partial">
+              <input type="radio" name="decisao" value="approve_partial" class="radio radio-warning mb-3" {% if form.decisao.value == 'approve_partial' %}checked{% endif %}>
+              <p class="font-semibold">Aprovar parcialmente</p>
+              <p class="text-sm text-base-content/60">Marque abaixo somente os itens liberados pelo cliente.</p>
+            </label>
+          {% endif %}
           <label class="decision-card cursor-pointer rounded-box border border-base-300 p-4 transition hover:border-error" data-decision-card="reject_all">
             <input type="radio" name="decisao" value="reject_all" class="radio radio-error mb-3" {% if form.decisao.value == 'reject_all' %}checked{% endif %}>
             <p class="font-semibold">Recusar tudo</p>
@@ -122,7 +130,7 @@
         <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h2 class="card-title">3. Itens do orçamento</h2>
-            <p class="text-sm text-base-content/60">Na aprovação parcial, selecione os itens aprovados diretamente nesta lista. Em aprovação total ou recusa total, os checkboxes ficam desativados.</p>
+            <p class="text-sm text-base-content/60">{% if partial_approval_allowed %}Na aprovação parcial, selecione apenas os itens aprovados pelo cliente. Peças obrigatórias vinculadas a serviço protegem a integridade do pacote: se forem recusadas, o serviço/combo relacionado também será recusado.{% else %}A seleção individual está bloqueada para este orçamento porque os itens formam um pacote indivisível para aprovação.{% endif %}</p>
           </div>
           <div class="partial-actions hidden gap-2" data-partial-actions>
             <button type="button" class="btn btn-sm btn-outline" data-select-all>Todos</button>
@@ -132,37 +140,59 @@
         <div class="mt-4 overflow-x-auto rounded-box border border-base-300 hidden md:block">
           <table class="table">
             <thead>
-              <tr><th class="w-12">Aprovar</th><th>Tipo</th><th>Item</th><th class="text-right">Qtd</th><th class="text-right">Valor unit.</th><th class="text-right">Subtotal</th></tr>
+              <tr>{% if partial_approval_allowed %}<th class="w-12">Aprovar</th>{% endif %}<th>Tipo</th><th>Item</th><th class="text-right">Qtd</th><th class="text-right">Valor unit.</th><th class="text-right">Subtotal</th></tr>
             </thead>
             <tbody>
-              {% for item in budget.itens.all %}
+              {% for row in approval_item_rows %}
+                {% with item=row.item %}
                 <tr>
-                  <td><input type="checkbox" name="itens_aprovados" value="{{ item.pk }}" class="checkbox checkbox-primary approval-item-checkbox" {% if item in form.itens_aprovados.value %}checked{% endif %}></td>
-                  <td><span class="badge badge-outline">{{ item.get_tipo_display }}</span></td>
-                  <td><span class="font-mono text-xs text-base-content/50">{{ item.codigo|default:'-' }}</span><br><span class="font-medium">{{ item.nome }}</span>{% if item.origem_observacao %}<p class="text-xs text-base-content/50">{{ item.origem_observacao }}</p>{% endif %}</td>
+                  {% if partial_approval_allowed %}
+                    <td><input type="checkbox" name="itens_aprovados" value="{{ item.pk }}" class="checkbox checkbox-primary approval-item-checkbox" data-approval-item-id="{{ item.pk }}" data-approval-parent-id="{{ item.parent_id|default:'' }}" data-approval-required="{% if item.peca_obrigatoria %}true{% else %}false{% endif %}" data-approval-locked="{% if row.locked %}true{% else %}false{% endif %}" data-approval-default-checked="{% if row.selected %}true{% else %}false{% endif %}" {% if row.selected %}checked{% endif %}></td>
+                  {% endif %}
+                  <td><span class="badge badge-outline">{{ item.display_tipo }}</span></td>
+                  <td>
+                    <div class="{% if item.parent_id %}border-l-2 border-base-300 pl-4{% endif %}">
+                      {% if item.parent_id %}<span class="text-xs font-medium text-base-content/50">↳ Peça vinculada a {{ item.origem_nome|default:'serviço' }}</span><br>{% endif %}
+                      <span class="font-mono text-xs text-base-content/50">{{ item.codigo|default:'-' }}</span><br><span class="font-medium">{{ item.nome }}</span>
+                      {% if item.parent_id %}{% if item.peca_obrigatoria %}<span class="badge badge-primary badge-outline badge-sm ml-1">Obrigatória</span>{% else %}<span class="badge badge-warning badge-outline badge-sm ml-1">Opcional</span>{% endif %}{% endif %}{% if row.locked %}<span class="badge badge-info badge-outline badge-sm ml-1" title="{{ row.locked_reason }}">Bloqueado</span>{% endif %}
+                    </div>
+                    {% if item.origem_observacao %}<p class="text-xs text-base-content/50">{{ item.origem_observacao }}</p>{% endif %}
+                  </td>
                   <td class="text-right">{{ item.quantidade }}</td>
                   <td class="text-right">{{ item.valor_unitario|money_br }}</td>
                   <td class="text-right font-semibold">{{ item.subtotal|money_br }}</td>
                 </tr>
+                {% endwith %}
               {% empty %}
-                <tr><td colspan="6" class="text-center">Nenhum item no orçamento.</td></tr>
+                <tr><td colspan="{% if partial_approval_allowed %}6{% else %}5{% endif %}" class="text-center">Nenhum item no orçamento.</td></tr>
               {% endfor %}
             </tbody>
           </table>
         </div>
         <div class="mt-4 grid gap-3 md:hidden">
-          {% for item in budget.itens.all %}
-            <label class="rounded-box border border-base-300 p-4 bg-base-100 flex gap-3">
-              <input type="checkbox" name="itens_aprovados" value="{{ item.pk }}" class="checkbox checkbox-primary approval-item-checkbox mt-1">
+          {% for row in approval_item_rows %}
+            {% with item=row.item %}
+            <div class="rounded-box border border-base-300 p-4 bg-base-100 flex gap-3 {% if item.parent_id %}ml-4 border-l-4{% endif %}">
+              {% if partial_approval_allowed %}
+                <input type="checkbox" name="itens_aprovados" value="{{ item.pk }}" class="checkbox checkbox-primary approval-item-checkbox mt-1" data-approval-item-id="{{ item.pk }}" data-approval-parent-id="{{ item.parent_id|default:'' }}" data-approval-required="{% if item.peca_obrigatoria %}true{% else %}false{% endif %}" data-approval-locked="{% if row.locked %}true{% else %}false{% endif %}" data-approval-default-checked="{% if row.selected %}true{% else %}false{% endif %}" {% if row.selected %}checked{% endif %}>
+              {% else %}
+                <div class="mt-1 shrink-0"><span class="badge badge-ghost badge-sm">Bloqueado</span></div>
+              {% endif %}
               <div class="min-w-0 flex-1">
                 <div class="flex items-start justify-between gap-3">
-                  <div><span class="badge badge-outline">{{ item.get_tipo_display }}</span><p class="font-semibold mt-1">{{ item.nome }}</p></div>
+                  <div>
+                    <span class="badge badge-outline">{{ item.display_tipo }}</span>
+                    {% if item.parent_id %}{% if item.peca_obrigatoria %}<span class="badge badge-primary badge-outline badge-sm">Obrigatória</span>{% else %}<span class="badge badge-warning badge-outline badge-sm">Opcional</span>{% endif %}{% endif %}{% if row.locked %}<span class="badge badge-info badge-outline badge-sm" title="{{ row.locked_reason }}">Bloqueado</span>{% endif %}
+                    <p class="font-semibold mt-1">{{ item.nome }}</p>
+                    {% if item.parent_id %}<p class="text-xs text-base-content/50">Peça vinculada a {{ item.origem_nome|default:'serviço' }}</p>{% endif %}
+                  </div>
                   <p class="font-bold whitespace-nowrap">{{ item.subtotal|money_br }}</p>
                 </div>
                 <p class="text-sm text-base-content/60">Qtd {{ item.quantidade }} · Unit. {{ item.valor_unitario|money_br }}</p>
                 {% if item.codigo %}<p class="font-mono text-xs text-base-content/50">{{ item.codigo }}</p>{% endif %}
               </div>
-            </label>
+            </div>
+            {% endwith %}
           {% endfor %}
         </div>
         {% for error in form.itens_aprovados.errors %}<p class="text-sm text-error mt-2">{{ error }}</p>{% endfor %}
@@ -238,6 +268,8 @@
   const decisionInputs = Array.from(form.querySelectorAll('input[name="decisao"]'));
   const methodInputs = Array.from(form.querySelectorAll('input[name="metodo"]'));
   const itemChecks = Array.from(form.querySelectorAll('.approval-item-checkbox'));
+  const itemById = new Map(itemChecks.map((input) => [input.dataset.approvalItemId, input]));
+  const childrenByParent = new Map();
   const partialActions = form.querySelector('[data-partial-actions]');
   const signatureSection = form.querySelector('[data-signature-section]');
   const signatureInput = form.querySelector('#id_assinatura_base64');
@@ -245,6 +277,13 @@
   const ctx = canvas ? canvas.getContext('2d') : null;
   let drawing = false;
   let hasSignature = Boolean(signatureInput && signatureInput.value);
+
+  itemChecks.forEach((input) => {
+    const parentId = input.dataset.approvalParentId;
+    if (!parentId) return;
+    if (!childrenByParent.has(parentId)) childrenByParent.set(parentId, []);
+    childrenByParent.get(parentId).push(input);
+  });
 
   function selectedDecision() {
     return (decisionInputs.find((input) => input.checked) || {}).value || 'approve_all';
@@ -255,8 +294,14 @@
   function syncPartialState() {
     const partial = selectedDecision() === 'approve_partial';
     itemChecks.forEach((input) => {
+      const locked = input.dataset.approvalLocked === 'true';
       input.disabled = !partial;
-      if (!partial) input.checked = false;
+      if (!partial) {
+        input.checked = false;
+        return;
+      }
+      if (locked || input.dataset.approvalDefaultChecked === 'true') input.checked = true;
+      input.classList.toggle('cursor-not-allowed', locked);
     });
     if (partialActions) partialActions.classList.toggle('hidden', !partial);
   }
@@ -264,6 +309,42 @@
     const presential = selectedMethod() === 'presential';
     if (signatureSection) signatureSection.classList.toggle('hidden', !presential);
     if (presential) resizeCanvas();
+  }
+  function syncHierarchyFrom(input) {
+    if (!input || input.disabled) return;
+    if (input.dataset.approvalLocked === 'true') {
+      input.checked = true;
+      return;
+    }
+    const itemId = input.dataset.approvalItemId;
+    const parentId = input.dataset.approvalParentId;
+    const children = childrenByParent.get(itemId) || [];
+
+    if (parentId) {
+      const parent = itemById.get(parentId);
+      const siblings = childrenByParent.get(parentId) || [];
+      const required = input.dataset.approvalRequired === 'true';
+      if (!input.checked && required) {
+        if (parent) parent.checked = false;
+        siblings.forEach((child) => { child.checked = false; });
+        return;
+      }
+      if (input.checked && parent) {
+        parent.checked = true;
+        siblings.forEach((child) => {
+          if (child.dataset.approvalRequired === 'true') child.checked = true;
+        });
+      }
+      return;
+    }
+
+    if (!input.checked) {
+      children.forEach((child) => { child.checked = false; });
+      return;
+    }
+    children.forEach((child) => {
+      if (child.dataset.approvalRequired === 'true') child.checked = true;
+    });
   }
   function resizeCanvas() {
     if (!canvas || !ctx) return;
@@ -313,11 +394,15 @@
   }
 
   decisionInputs.forEach((input) => input.addEventListener('change', syncPartialState));
+  itemChecks.forEach((input) => input.addEventListener('change', () => syncHierarchyFrom(input)));
   methodInputs.forEach((input) => input.addEventListener('change', syncSignatureState));
   const selectAll = form.querySelector('[data-select-all]');
   const clearAll = form.querySelector('[data-clear-all]');
   if (selectAll) selectAll.addEventListener('click', () => itemChecks.forEach((input) => { if (!input.disabled) input.checked = true; }));
-  if (clearAll) clearAll.addEventListener('click', () => itemChecks.forEach((input) => { if (!input.disabled) input.checked = false; }));
+  if (clearAll) clearAll.addEventListener('click', () => itemChecks.forEach((input) => {
+    if (input.disabled) return;
+    input.checked = input.dataset.approvalLocked === 'true';
+  }));
   const clearSignature = form.querySelector('[data-clear-signature]');
   if (clearSignature) clearSignature.addEventListener('click', () => {
     if (!canvas || !ctx) return;

@@ -53,6 +53,7 @@
           <li><a href="{% url 'public_about' %}">Sobre</a></li>
           <li><a href="{% url 'public_blog_list' %}">Blog</a></li>
           <li><a href="{% url 'public_contact' %}">Contato</a></li>
+          <li><a href="{% url 'customer_vehicle_access_request' %}">Histórico do veículo</a></li>
         </ul>
       </nav>
 
@@ -66,6 +67,7 @@
             WhatsApp
           </a>
         {% endif %}
+        <a href="{% url 'customer_vehicle_access_request' %}" class="btn btn-outline btn-primary btn-sm hidden xl:inline-flex">Histórico</a>
         <a href="{% url 'public_contact' %}" class="btn btn-primary btn-sm hidden md:inline-flex">Orçamento</a>
         <a href="{% url 'login' %}" class="btn btn-ghost btn-sm hidden xl:inline-flex">Área restrita</a>
 
@@ -81,6 +83,7 @@
             <li><a href="{% url 'public_about' %}">Sobre</a></li>
             <li><a href="{% url 'public_blog_list' %}">Blog</a></li>
             <li><a href="{% url 'public_contact' %}">Contato</a></li>
+          <li><a href="{% url 'customer_vehicle_access_request' %}">Histórico do veículo</a></li>
             <li><a href="{% url 'public_contact' %}" class="font-semibold text-primary">Pedir orçamento</a></li>
             <li><a href="{% url 'login' %}">Área restrita</a></li>
           </ul>
@@ -129,7 +132,7 @@
     <div class="border-t border-neutral-content/10">
       <div class="container mx-auto flex flex-col items-center justify-between gap-2 px-4 py-4 text-xs text-neutral-content/60 sm:flex-row">
         <span>© {% now "Y" %} {{ site.nome_fantasia }}. Todos os direitos reservados.</span>
-        <a href="{% url 'login' %}" class="link link-hover">Acesso da equipe</a>
+        <span class="flex gap-3"><a href="{% url 'customer_vehicle_access_request' %}" class="link link-hover">Histórico do veículo</a><a href="{% url 'login' %}" class="link link-hover">Acesso da equipe</a></span>
       </div>
     </div>
   </footer>

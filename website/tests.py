@@ -75,6 +75,12 @@ class PublicPagesTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Mecânica geral')
 
+    def test_home_vehicle_history_cta_uses_vehicle_label(self):
+        response = self.client.get(reverse('public_home'))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Consultar veículo')
+        self.assertNotContains(response, 'Consultar OS')
+
     def test_service_list_renders(self):
         response = self.client.get(reverse('public_service_list'))
         self.assertEqual(response.status_code, 200)

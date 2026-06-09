@@ -81,13 +81,174 @@
   }
 }
 
-/* Marca d'água global "motormindv8", adaptada ao tema ativo. */
+/* Marca d'água premium dinâmica com a empresa cadastrada. */
 body {
-  background-image: url('/static/img/motormind-bg-light.png');
-  background-repeat: repeat;
+  background-image:
+    radial-gradient(circle at top left, color-mix(in oklch, currentColor 3%, transparent), transparent 24rem),
+    radial-gradient(circle at bottom right, color-mix(in oklch, currentColor 2%, transparent), transparent 26rem);
+  background-attachment: fixed;
 }
 
-[data-theme='dark'] body,
-[data-theme='bandeirantes-dark'] body {
-  background-image: url('/static/img/motormind-bg-dark.png');
+.company-watermark-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  user-select: none;
+  color: var(--fallback-bc, oklch(var(--bc) / 1));
+  opacity: 0.92;
+  contain: strict;
+}
+
+.company-watermark-layer::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(115deg, transparent 0%, color-mix(in oklch, currentColor 2.5%, transparent) 44%, transparent 64%),
+    radial-gradient(circle at 18% 22%, color-mix(in oklch, currentColor 3%, transparent), transparent 18rem),
+    radial-gradient(circle at 82% 78%, color-mix(in oklch, currentColor 2%, transparent), transparent 22rem);
+  opacity: 0.55;
+}
+
+.company-watermark-layer::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(90deg, color-mix(in oklch, currentColor 3%, transparent) 1px, transparent 1px),
+    linear-gradient(180deg, color-mix(in oklch, currentColor 3%, transparent) 1px, transparent 1px);
+  background-size: 6rem 6rem;
+  mask-image: linear-gradient(to bottom, transparent, #000 18%, #000 82%, transparent);
+  opacity: 0.2;
+}
+
+.company-watermark-item {
+  position: absolute;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  max-width: 24rem;
+  border: 1px solid color-mix(in oklch, currentColor 9%, transparent);
+  border-radius: 999px;
+  padding: 0.38rem 1.45rem;
+  background: color-mix(in oklch, currentColor 3.4%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in oklch, currentColor 2%, transparent) inset;
+  color: color-mix(in oklch, currentColor 34%, transparent);
+  font-size: clamp(0.68rem, 0.58rem + 0.28vw, 0.92rem);
+  font-weight: 800;
+  letter-spacing: 0.2em;
+  line-height: 1;
+  text-align: center;
+  text-transform: uppercase;
+  white-space: nowrap;
+  opacity: 0.14;
+  filter: blur(0.01px);
+  animation: company-watermark-pulse 16s ease-in-out infinite both;
+}
+
+.company-watermark-item--accent {
+  color: color-mix(in oklch, var(--fallback-p, oklch(var(--p) / 1)) 44%, transparent);
+  border-color: color-mix(in oklch, var(--fallback-p, oklch(var(--p) / 1)) 11%, transparent);
+  background: color-mix(in oklch, var(--fallback-p, oklch(var(--p) / 1)) 5%, transparent);
+  opacity: 0.12;
+}
+
+@keyframes company-watermark-pulse {
+  0%,
+  100% {
+    opacity: 0.105;
+  }
+  50% {
+    opacity: 0.165;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .company-watermark-item {
+    animation: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .company-watermark-layer::after {
+    background-size: 4.5rem 4.5rem;
+  }
+
+  .company-watermark-item {
+    max-width: 18rem;
+    padding-inline: 1rem;
+    letter-spacing: 0.16em;
+  }
+}
+
+/* Linha do tempo compacta da área privada do cliente. */
+.customer-history-timeline {
+  min-width: 0;
+}
+
+.customer-history-timeline__list {
+  position: relative;
+  max-height: min(20rem, 46vh);
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 0.35rem;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+.customer-history-timeline__list::before {
+  content: '';
+  position: absolute;
+  top: 0.55rem;
+  bottom: 0.55rem;
+  left: 0.42rem;
+  width: 1px;
+  background: color-mix(in oklch, currentColor 14%, transparent);
+}
+
+.customer-history-timeline__item {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1rem minmax(0, 1fr);
+  gap: 0.75rem;
+  align-items: start;
+  padding-bottom: 0.75rem;
+}
+
+.customer-history-timeline__item:last-child {
+  padding-bottom: 0;
+}
+
+.customer-history-timeline__dot {
+  position: relative;
+  z-index: 1;
+  width: 0.7rem;
+  height: 0.7rem;
+  margin-top: 0.55rem;
+  border-radius: 999px;
+  background: var(--fallback-p, oklch(var(--p) / 1));
+  box-shadow:
+    0 0 0 0.2rem var(--fallback-b1, oklch(var(--b1) / 1)),
+    0 0 0 0.28rem color-mix(in oklch, var(--fallback-p, oklch(var(--p) / 1)) 18%, transparent);
+}
+
+.customer-history-timeline__event {
+  min-width: 0;
+  border: 1px solid color-mix(in oklch, currentColor 10%, transparent);
+  border-radius: var(--rounded-box, 1rem);
+  background: color-mix(in oklch, currentColor 3%, transparent);
+  padding: 0.65rem 0.8rem;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 640px) {
+  .customer-history-timeline__list {
+    max-height: min(18rem, 42vh);
+  }
+
+  .customer-history-timeline__event {
+    padding: 0.6rem 0.7rem;
+  }
 }

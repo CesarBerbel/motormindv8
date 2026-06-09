@@ -1,0 +1,235 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load money %}
+
+{% block title %}Itens técnicos {{ order.codigo }} | MotorMind{% endblock %}
+
+{% block content %}
+<div class="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+  <div>
+    <div class="breadcrumbs text-sm">
+      <ul>
+        <li><a href="{% url 'mechanic_kanban' %}">Kanban técnico</a></li>
+        <li>{{ order.codigo }}</li>
+      </ul>
+    </div>
+    <h1 class="page-title">Itens técnicos da OS</h1>
+    <p class="text-base-content/70">
+      {{ order.codigo }} · {{ order.cliente.nome_razao_social }} ·
+      <span class="badge {{ order.status_badge_class }}">{{ order.get_status_display }}</span>
+    </p>
+  </div>
+  <div class="flex flex-wrap gap-2">
+    <a href="{% url 'mechanic_kanban' %}" class="btn btn-ghost whitespace-nowrap">Voltar ao Kanban</a>
+    <a href="{% url 'mechanic_work_order_detail' order.pk %}" class="btn btn-outline whitespace-nowrap">Resumo técnico</a>
+    {% if order.status == 'diagnostico' %}
+      <a href="{% url 'mechanic_work_order_diagnosis' order.pk %}" class="btn btn-outline whitespace-nowrap">Diagnóstico</a>
+    {% endif %}
+  </div>
+</div>
+
+<div class="grid gap-4 xl:grid-cols-4">
+  <div class="card border border-base-300 bg-base-100 shadow-sm xl:col-span-3">
+    <div class="card-body gap-4">
+      <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <div class="rounded-box border border-base-200 bg-base-200/40 p-3">
+          <p class="text-xs font-semibold uppercase tracking-wide text-base-content/50">Cliente</p>
+          <p class="mt-1 font-medium">{{ order.cliente.nome_razao_social }}</p>
+        </div>
+        <div class="rounded-box border border-base-200 bg-base-200/40 p-3">
+          <p class="text-xs font-semibold uppercase tracking-wide text-base-content/50">Veículo</p>
+          <p class="mt-1 font-medium">{% if order.veiculo %}{{ order.veiculo.placa }} · {{ order.veiculo.marca }} {{ order.veiculo.modelo }}{% else %}-{% endif %}</p>
+        </div>
+        <div class="rounded-box border border-base-200 bg-base-200/40 p-3">
+          <p class="text-xs font-semibold uppercase tracking-wide text-base-content/50">Técnico</p>
+          <p class="mt-1 font-medium">{% if order.tecnico_responsavel_id %}{{ order.tecnico_responsavel.nome_razao_social|default:order.tecnico_responsavel.email }}{% else %}Livre{% endif %}</p>
+        </div>
+        <div class="rounded-box border border-base-200 bg-base-200/40 p-3">
+          <p class="text-xs font-semibold uppercase tracking-wide text-base-content/50">Total atual</p>
+          <p class="mt-1 font-medium">{{ order.valor_total|money_br }}</p>
+        </div>
+      </div>
+      <div class="grid gap-3 md:grid-cols-2">
+        <div class="rounded-box border border-base-200 p-3 text-sm">
+          <p class="font-medium">Problema relatado</p>
+          <p class="mt-1 whitespace-pre-line text-base-content/70">{{ order.problema_relatado|default:'-' }}</p>
+        </div>
+        <div class="rounded-box border border-base-200 p-3 text-sm">
+          <p class="font-medium">Diagnóstico</p>
+          <p class="mt-1 whitespace-pre-line text-base-content/70">{{ order.diagnostico|default:'-' }}</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card border border-base-300 bg-base-100 shadow-sm">
+    <div class="card-body gap-3">
+      <h2 class="card-title text-base">Estoque previsto</h2>
+      {% if stock_shortages %}
+        <div class="alert alert-warning text-sm">Há peça/insumo sem estoque suficiente.</div>
+      {% else %}
+        <div class="alert alert-success text-sm">Estoque suficiente para os itens previstos.</div>
+      {% endif %}
+      <div class="space-y-2 text-sm">
+        {% for row in stock_requirements|slice:':4' %}
+          <div class="rounded-box border border-base-200 p-2">
+            <p class="font-medium">{{ row.item.sku|default:'Sem SKU' }} - {{ row.item.nome }}</p>
+            <p class="text-xs text-base-content/60">Necessário: {{ row.quantidade }} {{ row.item.unidade.sigla }}</p>
+          </div>
+        {% empty %}
+          <p class="text-sm text-base-content/60">Nenhuma peça prevista.</p>
+        {% endfor %}
+        {% if stock_requirements|length > 4 %}
+          <p class="text-xs text-base-content/60">E mais {{ stock_requirements|length|add:'-4' }} item(ns).</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+{% if order.estoque_baixado %}
+  <div class="alert alert-warning mt-6">
+    Esta OS já teve estoque baixado. Serviços, combos e peças não podem ser alterados pela área técnica.
+  </div>
+{% elif order.has_locked_approval %}
+  <div class="mt-6 card border border-warning/40 bg-warning/10 shadow-sm">
+    <div class="card-body gap-4">
+      <div>
+        <h2 class="card-title">Itens bloqueados por orçamento</h2>
+        <p class="text-sm text-base-content/70">
+          Esta OS possui orçamento em aprovação ou aprovado. Para adicionar/remover serviços, combos ou peças, inicie uma nova revisão técnica de orçamento.
+        </p>
+      </div>
+      {% if current_approval_budget %}
+        <div class="rounded-box border border-warning/30 bg-base-100 p-3 text-sm">
+          <p><span class="font-medium">Orçamento atual:</span> versão {{ current_approval_budget.versao }} · {{ current_approval_budget.get_status_display }}</p>
+          <p class="text-base-content/60">Após reabrir, a OS volta para Orçamento e deve ser enviada novamente para aprovação.</p>
+        </div>
+      {% endif %}
+      <form method="post" class="card-actions justify-end">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="start_new_budget_review">
+        <button type="submit" class="btn btn-warning min-h-12 whitespace-normal">Reabrir orçamento técnico para alterar itens</button>
+      </form>
+    </div>
+  </div>
+{% elif can_edit_items %}
+  <form method="post" class="mt-6 space-y-6" data-work-order-form data-work-order-auto-open="{{ auto_open_item_modal }}">
+    {% csrf_token %}
+
+    <div class="card-section">
+      <div class="card-body">
+        <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+          <div>
+            <h2 class="card-title">Serviços da OS</h2>
+            <p class="text-sm text-base-content/70">Adicione ou remova serviços identificados pela área técnica.</p>
+          </div>
+          <button type="button" class="btn btn-primary min-h-12 whitespace-nowrap" data-work-order-service-open-modal>Adicionar serviço</button>
+        </div>
+        {{ services_formset.management_form }}
+        {% if services_formset.non_form_errors %}<div class="alert alert-error mt-4"><div>{% for error in services_formset.non_form_errors %}<p>{{ error }}</p>{% endfor %}</div></div>{% endif %}
+        <div class="hidden" data-work-order-services-hidden-forms>
+          {% for item_form in services_formset.forms %}
+            <div data-work-order-service-form data-form-index="{{ forloop.counter0 }}">
+              {% for hidden in item_form.hidden_fields %}{{ hidden }}{% endfor %}
+              {{ item_form.service }}{{ item_form.quantidade }}{% if item_form.DELETE %}{{ item_form.DELETE }}{% endif %}
+              {% if item_form.errors or item_form.non_field_errors %}<div data-work-order-service-errors>{% for error in item_form.non_field_errors %}<p>{{ error }}</p>{% endfor %}{% for error in item_form.service.errors %}<p>{{ error }}</p>{% endfor %}{% for error in item_form.quantidade.errors %}<p>{{ error }}</p>{% endfor %}</div>{% endif %}
+            </div>
+          {% endfor %}
+        </div>
+        <template data-work-order-service-empty-form-template><div data-work-order-service-form data-form-index="__prefix__">{% for hidden in services_formset.empty_form.hidden_fields %}{{ hidden }}{% endfor %}{{ services_formset.empty_form.service }}{{ services_formset.empty_form.quantidade }}{% if services_formset.empty_form.DELETE %}{{ services_formset.empty_form.DELETE }}{% endif %}</div></template>
+        <div class="mt-4 space-y-3" data-work-order-services-list></div>
+        <div class="mt-4 rounded-box border border-dashed border-base-300 bg-base-200 p-6 text-center text-sm text-base-content/60" data-work-order-services-empty>Nenhum serviço adicionado.</div>
+      </div>
+    </div>
+
+    <div class="card-section">
+      <div class="card-body">
+        <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+          <div>
+            <h2 class="card-title">Combos da OS</h2>
+            <p class="text-sm text-base-content/70">Adicione combos aplicáveis ao serviço técnico.</p>
+          </div>
+          <button type="button" class="btn btn-primary min-h-12 whitespace-nowrap" data-work-order-combo-open-modal>Adicionar combo</button>
+        </div>
+        {{ combos_formset.management_form }}
+        {% if combos_formset.non_form_errors %}<div class="alert alert-error mt-4"><div>{% for error in combos_formset.non_form_errors %}<p>{{ error }}</p>{% endfor %}</div></div>{% endif %}
+        <div class="hidden" data-work-order-combos-hidden-forms>
+          {% for item_form in combos_formset.forms %}
+            <div data-work-order-combo-form data-form-index="{{ forloop.counter0 }}">
+              {% for hidden in item_form.hidden_fields %}{{ hidden }}{% endfor %}
+              {{ item_form.combo }}{{ item_form.quantidade }}{% if item_form.DELETE %}{{ item_form.DELETE }}{% endif %}
+              {% if item_form.errors or item_form.non_field_errors %}<div data-work-order-combo-errors>{% for error in item_form.non_field_errors %}<p>{{ error }}</p>{% endfor %}{% for error in item_form.combo.errors %}<p>{{ error }}</p>{% endfor %}{% for error in item_form.quantidade.errors %}<p>{{ error }}</p>{% endfor %}</div>{% endif %}
+            </div>
+          {% endfor %}
+        </div>
+        <template data-work-order-combo-empty-form-template><div data-work-order-combo-form data-form-index="__prefix__">{% for hidden in combos_formset.empty_form.hidden_fields %}{{ hidden }}{% endfor %}{{ combos_formset.empty_form.combo }}{{ combos_formset.empty_form.quantidade }}{% if combos_formset.empty_form.DELETE %}{{ combos_formset.empty_form.DELETE }}{% endif %}</div></template>
+        <div class="mt-4 space-y-3" data-work-order-combos-list></div>
+        <div class="mt-4 rounded-box border border-dashed border-base-300 bg-base-200 p-6 text-center text-sm text-base-content/60" data-work-order-combos-empty>Nenhum combo adicionado.</div>
+      </div>
+    </div>
+
+    <div class="card-section">
+      <div class="card-body">
+        <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+          <div>
+            <h2 class="card-title">Peças e insumos avulsos</h2>
+            <p class="text-sm text-base-content/70">Adicione peças avulsas que não vieram de serviço ou combo.</p>
+          </div>
+          <button type="button" class="btn btn-primary min-h-12 whitespace-nowrap" data-work-order-part-open-modal>Adicionar peça</button>
+        </div>
+        {{ parts_formset.management_form }}
+        {% if parts_formset.non_form_errors %}<div class="alert alert-error mt-4"><div>{% for error in parts_formset.non_form_errors %}<p>{{ error }}</p>{% endfor %}</div></div>{% endif %}
+        <div class="hidden" data-work-order-parts-hidden-forms>
+          {% for item_form in parts_formset.forms %}
+            <div data-work-order-part-form data-form-index="{{ forloop.counter0 }}">
+              {% for hidden in item_form.hidden_fields %}{{ hidden }}{% endfor %}
+              {{ item_form.item }}{{ item_form.quantidade }}{% if item_form.DELETE %}{{ item_form.DELETE }}{% endif %}
+              {% if item_form.errors or item_form.non_field_errors %}<div data-work-order-part-errors>{% for error in item_form.non_field_errors %}<p>{{ error }}</p>{% endfor %}{% for error in item_form.item.errors %}<p>{{ error }}</p>{% endfor %}{% for error in item_form.quantidade.errors %}<p>{{ error }}</p>{% endfor %}</div>{% endif %}
+            </div>
+          {% endfor %}
+        </div>
+        <template data-work-order-part-empty-form-template><div data-work-order-part-form data-form-index="__prefix__">{% for hidden in parts_formset.empty_form.hidden_fields %}{{ hidden }}{% endfor %}{{ parts_formset.empty_form.item }}{{ parts_formset.empty_form.quantidade }}{% if parts_formset.empty_form.DELETE %}{{ parts_formset.empty_form.DELETE }}{% endif %}</div></template>
+        <div class="mt-4 space-y-3" data-work-order-parts-list></div>
+        <div class="mt-4 rounded-box border border-dashed border-base-300 bg-base-200 p-6 text-center text-sm text-base-content/60" data-work-order-parts-empty>Nenhuma peça avulsa adicionada.</div>
+
+        <div class="card-actions justify-end mt-6">
+          <button type="submit" class="btn btn-primary min-h-12 whitespace-nowrap">Salvar itens da OS</button>
+        </div>
+      </div>
+    </div>
+  </form>
+{% else %}
+  <div class="alert alert-warning mt-6">Os itens desta OS não podem ser alterados nesta etapa.</div>
+{% endif %}
+
+<div class="mt-6 card border border-base-300 bg-base-100 shadow-sm">
+  <div class="card-body">
+    <h2 class="card-title">Últimas movimentações</h2>
+    <div class="space-y-3">
+      {% for transition in status_history %}
+        <div class="rounded-box border border-base-300 p-3 text-sm">
+          <p><span class="font-medium">{{ transition.get_status_anterior_display }}</span> → <span class="font-medium">{{ transition.get_status_novo_display }}</span></p>
+          <p class="text-base-content/60">{{ transition.criado_em|date:'d/m/Y H:i' }}{% if transition.criado_por %} · {{ transition.criado_por.email }}{% endif %}</p>
+          {% if transition.observacao %}<p class="mt-1 whitespace-pre-line text-base-content/70">{{ transition.observacao }}</p>{% endif %}
+        </div>
+      {% empty %}
+        <p class="text-sm text-base-content/60">Nenhuma transição registrada ainda.</p>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+{% include 'includes/reusable_select_modal.html' with modal_id='work_order_service_picker_modal' modal_title='Adicionar serviço à OS' modal_description='Busque o serviço, confira os dados no card e informe a quantidade.' search_label='Serviço' search_placeholder='Digite código, nome ou descrição' quantity_label='Quantidade' quantity_placeholder='1' empty_message='Nenhum serviço encontrado.' %}
+{% include 'includes/reusable_select_modal.html' with modal_id='work_order_combo_picker_modal' modal_title='Adicionar combo à OS' modal_description='Busque o combo, confira os dados no card e informe a quantidade.' search_label='Combo' search_placeholder='Digite código, nome ou descrição' quantity_label='Quantidade' quantity_placeholder='1' empty_message='Nenhum combo encontrado.' %}
+{% include 'includes/reusable_select_modal.html' with modal_id='work_order_part_picker_modal' modal_title='Adicionar peça avulsa à OS' modal_description='Busque a peça ou insumo, confira o estoque e informe a quantidade.' search_label='Peça/Insumo' search_placeholder='Digite SKU, nome, categoria ou marca' quantity_label='Quantidade' quantity_placeholder='1' empty_message='Nenhuma peça/insumo encontrada.' %}
+
+{{ work_order_services_json|json_script:'work-order-services-data' }}
+{{ work_order_combos_json|json_script:'work-order-combos-data' }}
+{{ work_order_parts_json|json_script:'work-order-parts-data' }}
+{% endblock %}
+
+{% block extra_js %}
+  <script src="{% static 'js/reusable-select-modal.js' %}"></script>
+  <script src="{% static 'js/work-order-items.js' %}"></script>
+{% endblock %}

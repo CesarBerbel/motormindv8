@@ -25,6 +25,7 @@ logger = logging.getLogger(__name__)
 class SecureLoginView(auth_views.LoginView):
     template_name = 'registration/login.html'
     authentication_form = EmailAuthenticationForm
+    redirect_authenticated_user = True
 
     def post(self, request, *args, **kwargs):
         email = (request.POST.get('username') or '').strip().lower()

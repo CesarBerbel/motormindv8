@@ -5,6 +5,8 @@ from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.utils import timezone
 
+from stock.models import InventoryItemType
+
 from .work_order_pricing import inventory_sale_price, money
 
 logger = logging.getLogger(__name__)
@@ -17,21 +19,30 @@ def get_stock_requirement_sources(order):
 
     rows = []
 
-    def add_row(item, quantidade, origem_tipo, origem_nome, origem_codigo='', origem_observacao=''):
+    def add_row(item, quantidade, origem_tipo, origem_nome, origem_codigo='', origem_observacao='', **extra):
         if not item or not quantidade:
             return
         quantidade = int(quantidade)
+        is_internal_supply = getattr(item, 'tipo', None) == InventoryItemType.INSUMO
+        is_billable_to_customer = not is_internal_supply
         valor_unitario = inventory_sale_price(item)
-        rows.append({
+        custo_unitario = money(getattr(item, 'preco_custo', Decimal('0.00')))
+        row = {
             'item': item,
             'quantidade': quantidade,
             'valor_unitario': valor_unitario,
             'subtotal': money(valor_unitario * quantidade),
+            'custo_unitario': custo_unitario,
+            'custo_total': money(custo_unitario * quantidade),
+            'is_internal_supply': is_internal_supply,
+            'is_billable_to_customer': is_billable_to_customer,
             'origem_tipo': origem_tipo,
             'origem_nome': origem_nome,
             'origem_codigo': origem_codigo or '',
             'origem_observacao': origem_observacao or '',
-        })
+        }
+        row.update(extra)
+        rows.append(row)
 
     for part in order.pecas_os.select_related('item', 'item__unidade'):
         add_row(
@@ -41,6 +52,7 @@ def get_stock_requirement_sources(order):
             part.item.nome,
             part.item.sku or '',
             'Adicionada diretamente na OS.',
+            work_order_part_item_id=part.pk,
         )
 
     for service_item in order.servicos_os.select_related('service').prefetch_related('service__pecas_associadas__item__unidade'):
@@ -53,6 +65,12 @@ def get_stock_requirement_sources(order):
                 service.nome,
                 service.codigo or '',
                 f'{service_item.quantidade} x serviço; {default_part.quantidade} x peça padrão.',
+                service_item_id=service_item.pk,
+                service_id=service.pk,
+                service_codigo=service.codigo or '',
+                service_nome=service.nome,
+                service_default_part_id=default_part.pk,
+                peca_obrigatoria=default_part.obrigatoria,
             )
 
     combo_queryset = order.combos_os.select_related('combo').prefetch_related(
@@ -70,6 +88,15 @@ def get_stock_requirement_sources(order):
                     f'{combo.nome} / {service.nome}',
                     combo.codigo or '',
                     f'{combo_item.quantidade} x combo; {default_part.quantidade} x peça padrão do serviço {service.codigo or service.nome}.',
+                    combo_item_id=combo_item.pk,
+                    combo_id=combo.pk,
+                    combo_codigo=combo.codigo or '',
+                    combo_nome=combo.nome,
+                    service_id=service.pk,
+                    service_codigo=service.codigo or '',
+                    service_nome=service.nome,
+                    service_default_part_id=default_part.pk,
+                    peca_obrigatoria=default_part.obrigatoria,
                 )
 
     return sorted(rows, key=lambda row: (row['item'].nome.lower(), row['origem_tipo'], row['origem_nome'].lower()))
@@ -85,12 +112,18 @@ def get_base_stock_requirements(order):
             'quantidade': 0,
             'valor_unitario': row['valor_unitario'],
             'subtotal': Decimal('0.00'),
+            'custo_unitario': row.get('custo_unitario') or money(getattr(item, 'preco_custo', Decimal('0.00'))),
+            'custo_total': Decimal('0.00'),
+            'is_internal_supply': row.get('is_internal_supply', getattr(item, 'tipo', None) == InventoryItemType.INSUMO),
+            'is_billable_to_customer': row.get('is_billable_to_customer', getattr(item, 'tipo', None) == InventoryItemType.PECA),
         })
         current['quantidade'] += int(row['quantidade'])
         current['subtotal'] += row['subtotal']
+        current['custo_total'] += row.get('custo_total') or Decimal('0.00')
 
     for row in requirements.values():
         row['subtotal'] = money(row['subtotal'])
+        row['custo_total'] = money(row['custo_total'])
 
     return sorted(requirements.values(), key=lambda row: row['item'].nome.lower())
 
@@ -114,6 +147,7 @@ def get_stock_requirements(order):
         override = overrides.get(item.pk)
         quantidade = int(override.quantidade if override else quantidade_base)
         valor_unitario = row['valor_unitario']
+        custo_unitario = row.get('custo_unitario') or money(getattr(item, 'preco_custo', Decimal('0.00')))
         requirements.append({
             'item': item,
             'quantidade_base': quantidade_base,
@@ -121,6 +155,10 @@ def get_stock_requirements(order):
             'valor_unitario': valor_unitario,
             'subtotal_base': row['subtotal'],
             'subtotal': money(valor_unitario * quantidade),
+            'custo_unitario': custo_unitario,
+            'custo_total': money(custo_unitario * quantidade),
+            'is_internal_supply': row.get('is_internal_supply', getattr(item, 'tipo', None) == InventoryItemType.INSUMO),
+            'is_billable_to_customer': row.get('is_billable_to_customer', getattr(item, 'tipo', None) == InventoryItemType.PECA),
             'ajustada': bool(override),
             'override': override,
         })

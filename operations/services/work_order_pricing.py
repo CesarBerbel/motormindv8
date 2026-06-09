@@ -1,5 +1,7 @@
 from decimal import Decimal
 
+from stock.models import InventoryItemType
+
 MONEY_ZERO = Decimal('0.00')
 
 
@@ -12,10 +14,16 @@ def money(value):
 def inventory_sale_price(item):
     """Return the price charged to the customer for a stock item.
 
-    New records should have `preco_venda` filled explicitly. For backward
+    Items registered as supplies are internal workshop expenses. They remain
+    available for stock tracking and stock-out movements, but they are never
+    charged to the customer or included in OS/budget totals.
+
+    New part records should have `preco_venda` filled explicitly. For backward
     compatibility with older databases, zero/empty sale prices fall back to
-    cost so existing OS totals do not collapse to zero after migration.
+    cost for items registered as parts.
     """
+    if getattr(item, 'tipo', None) == InventoryItemType.INSUMO:
+        return MONEY_ZERO
     sale_price = getattr(item, 'preco_venda', None)
     if sale_price is not None and sale_price > MONEY_ZERO:
         return money(sale_price)

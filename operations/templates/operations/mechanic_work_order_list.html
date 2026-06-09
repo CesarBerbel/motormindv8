@@ -7,7 +7,10 @@
 <div class="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
   <div>
     <h1 class="page-title">Fila da mecânica</h1>
-    <p class="text-base-content/70">OS abertas, em diagnóstico, aprovadas, em execução, em teste ou aguardando peça.</p>
+    <p class="text-base-content/70">OS abertas, em diagnóstico, orçamento, aprovação, execução, teste ou prontas para entrega.</p>
+  </div>
+  <div class="flex flex-wrap gap-2">
+    <a href="{% url 'mechanic_kanban' %}" class="btn btn-primary btn-sm whitespace-nowrap">Abrir Kanban</a>
   </div>
 </div>
 
@@ -21,6 +24,7 @@
             <th>Cliente</th>
             <th>Veículo</th>
             <th>Status</th>
+            <th>Técnico</th>
             <th>Previsão</th>
             <th>Estoque</th>
             <th class="text-right">Ações</th>
@@ -33,6 +37,7 @@
               <td>{{ order.cliente.nome_razao_social }}</td>
               <td>{% if order.veiculo %}{{ order.veiculo.placa }} - {{ order.veiculo.marca }} {{ order.veiculo.modelo }}{% else %}-{% endif %}</td>
               <td><span class="badge {{ order.status_badge_class }} whitespace-nowrap">{{ order.get_status_display }}</span></td>
+              <td>{% if order.tecnico_responsavel_id %}{{ order.tecnico_responsavel.nome_razao_social|default:order.tecnico_responsavel.email }}{% else %}<span class="badge badge-outline whitespace-nowrap">Livre</span>{% endif %}</td>
               <td class="whitespace-nowrap">{{ order.previsao_entrega|date:'d/m/Y H:i'|default:'-' }}</td>
               <td>
                 {% if order.stock_shortages_cached %}
@@ -46,7 +51,7 @@
               </td>
             </tr>
           {% empty %}
-            <tr><td colspan="7" class="text-center">Nenhuma OS na fila da mecânica.</td></tr>
+            <tr><td colspan="8" class="text-center">Nenhuma OS na fila da mecânica.</td></tr>
           {% endfor %}
         </tbody>
       </table>

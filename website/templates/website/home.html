@@ -10,6 +10,7 @@
         <p class="mt-4 max-w-xl text-lg text-primary-content/85">{{ site.hero_subtitulo }}</p>
         <div class="mt-8 flex flex-wrap gap-3">
           <a href="{% url 'public_contact' %}" class="btn btn-secondary btn-lg">Pedir orçamento</a>
+          <a href="{% url 'customer_vehicle_access_request' %}" class="btn btn-outline btn-lg border-primary-content/50 text-primary-content hover:border-primary-content hover:bg-primary-content hover:text-primary">Consultar veículo</a>
           {% if site.whatsapp_link %}
             <a href="{{ site.whatsapp_link }}" target="_blank" rel="noopener" class="btn btn-success btn-lg text-success-content">
               Falar no WhatsApp

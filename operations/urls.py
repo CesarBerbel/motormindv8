@@ -5,9 +5,20 @@ from . import views
 urlpatterns = [
 
 
+    path('cliente/veiculo/', views.CustomerVehicleAccessRequestView.as_view(), name='customer_vehicle_access_request'),
+    path('cliente/veiculo/codigo/<uuid:token>/', views.CustomerVehicleAccessVerifyView.as_view(), name='customer_vehicle_access_verify'),
+    path('cliente/veiculo/historico/<uuid:token>/', views.CustomerVehicleHistoryView.as_view(), name='customer_vehicle_history'),
+    path('cliente/veiculo/sair/<uuid:token>/', views.CustomerVehicleAccessLogoutView.as_view(), name='customer_vehicle_access_logout'),
+
     path('mecanica/os/', views.MechanicWorkOrderListView.as_view(), name='mechanic_work_order_list'),
+    path('mecanica/kanban/', views.MechanicKanbanView.as_view(), name='mechanic_kanban'),
     path('mecanica/os/<int:pk>/', views.MechanicWorkOrderDetailView.as_view(), name='mechanic_work_order_detail'),
+    path('mecanica/os/<int:pk>/itens/', views.MechanicWorkOrderItemsView.as_view(), name='mechanic_work_order_items'),
+    path('mecanica/os/<int:pk>/kanban/adicionar-item/', views.MechanicKanbanAddItemView.as_view(), name='mechanic_kanban_add_item'),
+    path('mecanica/os/<int:pk>/kanban/reabrir-itens/', views.MechanicKanbanReopenItemsView.as_view(), name='mechanic_kanban_reopen_items'),
     path('mecanica/os/<int:pk>/iniciar/', views.MechanicWorkOrderStartView.as_view(), name='mechanic_work_order_start'),
+    path('mecanica/os/<int:pk>/diagnostico/', views.MechanicWorkOrderDiagnosisView.as_view(), name='mechanic_work_order_diagnosis'),
+    path('mecanica/os/<int:pk>/mover-kanban/', views.MechanicKanbanMoveView.as_view(), name='mechanic_kanban_move'),
 
     path('atendimento/checkins/', views.VehicleCheckInListView.as_view(), name='vehicle_checkin_list'),
     path('atendimento/checkins/novo/', views.VehicleCheckInCreateView.as_view(), name='vehicle_checkin_create'),

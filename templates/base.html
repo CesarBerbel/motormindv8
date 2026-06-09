@@ -29,6 +29,15 @@
   <meta name="apple-mobile-web-app-title" content="MotorMind">
 </head>
 <body class="min-h-screen bg-base-200">
+  {% if request.user.is_authenticated %}
+    <div
+      class="company-watermark-layer"
+      data-company-watermark
+      data-company-name="{{ site.razao_social|default:site.nome_fantasia|default:'MotorMind' }}"
+      aria-hidden="true"
+    ></div>
+  {% endif %}
+
   <div class="navbar sticky top-0 z-50 bg-base-100 shadow-sm" data-main-navbar>
     <div class="navbar-start gap-2">
       {% if request.user.is_authenticated %}
@@ -54,12 +63,13 @@
               </li>
             {% endif %}
 
-            {% if request.user.is_superuser or request.user.role == 'tecnico' %}
+            {% if request.user.is_superuser or request.user.role == 'adm' or request.user.role == 'tecnico' %}
               <li>
                 <details data-menu-nested>
                   <summary class="whitespace-nowrap">Mecânica</summary>
                   <ul>
-                    <li><a href="{% url 'mechanic_work_order_list' %}" class="whitespace-nowrap">Fila de OS</a></li>
+                    <li><a href="{% url 'mechanic_kanban' %}" class="whitespace-nowrap">Kanban técnico</a></li>
+                    <li><a href="{% url 'mechanic_work_order_list' %}" class="whitespace-nowrap">Lista de OS</a></li>
                   </ul>
                 </details>
               </li>
@@ -218,12 +228,13 @@
             </li>
           {% endif %}
 
-          {% if request.user.is_superuser or request.user.role == 'tecnico' %}
+          {% if request.user.is_superuser or request.user.role == 'adm' or request.user.role == 'tecnico' %}
             <li>
               <details data-menu-root>
                 <summary class="whitespace-nowrap">Mecânica</summary>
                 <ul class="z-50 w-56 rounded-box bg-base-100 p-2 shadow">
-                  <li><a href="{% url 'mechanic_work_order_list' %}" class="whitespace-nowrap">Fila de OS</a></li>
+                  <li><a href="{% url 'mechanic_kanban' %}" class="whitespace-nowrap">Kanban técnico</a></li>
+                  <li><a href="{% url 'mechanic_work_order_list' %}" class="whitespace-nowrap">Lista de OS</a></li>
                 </ul>
               </details>
             </li>
@@ -384,7 +395,7 @@
     </div>
   </div>
 
-  <main class="container mx-auto px-4 py-8">
+  <main class="container relative z-10 mx-auto px-4 py-8">
     {% block content %}{% endblock %}
 
     {% if messages %}
@@ -410,6 +421,9 @@
   <script src="{% static 'js/floating-dropdown.js' %}"></script>
   <script src="{% static 'js/theme-toggle.js' %}"></script>
   <script src="{% static 'js/pwa.js' %}"></script>
+  {% if request.user.is_authenticated %}
+    <script src="{% static 'js/company-watermark.js' %}"></script>
+  {% endif %}
   {% block extra_js %}{% endblock %}
 </body>
 </html>

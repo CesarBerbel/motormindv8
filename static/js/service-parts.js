@@ -83,6 +83,8 @@ function setupServicePartsModal() {
     activeRows.forEach((row) => {
       const itemId = getField(row, 'item')?.value;
       const quantity = getField(row, 'quantidade')?.value;
+      const requiredInput = getField(row, 'obrigatoria');
+      const required = requiredInput ? requiredInput.checked : true;
       const item = itemsById.get(String(itemId));
       const errorsHtml = getRowErrors(row);
 
@@ -100,6 +102,7 @@ function setupServicePartsModal() {
               <span class="badge badge-outline font-mono">${escapeHtml(item.sku || 'Sem SKU')}</span>
               <span class="font-semibold">${escapeHtml(item.nome)}</span>
               <span class="badge badge-ghost">${escapeHtml(item.tipo || 'Item')}</span>
+              <span class="badge ${required ? 'badge-primary badge-outline' : 'badge-warning badge-outline'}" data-service-part-required-badge>${required ? 'Obrigatória' : 'Opcional'}</span>
             </div>
             <div class="mt-2 grid gap-2 text-sm text-base-content/70 md:grid-cols-4">
               <div><span class="block text-xs text-base-content/50">Categoria</span>${escapeHtml(item.categoria || '-')}</div>
@@ -110,11 +113,22 @@ function setupServicePartsModal() {
             </div>
             ${errorsHtml ? `<div class="alert alert-error mt-3 text-sm">${errorsHtml}</div>` : ''}
           </div>
-          <div class="flex shrink-0 justify-end">
+          <div class="flex shrink-0 flex-col gap-2 sm:items-end">
+            <label class="label cursor-pointer justify-start gap-2 rounded-box border border-base-300 px-3 py-2 text-sm">
+              <input type="checkbox" class="checkbox checkbox-primary checkbox-sm" data-service-part-required-toggle ${required ? 'checked' : ''}>
+              <span class="label-text">Obrigatória</span>
+            </label>
             <button type="button" class="btn btn-error btn-outline btn-sm whitespace-nowrap" data-service-part-remove>Excluir</button>
           </div>
         </div>
       `;
+
+      card.querySelector('[data-service-part-required-toggle]')?.addEventListener('change', (event) => {
+        if (requiredInput) {
+          requiredInput.checked = event.target.checked;
+        }
+        renderList();
+      });
 
       card.querySelector('[data-service-part-remove]')?.addEventListener('click', () => {
         const deleteInput = getField(row, 'DELETE');
@@ -149,6 +163,7 @@ function setupServicePartsModal() {
     const row = createFormRow();
     const itemInput = getField(row, 'item');
     const quantityInput = getField(row, 'quantidade');
+    const requiredInput = getField(row, 'obrigatoria');
     const observationInput = getField(row, 'observacao');
     const deleteInput = getField(row, 'DELETE');
 
@@ -157,6 +172,9 @@ function setupServicePartsModal() {
     }
     if (quantityInput) {
       quantityInput.value = quantity;
+    }
+    if (requiredInput) {
+      requiredInput.checked = true;
     }
     if (observationInput) {
       observationInput.value = '';

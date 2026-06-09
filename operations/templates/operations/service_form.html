@@ -52,6 +52,7 @@
             {% for hidden in part_form.hidden_fields %}{{ hidden }}{% endfor %}
             {{ part_form.item }}
             {{ part_form.quantidade }}
+            {{ part_form.obrigatoria }}
             {{ part_form.observacao }}
             {% if part_form.DELETE %}{{ part_form.DELETE }}{% endif %}
 
@@ -60,6 +61,7 @@
                 {% for error in part_form.non_field_errors %}<p>{{ error }}</p>{% endfor %}
                 {% for error in part_form.item.errors %}<p>{{ error }}</p>{% endfor %}
                 {% for error in part_form.quantidade.errors %}<p>{{ error }}</p>{% endfor %}
+                {% for error in part_form.obrigatoria.errors %}<p>{{ error }}</p>{% endfor %}
                 {% for error in part_form.observacao.errors %}<p>{{ error }}</p>{% endfor %}
               </div>
             {% endif %}
@@ -72,6 +74,7 @@
           {% for hidden in parts_formset.empty_form.hidden_fields %}{{ hidden }}{% endfor %}
           {{ parts_formset.empty_form.item }}
           {{ parts_formset.empty_form.quantidade }}
+          {{ parts_formset.empty_form.obrigatoria }}
           {{ parts_formset.empty_form.observacao }}
           {% if parts_formset.empty_form.DELETE %}{{ parts_formset.empty_form.DELETE }}{% endif %}
         </div>

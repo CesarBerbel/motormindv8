@@ -1,3 +1,4 @@
+import json
 import logging
 from django.contrib import messages
 from django.core.exceptions import ValidationError
@@ -7,15 +8,17 @@ from django.db.models import Q
 from django.db.models.functions import Lower
 from django.http import FileResponse, Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.template.loader import render_to_string
 from django.utils import timezone
 from django.utils.html import format_html
 from django.urls import reverse, reverse_lazy
 from django.views.generic import CreateView, DeleteView, DetailView, ListView, UpdateView, View
 
 from accounts.models import EmployeeRole
+from accounts.permissions import can_access_technical_area, has_full_mechanic_queue_access
 from core.money import format_money_br, normalize_money
 from core.views import FormTitleMixin, SoftDeleteMixin
-from stock.models import InventoryItem
+from stock.models import InventoryItem, InventoryItemType
 from core.models import Customer, Vehicle
 
 from .forms import (
@@ -26,10 +29,13 @@ from .forms import (
     ServiceForm,
     WorkOrderComboItemFormSet,
     WorkOrderForm,
+    WorkOrderDiagnosisForm,
     WorkOrderPartItemFormSet,
     WorkOrderServiceItemFormSet,
     WorkOrderSettingsForm,
     WorkOrderApprovalDecisionForm,
+    CustomerVehicleAccessCodeForm,
+    CustomerVehicleAccessRequestForm,
     PdfSettingsForm,
     PdfTemplateSettingsForm,
 )
@@ -39,11 +45,15 @@ from .models import (
     Service,
     ServiceCategory,
     ServiceCombo,
+    CustomerVehicleAccessToken,
     WorkOrder,
     WorkOrderApprovalBudget,
     WorkOrderApprovalDecision,
     WorkOrderApprovalMethod,
     WorkOrderApprovalStatus,
+    WorkOrderComboItem,
+    WorkOrderPartItem,
+    WorkOrderServiceItem,
     WorkOrderSettings,
     WorkOrderStatus,
     WorkOrderStatusTransition,
@@ -65,15 +75,227 @@ def get_request_user_agent(request):
     return request.META.get('HTTP_USER_AGENT', '')[:1000]
 
 
+def mask_email_address(email):
+    email = (email or '').strip()
+    if '@' not in email:
+        return email
+    local, domain = email.split('@', 1)
+    if len(local) <= 2:
+        masked_local = local[:1] + '***'
+    else:
+        masked_local = local[:2] + '***' + local[-1:]
+    return f'{masked_local}@{domain}'
+
+
+def build_customer_vehicle_access_url(access, request=None):
+    path = reverse('customer_vehicle_access_verify', kwargs={'token': access.token})
+    if request is not None:
+        return request.build_absolute_uri(path)
+    return path
+
+
+def send_customer_vehicle_access_email(access, request=None):
+    from communications.models import MessageType, RecipientKind
+    from communications.services import Recipient, send_logged_email
+
+    code = getattr(access, 'raw_code', '')
+    link = build_customer_vehicle_access_url(access, request=request)
+    vehicle_label = f'{access.veiculo.placa} - {access.veiculo.marca} {access.veiculo.modelo}'.strip()
+    subject = f'Código de acesso ao histórico do veículo {access.veiculo.placa}'
+    body = render_to_string('operations/emails/customer_vehicle_access_code.html', {
+        'access': access,
+        'cliente': access.cliente,
+        'veiculo': access.veiculo,
+        'vehicle_label': vehicle_label,
+        'codigo': code,
+        'link_acesso': link,
+    })
+    return send_logged_email(
+        recipient=Recipient(kind=RecipientKind.CUSTOMER, obj=access.cliente),
+        message_type=MessageType.MANUAL,
+        subject=subject,
+        body=body,
+        work_order=None,
+        fail_silently=True,
+    )
+
+
+def get_customer_vehicle_access_from_session(request, token):
+    access_pk = request.session.get('customer_vehicle_access_token_pk')
+    if not access_pk:
+        return None
+    try:
+        return CustomerVehicleAccessToken.objects.select_related('cliente', 'veiculo').get(pk=access_pk, token=token)
+    except CustomerVehicleAccessToken.DoesNotExist:
+        return None
+
+
+def build_customer_vehicle_history_context(access):
+    vehicle = access.veiculo
+    orders = list(
+        WorkOrder.objects.filter(
+            cliente=access.cliente,
+            veiculo=vehicle,
+            ativo=True,
+            excluido_em__isnull=True,
+        )
+        .select_related('cliente', 'veiculo', 'tecnico_responsavel')
+        .prefetch_related(
+            'servicos_os__service',
+            'combos_os__combo',
+            'pecas_os__item__unidade',
+            'transicoes_status',
+        )
+        .order_by('-data_abertura', '-pk')
+    )
+
+    active_statuses = {
+        WorkOrderStatus.ABERTA,
+        WorkOrderStatus.DIAGNOSTICO,
+        WorkOrderStatus.ORCAMENTO,
+        WorkOrderStatus.AGUARDANDO_APROVACAO,
+        WorkOrderStatus.APROVADA,
+        WorkOrderStatus.EM_EXECUCAO,
+        WorkOrderStatus.AGUARDANDO_PECA,
+        WorkOrderStatus.EM_TESTE,
+        WorkOrderStatus.PRONTA,
+        WorkOrderStatus.PRONTO_PARA_RETIRAR,
+    }
+    order_cards = []
+    for order in orders:
+        service_rows = list(order.servicos_os.select_related('service').all())
+        combo_rows = list(order.combos_os.select_related('combo').all())
+        direct_part_rows = [row for row in order.pecas_os.select_related('item', 'item__unidade').all() if row.item.tipo == InventoryItemType.PECA]
+        requirement_rows = []
+        try:
+            requirement_rows = [row for row in order.get_stock_requirements() if row['item'].tipo == InventoryItemType.PECA]
+        except Exception:
+            requirement_rows = []
+        transitions = list(order.transicoes_status.all().order_by('criado_em', 'pk'))
+        order_cards.append({
+            'order': order,
+            'is_active': order.status in active_statuses,
+            'services': service_rows,
+            'combos': combo_rows,
+            'direct_parts': direct_part_rows,
+            'parts': requirement_rows,
+            'transitions': transitions,
+        })
+
+    active_orders = [row for row in order_cards if row['is_active']]
+    completed_orders = [row for row in order_cards if not row['is_active']]
+    return {
+        'access': access,
+        'vehicle': vehicle,
+        'customer': access.cliente,
+        'orders': order_cards,
+        'active_orders': active_orders,
+        'completed_orders': completed_orders,
+        'total_orders': len(order_cards),
+        'masked_email': mask_email_address(access.email),
+    }
+
+
+class CustomerVehicleAccessRequestView(View):
+    template_name = 'operations/customer_vehicle_access_request.html'
+
+    def get(self, request):
+        return render(request, self.template_name, {'form': CustomerVehicleAccessRequestForm()})
+
+    def post(self, request):
+        form = CustomerVehicleAccessRequestForm(request.POST)
+        if not form.is_valid():
+            return render(request, self.template_name, {'form': form}, status=400)
+
+        vehicle = Vehicle.objects.select_related('cliente').filter(placa=form.cleaned_data['placa']).first()
+        if vehicle and vehicle.cliente.email:
+            CustomerVehicleAccessToken.objects.filter(
+                veiculo=vehicle,
+                cliente=vehicle.cliente,
+                verificado_em__isnull=True,
+                revogado_em__isnull=True,
+                expira_em__gt=timezone.now(),
+            ).update(revogado_em=timezone.now())
+            access = CustomerVehicleAccessToken.create_for_vehicle(vehicle, request=request)
+            send_customer_vehicle_access_email(access, request=request)
+            request.session['customer_vehicle_access_pending_token_pk'] = access.pk
+            messages.success(request, f'Enviamos um código de 6 dígitos para {mask_email_address(vehicle.cliente.email)}. Ele vale por 5 horas.')
+            return redirect('customer_vehicle_access_verify', token=access.token)
+
+        messages.info(request, 'Se a placa estiver cadastrada e possuir e-mail vinculado, enviaremos um código de acesso ao cliente responsável.')
+        return redirect('customer_vehicle_access_request')
+
+
+class CustomerVehicleAccessVerifyView(View):
+    template_name = 'operations/customer_vehicle_access_verify.html'
+
+    def get_access(self):
+        return get_object_or_404(
+            CustomerVehicleAccessToken.objects.select_related('cliente', 'veiculo'),
+            token=self.kwargs['token'],
+        )
+
+    def get(self, request, token):
+        access = self.get_access()
+        form = CustomerVehicleAccessCodeForm()
+        return render(request, self.template_name, {
+            'access': access,
+            'form': form,
+            'masked_email': mask_email_address(access.email),
+            'expired': access.expirado or bool(access.revogado_em),
+        })
+
+    def post(self, request, token):
+        access = self.get_access()
+        form = CustomerVehicleAccessCodeForm(request.POST)
+        if access.expirado or access.revogado_em:
+            messages.error(request, 'Este código expirou. Solicite um novo acesso pela placa do veículo.')
+            return redirect('customer_vehicle_access_request')
+        if not form.is_valid():
+            return render(request, self.template_name, {
+                'access': access,
+                'form': form,
+                'masked_email': mask_email_address(access.email),
+                'expired': False,
+            }, status=400)
+        if access.validate_code(form.cleaned_data['codigo'], request=request):
+            request.session['customer_vehicle_access_token_pk'] = access.pk
+            request.session.pop('customer_vehicle_access_pending_token_pk', None)
+            messages.success(request, 'Acesso confirmado. Você pode consultar o andamento e o histórico deste veículo.')
+            return redirect('customer_vehicle_history', token=access.token)
+        messages.error(request, 'Código inválido. Confira os 6 dígitos enviados por e-mail.')
+        return render(request, self.template_name, {
+            'access': access,
+            'form': form,
+            'masked_email': mask_email_address(access.email),
+            'expired': False,
+        }, status=400)
+
+
+class CustomerVehicleHistoryView(View):
+    template_name = 'operations/customer_vehicle_history.html'
+
+    def get(self, request, token):
+        access = get_customer_vehicle_access_from_session(request, token)
+        if not access or not access.ativo_para_acesso:
+            messages.warning(request, 'Confirme o código de acesso para consultar a área privada do veículo.')
+            return redirect('customer_vehicle_access_verify', token=token)
+        return render(request, self.template_name, build_customer_vehicle_history_context(access))
+
+
+class CustomerVehicleAccessLogoutView(View):
+    def post(self, request, token):
+        request.session.pop('customer_vehicle_access_token_pk', None)
+        request.session.pop('customer_vehicle_access_pending_token_pk', None)
+        messages.success(request, 'Acesso ao histórico do veículo encerrado.')
+        return redirect('customer_vehicle_access_request')
+
+
 class TechnicianRequiredMixin(LoginRequiredMixin, UserPassesTestMixin):
     raise_exception = True
 
     def test_func(self):
-        user = self.request.user
-        return bool(
-            user.is_authenticated
-            and (user.is_superuser or getattr(user, 'role', None) == EmployeeRole.TECNICO)
-        )
+        return can_access_technical_area(self.request.user)
 
 
 class OperationsSearchMixin:
@@ -317,6 +539,8 @@ class ServiceFormsetMixin:
                 'preco_custo': format_money_br(item.preco_custo),
                 'preco_venda': format_money_br(item.valor_venda),
                 'tipo': item.get_tipo_display(),
+                'interno_oficina': item.tipo == 'insumo',
+                'mensagem_preco': 'Uso interno: não soma no orçamento/OS.' if item.tipo == 'insumo' else 'Peça cobrada do cliente.',
                 'label': f'{item.sku or "Sem SKU"} - {item.nome}',
                 'search': ' '.join([
                     item.sku or '',
@@ -762,6 +986,8 @@ class WorkOrderSearchMixin(OperationsSearchMixin):
             | Q(veiculo__placa__icontains=term)
             | Q(veiculo__marca__icontains=term)
             | Q(veiculo__modelo__icontains=term)
+            | Q(tecnico_responsavel__nome_razao_social__icontains=term)
+            | Q(tecnico_responsavel__email__icontains=term)
             | Q(problema_relatado__icontains=term)
             | Q(diagnostico__icontains=term)
             | Q(servicos_os__service__nome__icontains=term)
@@ -801,7 +1027,7 @@ class WorkOrderSearchMixin(OperationsSearchMixin):
                 if valor_max is not None and total > valor_max:
                     continue
                 filtered_pks.append(order.pk)
-            queryset = WorkOrder.objects.filter(pk__in=filtered_pks).select_related('cliente', 'veiculo').prefetch_related('servicos_os__service', 'combos_os__combo', 'pecas_os__item').order_by('-data_abertura', '-pk')
+            queryset = WorkOrder.objects.filter(pk__in=filtered_pks).select_related('cliente', 'veiculo', 'tecnico_responsavel').prefetch_related('servicos_os__service', 'combos_os__combo', 'pecas_os__item').order_by('-data_abertura', '-pk')
 
         return queryset
 
@@ -830,7 +1056,7 @@ class WorkOrderListView(LoginRequiredMixin, PermissionRequiredMixin, WorkOrderSe
     permission_required = 'operations.view_workorder'
 
     def get_queryset(self):
-        queryset = WorkOrder.objects.select_related('cliente', 'veiculo').prefetch_related('servicos_os__service', 'combos_os__combo', 'pecas_os__item')
+        queryset = WorkOrder.objects.select_related('cliente', 'veiculo', 'tecnico_responsavel').prefetch_related('servicos_os__service', 'combos_os__combo', 'pecas_os__item')
         return self.apply_work_order_filters(queryset)
 
 
@@ -843,7 +1069,7 @@ class WorkOrderAutocompleteView(LoginRequiredMixin, PermissionRequiredMixin, Wor
         if len(term) < 2:
             return JsonResponse({'results': []})
 
-        queryset = WorkOrder.objects.select_related('cliente', 'veiculo').prefetch_related('servicos_os__service', 'combos_os__combo', 'pecas_os__item')
+        queryset = WorkOrder.objects.select_related('cliente', 'veiculo', 'tecnico_responsavel').prefetch_related('servicos_os__service', 'combos_os__combo', 'pecas_os__item')
         queryset = queryset.filter(self.build_work_order_search_q(term)).distinct().order_by('-data_abertura', '-pk')[: self.limit]
 
         results = []
@@ -869,7 +1095,7 @@ class WorkOrderDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailVie
     permission_required = 'operations.view_workorder'
 
     def get_queryset(self):
-        return WorkOrder.objects.select_related('cliente', 'veiculo', 'estoque_baixado_por').prefetch_related(
+        return WorkOrder.objects.select_related('cliente', 'veiculo', 'tecnico_responsavel', 'estoque_baixado_por').prefetch_related(
             'servicos_os__service',
             'combos_os__combo__servicos_associados__service',
             'pecas_os__item__categoria',
@@ -1045,6 +1271,8 @@ class WorkOrderFormsetMixin:
                 'preco_venda': format_money_br(item.valor_venda),
                 'valor': format_money_br(item.valor_venda),
                 'tipo': item.get_tipo_display(),
+                'interno_oficina': item.tipo == 'insumo',
+                'mensagem_preco': 'Uso interno: não soma no orçamento/OS.' if item.tipo == 'insumo' else 'Peça cobrada do cliente.',
                 'label': f'{item.sku or "Sem SKU"} - {item.nome}',
                 'search': ' '.join([item.sku or '', item.nome or '', item.descricao or '', item.categoria.nome if item.categoria_id else '', item.marca.nome if item.marca_id else '', item.unidade.sigla if item.unidade_id else '', item.get_tipo_display()]).lower(),
             })
@@ -1058,9 +1286,9 @@ class WorkOrderFormsetMixin:
             context['combos_formset'] = self.get_combo_formset()
         if 'parts_formset' not in context:
             context['parts_formset'] = self.get_part_formset()
-        context['work_order_services_json'] = self.get_work_order_services_json()
-        context['work_order_combos_json'] = self.get_work_order_combos_json()
-        context['work_order_parts_json'] = self.get_work_order_parts_json()
+        context['work_order_services_json'] = WorkOrderFormsetMixin.get_work_order_services_json(self)
+        context['work_order_combos_json'] = WorkOrderFormsetMixin.get_work_order_combos_json(self)
+        context['work_order_parts_json'] = WorkOrderFormsetMixin.get_work_order_parts_json(self)
         return context
 
     def form_valid(self, form):
@@ -1276,11 +1504,217 @@ class WorkOrderStockRequirementUpdateView(LoginRequiredMixin, PermissionRequired
 MECHANIC_QUEUE_STATUSES = (
     WorkOrderStatus.ABERTA,
     WorkOrderStatus.DIAGNOSTICO,
+    WorkOrderStatus.ORCAMENTO,
+    WorkOrderStatus.AGUARDANDO_APROVACAO,
     WorkOrderStatus.APROVADA,
     WorkOrderStatus.EM_EXECUCAO,
     WorkOrderStatus.AGUARDANDO_PECA,
     WorkOrderStatus.EM_TESTE,
+    WorkOrderStatus.PRONTA,
 )
+
+MECHANIC_BOARD_COLUMNS = (
+    {
+        'status': WorkOrderStatus.ABERTA,
+        'title': 'Fila diagnóstico',
+        'description': 'OS abertas para o técnico puxar e iniciar diagnóstico.',
+    },
+    {
+        'status': WorkOrderStatus.DIAGNOSTICO,
+        'title': 'Diagnóstico',
+        'description': 'Identificação do problema e revisão inicial dos itens.',
+    },
+    {
+        'status': WorkOrderStatus.ORCAMENTO,
+        'title': 'Orçamento',
+        'description': 'Itens em ajuste antes de pedir aprovação.',
+    },
+    {
+        'status': WorkOrderStatus.AGUARDANDO_APROVACAO,
+        'title': 'Aguardando aprovação',
+        'description': 'Orçamento enviado ao cliente.',
+    },
+    {
+        'status': WorkOrderStatus.APROVADA,
+        'title': 'Aprovada',
+        'description': 'Liberada para puxar e começar execução.',
+    },
+    {
+        'status': WorkOrderStatus.EM_EXECUCAO,
+        'title': 'Execução',
+        'description': 'Serviço em andamento na oficina.',
+    },
+    {
+        'status': WorkOrderStatus.AGUARDANDO_PECA,
+        'title': 'Aguardando peça',
+        'description': 'Bloqueada por falta de peça ou insumo.',
+    },
+    {
+        'status': WorkOrderStatus.EM_TESTE,
+        'title': 'Teste',
+        'description': 'Validação antes de liberar a entrega.',
+    },
+    {
+        'status': WorkOrderStatus.PRONTA,
+        'title': 'Pronta p/ entregar',
+        'description': 'Serviço finalizado pela mecânica.',
+    },
+)
+
+MECHANIC_BOARD_STATUS_VALUES = {column['status'].value for column in MECHANIC_BOARD_COLUMNS}
+
+MECHANIC_TRANSITION_BUTTON_LABELS = {
+    WorkOrderStatus.DIAGNOSTICO: 'Puxar diagnóstico',
+    WorkOrderStatus.ORCAMENTO: 'Enviar p/ orçamento',
+    WorkOrderStatus.AGUARDANDO_APROVACAO: 'Pedir aprovação',
+    WorkOrderStatus.APROVADA: 'Voltar p/ aprovada',
+    WorkOrderStatus.EM_EXECUCAO: 'Começar execução',
+    WorkOrderStatus.AGUARDANDO_PECA: 'Pedir peça',
+    WorkOrderStatus.EM_TESTE: 'Enviar p/ teste',
+    WorkOrderStatus.PRONTA: 'Pronta p/ entrega',
+}
+
+MECHANIC_ITEM_REVIEW_STATUSES = {
+    WorkOrderStatus.DIAGNOSTICO,
+    WorkOrderStatus.ORCAMENTO,
+    WorkOrderStatus.AGUARDANDO_APROVACAO,
+    WorkOrderStatus.APROVADA,
+    WorkOrderStatus.EM_EXECUCAO,
+    WorkOrderStatus.AGUARDANDO_PECA,
+    WorkOrderStatus.EM_TESTE,
+}
+
+MECHANIC_ITEM_AUTO_OPEN_VALUES = {'servico', 'combo', 'peca'}
+
+
+def claim_order_for_technician_if_needed(order, user):
+    if not order.tecnico_responsavel_id and getattr(user, 'role', None) == EmployeeRole.TECNICO:
+        order.tecnico_responsavel = user
+        order.save(update_fields=['tecnico_responsavel', 'atualizado_em'])
+        return True
+    return False
+
+
+def start_new_approval_budget_review(order, user, request=None, observacao='Novo orçamento solicitado pela área técnica.'):
+    order.supersede_current_approval_budget(user=user, observacao=observacao)
+    if order.status == WorkOrderStatus.ORCAMENTO:
+        order.refresh_from_db()
+        return
+
+    try:
+        order.transition_to(
+            WorkOrderStatus.ORCAMENTO,
+            user=user,
+            observacao='Novo orçamento técnico iniciado; itens liberados para revisão antes de nova aprovação.',
+            request=request,
+        )
+    except ValidationError:
+        previous_status = order.status
+        order.status = WorkOrderStatus.ORCAMENTO
+        order.save(update_fields=['status', 'atualizado_em'])
+        WorkOrderStatusTransition.objects.create(
+            ordem_servico=order,
+            status_anterior=previous_status,
+            status_novo=WorkOrderStatus.ORCAMENTO,
+            observacao='Novo orçamento técnico iniciado; retorno forçado para Orçamento.',
+            criado_por=user if getattr(user, 'is_authenticated', False) else None,
+        )
+    order.refresh_from_db()
+
+
+def get_mechanic_visible_orders_queryset(user):
+    queryset = (
+        WorkOrder.objects.select_related('cliente', 'veiculo', 'tecnico_responsavel')
+        .prefetch_related('servicos_os__service', 'combos_os__combo', 'pecas_os__item')
+        .filter(status__in=MECHANIC_QUEUE_STATUSES, ativo=True, excluido_em__isnull=True)
+    )
+    if not has_full_mechanic_queue_access(user):
+        queryset = queryset.filter(Q(tecnico_responsavel=user) | Q(tecnico_responsavel__isnull=True))
+    return queryset
+
+
+def get_mechanic_available_transitions(order):
+    if order.status == WorkOrderStatus.DIAGNOSTICO and not (order.diagnostico or '').strip():
+        return []
+
+    available_transitions = list(order.get_available_transitions())
+    if order.has_rejected_approval_budget and WorkOrderStatus.EM_TESTE not in available_transitions:
+        available_transitions.append(WorkOrderStatus.EM_TESTE)
+    if order.has_approval_in_progress:
+        available_transitions = [status for status in available_transitions if status != WorkOrderStatus.APROVADA]
+
+    transitions = []
+    for status in available_transitions:
+        if status.value not in MECHANIC_BOARD_STATUS_VALUES:
+            continue
+        transitions.append({
+            'value': status.value,
+            'label': status.label,
+            'button_label': MECHANIC_TRANSITION_BUTTON_LABELS.get(status, f'Mover p/ {status.label}'),
+        })
+    return transitions
+
+
+def prepare_mechanic_order_for_board(order):
+    order.stock_shortages_cached = order.get_stock_shortages()
+    order.mechanic_available_transitions = get_mechanic_available_transitions(order)
+    order.can_manage_items_from_kanban = (
+        order.status in MECHANIC_ITEM_REVIEW_STATUSES
+        and not order.estoque_baixado
+    )
+    order.items_locked_for_mechanic = order.has_locked_approval
+    order.service_items_count = order.servicos_os.count()
+    order.combo_items_count = order.combos_os.count()
+    order.part_items_count = order.pecas_os.count()
+    return order
+
+
+def build_mechanic_diagnosis_ai_context(order):
+    services = [
+        f'{item.service.nome} (qtd. {item.quantidade})'
+        for item in order.servicos_os.all()
+        if item.service_id
+    ]
+    combos = [
+        f'{item.combo.nome} (qtd. {item.quantidade})'
+        for item in order.combos_os.all()
+        if item.combo_id
+    ]
+    parts = [
+        f'{item.item.nome} (qtd. {item.quantidade})'
+        for item in order.pecas_os.all()
+        if item.item_id
+    ]
+    shortages = [
+        f'{shortage.item.nome}: necessário {shortage.required_quantity}, disponível {shortage.available_quantity}'
+        for shortage in order.get_stock_shortages()
+    ]
+
+    vehicle = ''
+    if order.veiculo_id:
+        vehicle_parts = [
+            order.veiculo.placa,
+            order.veiculo.marca,
+            order.veiculo.modelo,
+            order.veiculo.versao,
+        ]
+        vehicle = ' '.join(str(part).strip() for part in vehicle_parts if part)
+
+    return {
+        'codigo_os': order.codigo or '',
+        'cliente': order.cliente.nome_razao_social,
+        'veiculo': vehicle,
+        'km_atual': order.km_atual or '',
+        'status': order.get_status_display(),
+        'problema_relatado': order.problema_relatado,
+        'diagnostico': order.diagnostico,
+        'observacao': order.observacao,
+        'servicos_lancados': services,
+        'combos_lancados': combos,
+        'pecas_lancadas': parts,
+        'faltas_estoque': shortages,
+        'origem': 'Área técnica - diagnóstico da mecânica',
+    }
 
 
 class MechanicWorkOrderListView(TechnicianRequiredMixin, ListView):
@@ -1291,18 +1725,441 @@ class MechanicWorkOrderListView(TechnicianRequiredMixin, ListView):
 
     def get_queryset(self):
         return (
-            WorkOrder.objects.select_related('cliente', 'veiculo')
-            .prefetch_related('servicos_os__service', 'combos_os__combo', 'pecas_os__item')
-            .filter(status__in=MECHANIC_QUEUE_STATUSES, ativo=True, excluido_em__isnull=True)
+            get_mechanic_visible_orders_queryset(self.request.user)
             .order_by('previsao_entrega', 'data_abertura', 'pk')
         )
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         for order in context['orders']:
-            order.stock_shortages_cached = order.get_stock_shortages()
+            prepare_mechanic_order_for_board(order)
         context['queue_statuses'] = MECHANIC_QUEUE_STATUSES
         return context
+
+
+class MechanicKanbanView(TechnicianRequiredMixin, ListView):
+    model = WorkOrder
+    template_name = 'operations/mechanic_kanban.html'
+    context_object_name = 'orders'
+
+    def get_queryset(self):
+        return (
+            get_mechanic_visible_orders_queryset(self.request.user)
+            .order_by('previsao_entrega', 'data_abertura', 'pk')
+        )
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        columns = []
+        grouped_orders = {column['status'].value: [] for column in MECHANIC_BOARD_COLUMNS}
+
+        for order in context['orders']:
+            prepare_mechanic_order_for_board(order)
+            grouped_orders.setdefault(order.status, []).append(order)
+
+        for column in MECHANIC_BOARD_COLUMNS:
+            status_value = column['status'].value
+            columns.append({
+                **column,
+                'status_value': status_value,
+                'status_label': column['status'].label,
+                'orders': grouped_orders.get(status_value, []),
+            })
+
+        context['columns'] = columns
+        context['kanban_status_values'] = sorted(MECHANIC_BOARD_STATUS_VALUES)
+        context['total_orders'] = sum(len(column['orders']) for column in columns)
+        context['own_orders_count'] = sum(
+            1 for order in context['orders'] if order.tecnico_responsavel_id == self.request.user.pk
+        )
+        context['unassigned_orders_count'] = sum(
+            1 for order in context['orders'] if order.tecnico_responsavel_id is None
+        )
+        context['work_order_services_json'] = WorkOrderFormsetMixin.get_work_order_services_json(self)
+        context['work_order_combos_json'] = WorkOrderFormsetMixin.get_work_order_combos_json(self)
+        context['work_order_parts_json'] = WorkOrderFormsetMixin.get_work_order_parts_json(self)
+        return context
+
+
+class MechanicKanbanCardRenderMixin:
+    def render_card(self, order):
+        prepare_mechanic_order_for_board(order)
+        return render_to_string(
+            'operations/includes/mechanic_kanban_card.html',
+            {'order': order, 'request': self.request},
+            request=self.request,
+        )
+
+
+class MechanicKanbanOrderActionMixin(MechanicKanbanCardRenderMixin):
+    def get_order(self, pk):
+        return get_object_or_404(get_mechanic_visible_orders_queryset(self.request.user), pk=pk)
+
+    def error_response(self, message, status=400, **extra):
+        payload = {'ok': False, 'message': message}
+        payload.update(extra)
+        return JsonResponse(payload, status=status)
+
+    def assert_can_manage_order(self, order):
+        if (
+            order.tecnico_responsavel_id
+            and order.tecnico_responsavel_id != self.request.user.pk
+            and not has_full_mechanic_queue_access(self.request.user)
+        ):
+            raise PermissionError('Esta OS já está com outro técnico responsável.')
+
+
+class MechanicKanbanMoveView(TechnicianRequiredMixin, MechanicKanbanOrderActionMixin, View):
+    def post(self, request, pk, *args, **kwargs):
+        order = self.get_order(pk)
+        new_status = (request.POST.get('status') or '').strip()
+        observacao = (request.POST.get('observacao') or '').strip()
+
+        if new_status not in MECHANIC_BOARD_STATUS_VALUES:
+            return self.error_response('Coluna informada não faz parte do Kanban da mecânica.')
+
+        try:
+            self.assert_can_manage_order(order)
+        except PermissionError as exc:
+            return self.error_response(str(exc), status=403)
+
+        should_claim_order = claim_order_for_technician_if_needed(order, request.user)
+
+        transition = None
+        auto_transition = None
+        try:
+            if new_status != order.status:
+                transition = order.transition_to(
+                    new_status,
+                    user=request.user,
+                    observacao=observacao or 'Status alterado pelo Kanban da mecânica.',
+                    request=request,
+                )
+                if transition is not None:
+                    auto_transition = order.ensure_awaiting_parts_if_needed(
+                        user=request.user,
+                        observacao='OS movida automaticamente para Aguardando peça após movimentação no Kanban da mecânica.',
+                    )
+        except ValidationError as exc:
+            order.refresh_from_db()
+            message = ' '.join(exc.messages) if hasattr(exc, 'messages') else str(exc)
+            extra = {}
+            if new_status == WorkOrderStatus.EM_EXECUCAO and not order.checkins.filter(ativo=True, excluido_em__isnull=True).exists():
+                extra['checkin_url'] = f"{reverse('vehicle_checkin_create')}?ordem_servico={order.pk}"
+            return self.error_response(message, card_html=self.render_card(order), final_status=order.status, **extra)
+
+        order.refresh_from_db()
+
+        if transition is None and not should_claim_order:
+            message = 'A OS já estava nesta coluna.'
+        elif auto_transition is not None:
+            message = 'OS atualizada, mas ficou como Aguardando peça por estoque insuficiente.'
+        elif should_claim_order and transition is None:
+            message = 'OS puxada para sua fila.'
+        else:
+            message = f'OS movida para {order.get_status_display()}.'
+
+        return JsonResponse({
+            'ok': True,
+            'message': message,
+            'final_status': order.status,
+            'final_status_label': order.get_status_display(),
+            'card_html': self.render_card(order),
+            'assigned_to': order.tecnico_responsavel.nome_razao_social if order.tecnico_responsavel_id else '',
+        })
+
+
+class MechanicKanbanAddItemView(TechnicianRequiredMixin, MechanicKanbanOrderActionMixin, View):
+    item_type_config = {
+        'servico': {
+            'model': Service,
+            'line_model': WorkOrderServiceItem,
+            'field_name': 'service',
+            'label': 'Serviço',
+        },
+        'combo': {
+            'model': ServiceCombo,
+            'line_model': WorkOrderComboItem,
+            'field_name': 'combo',
+            'label': 'Combo',
+        },
+        'peca': {
+            'model': InventoryItem,
+            'line_model': WorkOrderPartItem,
+            'field_name': 'item',
+            'label': 'Peça/Insumo',
+        },
+    }
+
+    def parse_quantity(self, raw_value):
+        raw_value = str(raw_value or '').strip()
+        if not raw_value.isdigit():
+            raise ValidationError('Informe uma quantidade inteira maior que zero.')
+        quantity = int(raw_value)
+        if quantity <= 0:
+            raise ValidationError('Informe uma quantidade inteira maior que zero.')
+        return quantity
+
+    def post(self, request, pk, *args, **kwargs):
+        order = self.get_order(pk)
+        item_type = (request.POST.get('item_type') or '').strip().lower()
+        item_id = (request.POST.get('item_id') or '').strip()
+        quantity_raw = request.POST.get('quantidade') or request.POST.get('quantity')
+
+        config = self.item_type_config.get(item_type)
+        if not config:
+            return self.error_response('Tipo de item inválido para o Kanban técnico.')
+        if order.status not in MECHANIC_ITEM_REVIEW_STATUSES:
+            return self.error_response('Itens só podem ser adicionados nas etapas técnicas permitidas.', card_html=self.render_card(order), final_status=order.status)
+        if order.estoque_baixado:
+            return self.error_response('Não é possível alterar itens de uma OS com estoque já baixado.', card_html=self.render_card(order), final_status=order.status)
+        if order.has_locked_approval:
+            return self.error_response('Esta OS possui orçamento em aprovação ou aprovado. Reabra o orçamento técnico antes de alterar itens.', card_html=self.render_card(order), final_status=order.status)
+
+        try:
+            self.assert_can_manage_order(order)
+            quantity = self.parse_quantity(quantity_raw)
+        except PermissionError as exc:
+            return self.error_response(str(exc), status=403, card_html=self.render_card(order), final_status=order.status)
+        except ValidationError as exc:
+            message = ' '.join(exc.messages) if hasattr(exc, 'messages') else str(exc)
+            return self.error_response(message, card_html=self.render_card(order), final_status=order.status)
+
+        if not item_id.isdigit():
+            return self.error_response('Selecione um item válido.', card_html=self.render_card(order), final_status=order.status)
+
+        item = get_object_or_404(config['model'], pk=int(item_id))
+        line_model = config['line_model']
+        field_name = config['field_name']
+
+        with transaction.atomic():
+            claim_order_for_technician_if_needed(order, request.user)
+            line, created = line_model.objects.select_for_update().get_or_create(
+                ordem_servico=order,
+                **{field_name: item},
+                defaults={'quantidade': quantity},
+            )
+            if not created:
+                line.quantidade = int(line.quantidade or 0) + quantity
+                line.save(update_fields=['quantidade', 'atualizado_em'])
+
+        auto_transition = order.ensure_awaiting_parts_if_needed(
+            request.user,
+            observacao='OS movida automaticamente para Aguardando peça após inclusão de item pelo Kanban técnico.',
+        )
+        order = self.get_order(pk)
+
+        if auto_transition:
+            message = f'{config["label"]} adicionado, mas a OS ficou como Aguardando peça por estoque insuficiente.'
+        elif created:
+            message = f'{config["label"]} adicionado à OS.'
+        else:
+            message = f'Quantidade de {config["label"].lower()} atualizada na OS.'
+
+        return JsonResponse({
+            'ok': True,
+            'message': message,
+            'final_status': order.status,
+            'final_status_label': order.get_status_display(),
+            'card_html': self.render_card(order),
+        })
+
+
+class MechanicKanbanReopenItemsView(TechnicianRequiredMixin, MechanicKanbanOrderActionMixin, View):
+    def post(self, request, pk, *args, **kwargs):
+        order = self.get_order(pk)
+        try:
+            self.assert_can_manage_order(order)
+        except PermissionError as exc:
+            return self.error_response(str(exc), status=403, card_html=self.render_card(order), final_status=order.status)
+
+        if order.estoque_baixado:
+            return self.error_response('Não é possível reabrir orçamento técnico depois que o estoque foi baixado.', card_html=self.render_card(order), final_status=order.status)
+        if not order.has_locked_approval:
+            return self.error_response('Os itens desta OS já estão liberados para edição.', card_html=self.render_card(order), final_status=order.status)
+
+        start_new_approval_budget_review(
+            order,
+            request.user,
+            request=request,
+            observacao='Novo orçamento solicitado pelo Kanban técnico para revisar itens da OS.',
+        )
+        claim_order_for_technician_if_needed(order, request.user)
+        order = self.get_order(pk)
+
+        return JsonResponse({
+            'ok': True,
+            'message': 'Orçamento técnico reaberto. Agora você pode adicionar serviços, combos e peças direto no Kanban.',
+            'final_status': order.status,
+            'final_status_label': order.get_status_display(),
+            'card_html': self.render_card(order),
+        })
+
+
+class MechanicWorkOrderDiagnosisView(TechnicianRequiredMixin, UpdateView):
+    model = WorkOrder
+    form_class = WorkOrderDiagnosisForm
+    template_name = 'operations/mechanic_work_order_diagnosis.html'
+    context_object_name = 'order'
+
+    def get_queryset(self):
+        return get_mechanic_visible_orders_queryset(self.request.user)
+
+    def dispatch(self, request, *args, **kwargs):
+        self.object = self.get_object()
+        if self.object.status != WorkOrderStatus.DIAGNOSTICO:
+            messages.error(request, 'O diagnóstico só pode ser registrado quando a OS está na etapa Diagnóstico.')
+            return redirect('mechanic_kanban')
+        if (
+            self.object.tecnico_responsavel_id
+            and self.object.tecnico_responsavel_id != request.user.pk
+            and not has_full_mechanic_queue_access(request.user)
+        ):
+            messages.error(request, 'Esta OS já está com outro técnico responsável.')
+            return redirect('mechanic_kanban')
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['stock_shortages'] = self.object.get_stock_shortages()
+        context['ai_context_json'] = json.dumps(
+            build_mechanic_diagnosis_ai_context(self.object),
+            ensure_ascii=False,
+        )
+        return context
+
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        claim_order_for_technician_if_needed(self.object, self.request.user)
+
+        next_action = (self.request.POST.get('next_action') or '').strip()
+        if next_action == 'orcamento':
+            try:
+                self.object.transition_to(
+                    WorkOrderStatus.ORCAMENTO,
+                    user=self.request.user,
+                    observacao='Diagnóstico registrado pela mecânica e OS enviada para orçamento.',
+                    request=self.request,
+                )
+            except ValidationError as exc:
+                message = ' '.join(exc.messages) if hasattr(exc, 'messages') else str(exc)
+                messages.error(self.request, message)
+                return redirect('mechanic_work_order_diagnosis', pk=self.object.pk)
+            messages.success(self.request, 'Diagnóstico salvo e OS enviada para orçamento.')
+            return redirect('mechanic_kanban')
+
+        messages.success(self.request, 'Diagnóstico salvo com sucesso.')
+        return response
+
+    def get_success_url(self):
+        return reverse('mechanic_kanban')
+
+
+class MechanicWorkOrderItemsView(TechnicianRequiredMixin, WorkOrderFormsetMixin, DetailView):
+    model = WorkOrder
+    template_name = 'operations/mechanic_work_order_items.html'
+    context_object_name = 'order'
+
+    def get_queryset(self):
+        return get_mechanic_visible_orders_queryset(self.request.user).prefetch_related(
+            'servicos_os__service',
+            'combos_os__combo__servicos_associados__service',
+            'pecas_os__item__categoria',
+            'pecas_os__item__marca',
+            'pecas_os__item__unidade',
+            'transicoes_status__criado_por',
+            'orcamentos_aprovacao',
+        )
+
+    def dispatch(self, request, *args, **kwargs):
+        self.object = self.get_object()
+        if self.object.status not in MECHANIC_ITEM_REVIEW_STATUSES:
+            messages.error(request, 'Itens só podem ser revisados pela área técnica durante diagnóstico, orçamento, aprovação, execução, aguardando peça ou teste.')
+            return redirect('mechanic_kanban')
+        if (
+            self.object.tecnico_responsavel_id
+            and self.object.tecnico_responsavel_id != request.user.pk
+            and not has_full_mechanic_queue_access(request.user)
+        ):
+            messages.error(request, 'Esta OS já está com outro técnico responsável.')
+            return redirect('mechanic_kanban')
+        return super().dispatch(request, *args, **kwargs)
+
+    def can_edit_items(self):
+        return (
+            self.object.status in MECHANIC_ITEM_REVIEW_STATUSES
+            and not self.object.estoque_baixado
+            and not self.object.has_locked_approval
+        )
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        auto_open_item_modal = (self.request.GET.get('adicionar') or '').strip().lower()
+        if auto_open_item_modal not in MECHANIC_ITEM_AUTO_OPEN_VALUES:
+            auto_open_item_modal = ''
+        context['auto_open_item_modal'] = auto_open_item_modal
+        context['can_edit_items'] = self.can_edit_items()
+        context['stock_requirements'] = self.object.get_stock_requirements()
+        context['stock_shortages'] = self.object.get_stock_shortages()
+        context['current_approval_budget'] = self.object.get_current_approval_budget()
+        context['status_history'] = self.object.transicoes_status.select_related('criado_por').all()[:10]
+        return context
+
+    def post(self, request, *args, **kwargs):
+        self.object = self.get_object()
+        action = (request.POST.get('action') or '').strip()
+
+        if action == 'start_new_budget_review':
+            if self.object.estoque_baixado:
+                messages.error(request, 'Não é possível reabrir orçamento técnico depois que o estoque foi baixado.')
+                return redirect('mechanic_work_order_items', pk=self.object.pk)
+            start_new_approval_budget_review(
+                self.object,
+                request.user,
+                request=request,
+                observacao='Novo orçamento solicitado pela área técnica para revisar itens da OS.',
+            )
+            claim_order_for_technician_if_needed(self.object, request.user)
+            messages.success(request, 'Orçamento técnico reaberto. Agora você pode adicionar ou remover serviços, combos e peças.')
+            return redirect('mechanic_work_order_items', pk=self.object.pk)
+
+        if self.object.status == WorkOrderStatus.CANCELADA:
+            messages.error(request, 'OS cancelada não pode ser editada.')
+            return redirect('mechanic_work_order_items', pk=self.object.pk)
+        if self.object.estoque_baixado:
+            messages.error(request, 'Não é possível alterar itens de uma OS com estoque já baixado.')
+            return redirect('mechanic_work_order_items', pk=self.object.pk)
+        if self.object.has_locked_approval:
+            messages.error(request, 'Esta OS possui orçamento em aprovação ou aprovado. Reabra o orçamento técnico antes de alterar itens.')
+            return redirect('mechanic_work_order_items', pk=self.object.pk)
+
+        services_formset = self.get_service_formset()
+        combos_formset = self.get_combo_formset()
+        parts_formset = self.get_part_formset()
+
+        if not all([services_formset.is_valid(), combos_formset.is_valid(), parts_formset.is_valid()]):
+            messages.error(request, 'Não foi possível atualizar os itens da OS. Confira os alertas do formulário.')
+            return self.render_to_response(self.get_context_data(
+                services_formset=services_formset,
+                combos_formset=combos_formset,
+                parts_formset=parts_formset,
+            ))
+
+        with transaction.atomic():
+            claim_order_for_technician_if_needed(self.object, request.user)
+            for formset in (services_formset, combos_formset, parts_formset):
+                formset.instance = self.object
+                formset.save()
+
+        auto_transition = self.object.ensure_awaiting_parts_if_needed(
+            request.user,
+            observacao='OS movida automaticamente para Aguardando peça após alteração de itens pela área técnica.',
+        )
+        if auto_transition:
+            messages.warning(request, 'Itens atualizados, mas a OS ficou como Aguardando peça porque há itens sem estoque suficiente.')
+        else:
+            messages.success(request, 'Serviços, combos e peças da OS atualizados com sucesso.')
+        return redirect('mechanic_work_order_items', pk=self.object.pk)
 
 
 class MechanicWorkOrderDetailView(TechnicianRequiredMixin, WorkOrderFormsetMixin, DetailView):
@@ -1311,14 +2168,14 @@ class MechanicWorkOrderDetailView(TechnicianRequiredMixin, WorkOrderFormsetMixin
     context_object_name = 'order'
 
     def get_queryset(self):
-        return WorkOrder.objects.select_related('cliente', 'veiculo').prefetch_related(
+        return get_mechanic_visible_orders_queryset(self.request.user).prefetch_related(
             'servicos_os__service',
             'combos_os__combo__servicos_associados__service',
             'pecas_os__item__categoria',
             'pecas_os__item__marca',
             'pecas_os__item__unidade',
             'transicoes_status__criado_por',
-        ).filter(status__in=MECHANIC_QUEUE_STATUSES, ativo=True, excluido_em__isnull=True)
+        )
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -1371,10 +2228,12 @@ class MechanicWorkOrderDetailView(TechnicianRequiredMixin, WorkOrderFormsetMixin
 
 class MechanicWorkOrderStartView(TechnicianRequiredMixin, View):
     def post(self, request, pk, *args, **kwargs):
-        order = get_object_or_404(WorkOrder, pk=pk, ativo=True, excluido_em__isnull=True)
+        order = get_object_or_404(get_mechanic_visible_orders_queryset(request.user), pk=pk)
         if order.status not in {WorkOrderStatus.APROVADA, WorkOrderStatus.AGUARDANDO_PECA}:
             messages.error(request, 'Apenas OS aprovada ou aguardando peça pode ser iniciada pela mecânica.')
             return redirect('mechanic_work_order_detail', pk=order.pk)
+
+        claim_order_for_technician_if_needed(order, request.user)
 
         shortages = order.get_stock_shortages()
         if shortages:
@@ -1519,13 +2378,44 @@ class WorkOrderRegisterApprovalView(LoginRequiredMixin, PermissionRequiredMixin,
             return order, None
         return order, budget
 
+    def build_context(self, order, budget, form):
+        selected_item_ids = set()
+        if form is not None:
+            if form.is_bound:
+                selected_item_ids = {
+                    str(item_id)
+                    for item_id in (form.data.getlist(form.add_prefix('itens_aprovados')) or form.data.getlist('itens_aprovados'))
+                }
+            else:
+                selected_item_ids = {str(item.pk) for item in (form.initial.get('itens_aprovados') or [])}
+        partial_approval_allowed = budget.allows_partial_approval
+        partial_approval_block_reason = budget.partial_approval_block_reason()
+        locked_item_ids = budget.partial_approval_locked_item_ids() if partial_approval_allowed else set()
+        approval_item_rows = [
+            {
+                'item': item,
+                'selected': item.pk in locked_item_ids or str(item.pk) in selected_item_ids,
+                'locked': item.pk in locked_item_ids,
+                'locked_reason': budget.partial_approval_lock_reason_for_item(item) if item.pk in locked_item_ids else '',
+            }
+            for item in budget.customer_visible_items_ordered
+        ]
+        return {
+            'order': order,
+            'budget': budget,
+            'form': form,
+            'approval_item_rows': approval_item_rows,
+            'partial_approval_allowed': partial_approval_allowed,
+            'partial_approval_block_reason': partial_approval_block_reason,
+        }
+
     def get(self, request, pk, *args, **kwargs):
         order, budget = self.get_budget(pk)
         if not budget:
             messages.error(request, 'Não há orçamento pendente de aprovação para esta OS.')
             return redirect(order.get_absolute_url())
         form = WorkOrderApprovalDecisionForm(budget=budget, initial={'observacao': 'Aprovado'})
-        return render(request, self.template_name, {'order': order, 'budget': budget, 'form': form})
+        return render(request, self.template_name, self.build_context(order, budget, form))
 
     def post(self, request, pk, *args, **kwargs):
         order, budget = self.get_budget(pk)
@@ -1535,7 +2425,7 @@ class WorkOrderRegisterApprovalView(LoginRequiredMixin, PermissionRequiredMixin,
         form = WorkOrderApprovalDecisionForm(request.POST, budget=budget)
         if not form.is_valid():
             messages.error(request, 'Não foi possível registrar a aprovação. Confira os campos obrigatórios.')
-            return render(request, self.template_name, {'order': order, 'budget': budget, 'form': form})
+            return render(request, self.template_name, self.build_context(order, budget, form))
         audit = budget.apply_decision(
             decision=form.cleaned_data['decisao'],
             approved_item_ids=[item.pk for item in form.cleaned_data.get('itens_aprovados')],
@@ -1562,26 +2452,12 @@ class WorkOrderNewApprovalBudgetView(LoginRequiredMixin, PermissionRequiredMixin
         if order.status in {WorkOrderStatus.CANCELADA, WorkOrderStatus.ARQUIVADA}:
             messages.error(request, 'Não é possível gerar novo orçamento para OS cancelada ou arquivada.')
             return redirect(order.get_absolute_url())
-        order.supersede_current_approval_budget(user=request.user, observacao='Novo orçamento solicitado pela oficina.')
-        if order.status != WorkOrderStatus.ORCAMENTO:
-            try:
-                order.transition_to(
-                    WorkOrderStatus.ORCAMENTO,
-                    user=request.user,
-                    observacao='Novo orçamento solicitado; itens liberados para revisão antes de nova aprovação.',
-                    request=request,
-                )
-            except ValidationError:
-                previous_status = order.status
-                order.status = WorkOrderStatus.ORCAMENTO
-                order.save(update_fields=['status', 'atualizado_em'])
-                WorkOrderStatusTransition.objects.create(
-                    ordem_servico=order,
-                    status_anterior=previous_status,
-                    status_novo=WorkOrderStatus.ORCAMENTO,
-                    observacao='Novo orçamento solicitado; retorno forçado para Orçamento.',
-                    criado_por=request.user if request.user.is_authenticated else None,
-                )
+        start_new_approval_budget_review(
+            order,
+            request.user,
+            request=request,
+            observacao='Novo orçamento solicitado pela oficina.',
+        )
         messages.success(request, 'Novo orçamento iniciado. Revise os itens e envie novamente para aprovação.')
         return redirect(order.get_absolute_url())
 
@@ -1622,9 +2498,20 @@ class PublicWorkOrderApprovalView(View):
             selected_decision = raw_decision or WorkOrderApprovalDecision.APPROVE_ALL
             selected_item_ids = {str(item_id) for item_id in raw_selected_items}
 
+        partial_approval_allowed = budget.allows_partial_approval
+        partial_approval_block_reason = budget.partial_approval_block_reason()
+        if not partial_approval_allowed and selected_decision == WorkOrderApprovalDecision.APPROVE_PARTIAL:
+            selected_decision = WorkOrderApprovalDecision.APPROVE_ALL
+
+        locked_item_ids = budget.partial_approval_locked_item_ids() if partial_approval_allowed else set()
         approval_item_rows = [
-            {'item': item, 'selected': str(item.pk) in selected_item_ids}
-            for item in budget.itens.all().order_by('tipo', 'nome', 'pk')
+            {
+                'item': item,
+                'selected': item.pk in locked_item_ids or str(item.pk) in selected_item_ids,
+                'locked': item.pk in locked_item_ids,
+                'locked_reason': budget.partial_approval_lock_reason_for_item(item) if item.pk in locked_item_ids else '',
+            }
+            for item in budget.customer_visible_items_ordered
         ]
 
         context = {
@@ -1633,6 +2520,8 @@ class PublicWorkOrderApprovalView(View):
             'form': form,
             'approval_item_rows': approval_item_rows,
             'selected_decision': selected_decision,
+            'partial_approval_allowed': partial_approval_allowed,
+            'partial_approval_block_reason': partial_approval_block_reason,
             'decision_approve_all': WorkOrderApprovalDecision.APPROVE_ALL,
             'decision_approve_partial': WorkOrderApprovalDecision.APPROVE_PARTIAL,
             'decision_reject_all': WorkOrderApprovalDecision.REJECT_ALL,

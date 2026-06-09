@@ -1,0 +1,86 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Kanban da mecânica | MotorMind{% endblock %}
+
+{% block content %}
+<div class="mb-5 flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+  <div>
+    <div class="flex flex-wrap items-center gap-2">
+      <h1 class="page-title">Kanban da mecânica</h1>
+      <span class="badge badge-outline">{{ total_orders }} OS</span>
+    </div>
+    <p class="mt-1 max-w-3xl text-sm text-base-content/70">
+      Fluxo por toque, sem arrastar. Use os botões grandes dentro de cada card para puxar a OS, registrar diagnóstico, adicionar serviços/combos/peças e avançar etapas sem sair do Kanban.
+    </p>
+  </div>
+
+  <div class="flex flex-wrap gap-2">
+    <span class="badge badge-neutral badge-outline">Minhas: {{ own_orders_count }}</span>
+    <span class="badge badge-info badge-outline">Livres: {{ unassigned_orders_count }}</span>
+    <a href="{% url 'mechanic_work_order_list' %}" class="btn btn-sm btn-outline whitespace-nowrap">Ver lista</a>
+  </div>
+</div>
+
+<div class="mb-4 grid gap-3 md:grid-cols-3">
+  <div class="rounded-box border border-base-300 bg-base-100 p-3 text-sm shadow-sm">
+    <p class="font-medium">Uso no tablet</p>
+    <p class="mt-1 text-xs text-base-content/60">Toque nos botões do card. Os modais de serviço, combo e peça abrem direto no Kanban.</p>
+  </div>
+  <div class="rounded-box border border-base-300 bg-base-100 p-3 text-sm shadow-sm">
+    <p class="font-medium">Diagnóstico</p>
+    <p class="mt-1 text-xs text-base-content/60">Na etapa Diagnóstico, use o botão Adicionar diagnóstico antes de enviar para orçamento.</p>
+  </div>
+  <div class="rounded-box border border-base-300 bg-base-100 p-3 text-sm shadow-sm">
+    <p class="font-medium">Responsável técnico</p>
+    <p class="mt-1 text-xs text-base-content/60">Ao puxar uma OS livre, ela fica vinculada automaticamente ao técnico logado.</p>
+  </div>
+</div>
+
+<div
+  class="overflow-x-auto pb-4"
+  data-mechanic-kanban-board
+>
+  <div class="flex min-w-max gap-4">
+    {% for column in columns %}
+      <section class="flex w-[21rem] shrink-0 flex-col rounded-box border border-base-300 bg-base-200/70 shadow-sm md:w-[22rem]" data-kanban-column data-status="{{ column.status_value }}">
+        <header class="sticky top-0 z-10 rounded-t-box border-b border-base-300 bg-base-100/95 p-3 backdrop-blur">
+          <div class="flex items-start justify-between gap-2">
+            <div>
+              <h2 class="font-semibold leading-tight">{{ column.title }}</h2>
+              <p class="mt-1 min-h-8 text-xs leading-snug text-base-content/60">{{ column.description }}</p>
+            </div>
+            <span class="badge badge-sm" data-kanban-column-count>{{ column.orders|length }}</span>
+          </div>
+        </header>
+
+        <div class="flex min-h-[30rem] flex-1 flex-col gap-3 p-3" data-kanban-card-list>
+          {% for order in column.orders %}
+            {% include 'operations/includes/mechanic_kanban_card.html' %}
+          {% endfor %}
+          <div class="rounded-box border border-dashed border-base-300 p-4 text-center text-xs text-base-content/50 {% if column.orders %}hidden{% endif %}" data-kanban-empty>
+            Nenhuma OS nesta etapa.
+          </div>
+        </div>
+      </section>
+    {% endfor %}
+  </div>
+</div>
+
+<div class="mt-4 rounded-box border border-base-300 bg-base-100 p-3 text-xs text-base-content/60">
+  Fluxo sugerido: <strong>Fila diagnóstico</strong> → <strong>Diagnóstico</strong> → <strong>Orçamento</strong> → <strong>Aguardando aprovação</strong> → <strong>Aprovada</strong> → <strong>Execução</strong> → <strong>Teste</strong> → <strong>Pronta p/ entregar</strong>.
+</div>
+
+{% include 'includes/reusable_select_modal.html' with modal_id='mechanic_kanban_service_picker_modal' modal_title='Adicionar serviço à OS' modal_description='Busque o serviço, confira os dados no card e informe a quantidade. O item será lançado direto na OS selecionada.' search_label='Serviço' search_placeholder='Digite código, nome ou descrição' quantity_label='Quantidade' quantity_placeholder='1' empty_message='Nenhum serviço encontrado.' %}
+{% include 'includes/reusable_select_modal.html' with modal_id='mechanic_kanban_combo_picker_modal' modal_title='Adicionar combo à OS' modal_description='Busque o combo, confira os dados no card e informe a quantidade. O item será lançado direto na OS selecionada.' search_label='Combo' search_placeholder='Digite código, nome ou descrição' quantity_label='Quantidade' quantity_placeholder='1' empty_message='Nenhum combo encontrado.' %}
+{% include 'includes/reusable_select_modal.html' with modal_id='mechanic_kanban_part_picker_modal' modal_title='Adicionar peça avulsa à OS' modal_description='Busque a peça ou insumo, confira o estoque e informe a quantidade. O item será lançado direto na OS selecionada.' search_label='Peça/Insumo' search_placeholder='Digite SKU, nome, categoria ou marca' quantity_label='Quantidade' quantity_placeholder='1' empty_message='Nenhuma peça/insumo encontrada.' %}
+
+{{ work_order_services_json|json_script:'mechanic-kanban-services-data' }}
+{{ work_order_combos_json|json_script:'mechanic-kanban-combos-data' }}
+{{ work_order_parts_json|json_script:'mechanic-kanban-parts-data' }}
+{% endblock %}
+
+{% block extra_js %}
+  <script src="{% static 'js/reusable-select-modal.js' %}"></script>
+  <script src="{% static 'js/mechanic-kanban.js' %}"></script>
+{% endblock %}

@@ -1,0 +1,105 @@
+{% load money %}
+{% with order=row.order %}
+<article class="card border border-base-300 bg-base-100 shadow-sm">
+  <div class="card-body gap-5">
+    <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+      <div>
+        <div class="flex flex-wrap items-center gap-2">
+          <a href="#" class="font-mono text-lg font-bold pointer-events-none">{{ order.codigo }}</a>
+          <span class="badge {{ order.status_badge_class }}">{{ order.get_status_display }}</span>
+        </div>
+        <p class="mt-1 text-sm text-base-content/60">Aberta em {{ order.data_abertura|date:'d/m/Y H:i' }}{% if order.previsao_entrega %} · previsão {{ order.previsao_entrega|date:'d/m/Y H:i' }}{% endif %}</p>
+      </div>
+      <div class="text-left lg:text-right">
+        <p class="text-xs uppercase tracking-wide text-base-content/50">Total cliente</p>
+        <p class="text-xl font-bold">{{ order.valor_total|money_br }}</p>
+      </div>
+    </div>
+
+    <div class="grid gap-4 lg:grid-cols-3">
+      <div class="rounded-box border border-base-200 bg-base-200/40 p-4 lg:col-span-2">
+        <p class="text-xs font-semibold uppercase tracking-wide text-base-content/50">Problema relatado</p>
+        <p class="mt-1 text-sm text-base-content/80">{{ order.problema_relatado|linebreaksbr }}</p>
+        {% if order.diagnostico %}
+          <p class="mt-4 text-xs font-semibold uppercase tracking-wide text-base-content/50">Diagnóstico técnico</p>
+          <p class="mt-1 text-sm text-base-content/80">{{ order.diagnostico|linebreaksbr }}</p>
+        {% endif %}
+      </div>
+
+      <div class="rounded-box border border-base-200 bg-base-200/40 p-4">
+        <p class="text-xs font-semibold uppercase tracking-wide text-base-content/50">Dados da OS</p>
+        <dl class="mt-2 space-y-2 text-sm">
+          <div><dt class="text-base-content/50">KM informado</dt><dd class="font-medium">{{ order.km_atual|default:'-' }}</dd></div>
+          <div><dt class="text-base-content/50">Finalização</dt><dd class="font-medium">{{ order.data_finalizacao|date:'d/m/Y H:i'|default:'-' }}</dd></div>
+        </dl>
+      </div>
+    </div>
+
+    {% if show_timeline %}
+      <section class="customer-history-timeline rounded-box border border-base-200 bg-base-100 p-4" aria-label="Linha do tempo da ordem de serviço">
+        <div class="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+          <h3 class="font-semibold">Linha do tempo</h3>
+          <span class="text-xs text-base-content/50">{{ row.transitions|length|add:1 }} eventos</span>
+        </div>
+        <ol class="customer-history-timeline__list mt-3">
+          <li class="customer-history-timeline__item">
+            <span class="customer-history-timeline__dot" aria-hidden="true"></span>
+            <div class="customer-history-timeline__event">
+              <p class="text-xs font-medium text-base-content/50">{{ order.data_abertura|date:'d/m/Y H:i' }}</p>
+              <p class="mt-0.5 break-words text-sm font-semibold text-base-content">OS aberta</p>
+            </div>
+          </li>
+          {% for transition in row.transitions %}
+            <li class="customer-history-timeline__item">
+              <span class="customer-history-timeline__dot" aria-hidden="true"></span>
+              <div class="customer-history-timeline__event">
+                <p class="text-xs font-medium text-base-content/50">{{ transition.criado_em|date:'d/m/Y H:i' }}</p>
+                <p class="mt-0.5 break-words text-sm font-semibold text-base-content">{{ transition.get_status_novo_display }}</p>
+              </div>
+            </li>
+          {% endfor %}
+        </ol>
+      </section>
+    {% endif %}
+
+    <div class="grid gap-4 lg:grid-cols-2">
+      <div class="rounded-box border border-base-200 p-4">
+        <h3 class="font-semibold">Serviços</h3>
+        <div class="mt-3 space-y-2">
+          {% for item in row.services %}
+            <div class="flex items-start justify-between gap-3 rounded-box bg-base-200/50 px-3 py-2 text-sm">
+              <div><p class="font-medium">{{ item.service.nome }}</p><p class="text-xs text-base-content/50">{{ item.quantidade }} x {{ item.valor_unitario|money_br }}</p></div>
+              <span class="font-semibold">{{ item.subtotal|money_br }}</span>
+            </div>
+          {% endfor %}
+          {% for item in row.combos %}
+            <div class="flex items-start justify-between gap-3 rounded-box bg-base-200/50 px-3 py-2 text-sm">
+              <div><p class="font-medium">Combo: {{ item.combo.nome }}</p><p class="text-xs text-base-content/50">{{ item.quantidade }} x {{ item.valor_unitario|money_br }}</p></div>
+              <span class="font-semibold">{{ item.subtotal|money_br }}</span>
+            </div>
+          {% empty %}
+            {% if not row.services %}<p class="text-sm text-base-content/50">Nenhum serviço registrado.</p>{% endif %}
+          {% endfor %}
+        </div>
+      </div>
+
+      <div class="rounded-box border border-base-200 p-4">
+        <h3 class="font-semibold">Peças trocadas / previstas</h3>
+        <div class="mt-3 space-y-2">
+          {% for part in row.parts %}
+            <div class="flex items-start justify-between gap-3 rounded-box bg-base-200/50 px-3 py-2 text-sm">
+              <div>
+                <p class="font-medium">{{ part.item.nome }}</p>
+                <p class="text-xs text-base-content/50">{{ part.quantidade }} {{ part.item.unidade.sigla|default:'' }}{% if part.origem_nome %} · {{ part.origem_nome }}{% endif %}</p>
+              </div>
+              <span class="font-semibold">{{ part.subtotal|money_br }}</span>
+            </div>
+          {% empty %}
+            <p class="text-sm text-base-content/50">Nenhuma peça registrada para exibição ao cliente.</p>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+</article>
+{% endwith %}

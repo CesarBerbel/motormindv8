@@ -1,0 +1,76 @@
+{% extends 'website/base_public.html' %}
+{% load money %}
+
+{% block title %}Histórico do veículo {{ vehicle.placa }}{% endblock %}
+{% block meta_description %}Área privada do cliente para acompanhamento de OS e histórico de serviços.{% endblock %}
+
+{% block content %}
+<section class="bg-base-200">
+  <div class="container mx-auto px-4 py-8">
+    <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+      <div>
+        <span class="badge badge-primary badge-outline">Área privada do cliente</span>
+        <h1 class="mt-3 text-3xl font-black">{{ vehicle.placa }} · {{ vehicle.marca }} {{ vehicle.modelo }}</h1>
+        <p class="mt-2 text-base-content/70">Cliente: {{ customer.nome_razao_social }} · acesso válido até {{ access.expira_em|date:'d/m/Y H:i' }}</p>
+      </div>
+      <form method="post" action="{% url 'customer_vehicle_access_logout' access.token %}">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-outline btn-sm">Encerrar acesso</button>
+      </form>
+    </div>
+
+    <div class="mt-6 grid gap-4 md:grid-cols-4">
+      <div class="stat rounded-box border border-base-300 bg-base-100">
+        <div class="stat-title">OS registradas</div>
+        <div class="stat-value text-2xl">{{ total_orders }}</div>
+      </div>
+      <div class="stat rounded-box border border-base-300 bg-base-100">
+        <div class="stat-title">Em andamento</div>
+        <div class="stat-value text-2xl">{{ active_orders|length }}</div>
+      </div>
+      <div class="stat rounded-box border border-base-300 bg-base-100">
+        <div class="stat-title">Histórico</div>
+        <div class="stat-value text-2xl">{{ completed_orders|length }}</div>
+      </div>
+      <div class="stat rounded-box border border-base-300 bg-base-100">
+        <div class="stat-title">KM cadastrado</div>
+        <div class="stat-value text-2xl">{{ vehicle.km|default:'-' }}</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="container mx-auto px-4 py-10">
+  {% if active_orders %}
+    <div class="mb-8">
+      <h2 class="text-2xl font-bold">Andamento da OS</h2>
+      <p class="mt-1 text-sm text-base-content/60">Ordens de serviço ainda em fluxo na oficina.</p>
+      <div class="mt-4 grid gap-4">
+        {% for row in active_orders %}
+          {% include 'operations/includes/customer_vehicle_order_card.html' with row=row show_timeline=True %}
+        {% endfor %}
+      </div>
+    </div>
+  {% endif %}
+
+  <div>
+    <h2 class="text-2xl font-bold">Histórico de serviços e peças</h2>
+    <p class="mt-1 text-sm text-base-content/60">Serviços e peças registrados em OS anteriores ou já concluídas.</p>
+    <div class="mt-4 grid gap-4">
+      {% for row in completed_orders %}
+        {% include 'operations/includes/customer_vehicle_order_card.html' with row=row show_timeline=False %}
+      {% empty %}
+        {% if not active_orders %}
+          <div class="rounded-box border border-base-300 bg-base-100 p-8 text-center text-base-content/60">
+            Nenhuma OS foi localizada para este veículo.
+          </div>
+        {% else %}
+          <div class="rounded-box border border-base-300 bg-base-100 p-8 text-center text-base-content/60">
+            Ainda não há OS concluídas no histórico deste veículo.
+          </div>
+        {% endif %}
+      {% endfor %}
+    </div>
+  </div>
+</section>
+{% endblock %}

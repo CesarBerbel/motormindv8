@@ -76,3 +76,59 @@ class LoginLockoutTests(TestCase):
 
         clear_login_attempt(self.request, self.email)
         self.assertFalse(is_login_locked(self.email, self.ip))
+
+
+class RolePermissionSetupTests(TestCase):
+    def test_setup_roles_gives_admin_all_application_permissions_without_django_admin_access(self):
+        admin = User.objects.create_user(
+            email='adm@example.com',
+            password='segredo-forte-123',
+            nome_razao_social='Administrador',
+            role='adm',
+        )
+
+        from django.core.management import call_command
+        call_command('setup_roles', verbosity=0)
+
+        admin.refresh_from_db()
+        self.assertFalse(admin.is_staff)
+        self.assertFalse(admin.is_superuser)
+        self.assertTrue(admin.has_perm('website.change_sitesettings'))
+        self.assertTrue(admin.has_perm('website.add_blogpost'))
+        self.assertTrue(admin.has_perm('audit.view_auditlog'))
+        self.assertTrue(admin.has_perm('ai_assistant.use_ai_assistant'))
+        self.assertTrue(admin.has_perm('operations.change_workorder'))
+
+    def test_setup_roles_allows_technician_to_use_technical_flow(self):
+        technician = User.objects.create_user(
+            email='tecnico.perm@example.com',
+            password='segredo-forte-123',
+            nome_razao_social='Técnico Permissão',
+            role='tecnico',
+        )
+
+        from django.core.management import call_command
+        call_command('setup_roles', verbosity=0)
+
+        technician.refresh_from_db()
+        self.assertTrue(technician.has_perm('operations.view_workorder'))
+        self.assertTrue(technician.has_perm('operations.change_workorder'))
+        self.assertTrue(technician.has_perm('operations.add_vehiclecheckin'))
+        self.assertTrue(technician.has_perm('operations.change_vehiclecheckin'))
+        self.assertTrue(technician.has_perm('ai_assistant.use_ai_assistant'))
+        self.assertFalse(technician.has_perm('accounts.change_user'))
+
+
+class LoginRedirectTests(TestCase):
+    def test_logged_user_cannot_access_login_page(self):
+        user = User.objects.create_user(
+            email='logado@example.com',
+            password='segredo-forte-123',
+            nome_razao_social='Usuário Logado',
+        )
+        self.client.force_login(user)
+
+        response = self.client.get('/login/')
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response['Location'], '/dashboard/')

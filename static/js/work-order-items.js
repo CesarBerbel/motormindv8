@@ -157,6 +157,10 @@ function setupWorkOrderPicker(config) {
 
   openButton.addEventListener('click', () => picker.open());
   renderList();
+
+  if (config.autoOpenValue && form.dataset.workOrderAutoOpen === config.autoOpenValue) {
+    window.setTimeout(() => picker.open(), 120);
+  }
 }
 
 function setupWorkOrderItems() {
@@ -173,6 +177,7 @@ function setupWorkOrderItems() {
     errorsSelector: '[data-work-order-service-errors]',
     fieldName: 'service',
     typeLabel: 'Serviço',
+    autoOpenValue: 'servico',
     listFields: [
       { label: 'Duração', key: 'duracao' },
       { label: 'Valor unitário', key: 'valor' },
@@ -193,6 +198,7 @@ function setupWorkOrderItems() {
     errorsSelector: '[data-work-order-combo-errors]',
     fieldName: 'combo',
     typeLabel: 'Combo',
+    autoOpenValue: 'combo',
     listFields: [
       { label: 'Duração', key: 'duracao' },
       { label: 'Valor unitário', key: 'valor' },
@@ -214,6 +220,7 @@ function setupWorkOrderItems() {
     errorsSelector: '[data-work-order-part-errors]',
     fieldName: 'item',
     typeLabel: 'Peça/Insumo',
+    autoOpenValue: 'peca',
     listFields: [
       { label: 'Estoque', value: (item) => `${item.estoque_atual || '0'} ${item.unidade || ''}`.trim() },
       { label: 'Venda unitária', value: (item) => item.preco_venda || item.valor || item.preco_custo || 'R$ 0,00' },
