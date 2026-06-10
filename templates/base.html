@@ -386,8 +386,8 @@
       </button>
       {% if request.user.is_authenticated %}
         <button type="button" class="btn btn-outline btn-sm whitespace-nowrap" data-pwa-install hidden>
-          <span aria-hidden="true">⬇️</span>
-          <span>Instalar app</span>
+          <span aria-hidden="true" data-pwa-install-icon>⬇️</span>
+          <span data-pwa-install-label>Instalar app</span>
         </button>
         <div
           data-app-notifications
@@ -441,6 +441,26 @@
       </div>
     {% endif %}
   </main>
+
+  {% if request.user.is_authenticated %}
+    <dialog class="modal" data-pwa-install-dialog>
+      <div class="modal-box max-w-xl">
+        <h3 class="text-lg font-bold" data-pwa-install-title>Como instalar o MotorMind</h3>
+        <p class="mt-3 text-sm text-base-content/70" data-pwa-install-status>Confira as instruções para instalar o app neste dispositivo.</p>
+        <ul class="mt-4 list-disc space-y-2 pl-5 text-sm text-base-content/70" data-pwa-install-details>
+          <li>Use HTTPS ou localhost para liberar a instalação do PWA.</li>
+        </ul>
+        <div class="modal-action">
+          <form method="dialog">
+            <button type="submit" class="btn btn-primary">Entendi</button>
+          </form>
+        </div>
+      </div>
+      <form method="dialog" class="modal-backdrop">
+        <button type="submit" aria-label="Fechar instruções de instalação">Fechar</button>
+      </form>
+    </dialog>
+  {% endif %}
 
   <script src="{% static 'js/menu.js' %}"></script>
   <script src="{% static 'js/toasts.js' %}"></script>

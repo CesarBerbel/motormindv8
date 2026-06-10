@@ -106,7 +106,7 @@ class PWAServiceWorkerTests(TestCase):
         self.assertIn('caches', body)
         self.assertIn('notificationclick', body)
         self.assertIn('offline', body)
-        self.assertIn('motormind-static-v3', body)
+        self.assertIn('motormind-static-v4', body)
 
     def test_dashboard_exposes_pwa_install_button(self):
         User = get_user_model()
@@ -121,6 +121,8 @@ class PWAServiceWorkerTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'data-pwa-install')
+        self.assertContains(response, 'data-pwa-install-dialog')
+        self.assertContains(response, 'data-pwa-install-label')
         self.assertContains(response, 'Instalar app')
 
 
@@ -259,5 +261,5 @@ class AppNotificationViewTests(TestCase):
 
         sw_response = self.client.get('/sw.js')
         self.assertEqual(sw_response.status_code, 200)
-        self.assertContains(sw_response, 'motormind-static-v3')
+        self.assertContains(sw_response, 'motormind-static-v4')
         self.assertNotContains(sw_response, 'PWA desabilitado neste ambiente')

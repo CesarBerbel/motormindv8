@@ -23,8 +23,8 @@ self.addEventListener('activate', (event) => {
    Mantem assets estaticos em cache e evita cachear paginas autenticadas.
    Quando o usuario estiver sem conexao em uma navegacao, mostra uma resposta
    simples em vez de expor dados antigos de OS, clientes ou financeiro. */
-const STATIC_CACHE = '{{ pwa_cache_prefix|default:"motormind" }}-static-v3';
-const RUNTIME_CACHE = '{{ pwa_cache_prefix|default:"motormind" }}-runtime-v3';
+const STATIC_CACHE = '{{ pwa_cache_prefix|default:"motormind" }}-static-v4';
+const RUNTIME_CACHE = '{{ pwa_cache_prefix|default:"motormind" }}-runtime-v4';
 const PRECACHE_URLS = [
   '/static/manifest.webmanifest',
   '/static/css/styles.css',
