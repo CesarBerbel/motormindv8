@@ -11,6 +11,118 @@
     @apply card bg-base-100 shadow-xl border border-base-200;
   }
 
+
+  .app-navbar {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 0.25rem;
+    min-width: 0;
+    padding-inline: 0.5rem;
+  }
+
+  .app-navbar__start {
+    flex: 1 1 auto;
+    min-width: 0;
+    width: auto;
+    gap: 0.25rem;
+  }
+
+  .app-navbar__end {
+    flex: 0 0 auto;
+    width: auto;
+    min-width: 0;
+    gap: 0.25rem;
+  }
+
+  .app-navbar__menu {
+    padding-inline: 0.55rem;
+  }
+
+  .app-navbar__brand {
+    min-width: 0;
+    max-width: 8.5rem;
+    overflow: hidden;
+    padding-inline: 0.55rem;
+    font-size: 1rem;
+    line-height: 1.25rem;
+  }
+
+  .app-navbar__brand-label {
+    display: block;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .app-install-button[hidden] {
+    display: none !important;
+  }
+
+  .app-logout-button {
+    padding-inline: 0.55rem;
+  }
+
+  .app-logout-label {
+    display: none;
+  }
+
+  @media (max-width: 639.98px) {
+    .app-install-button:not([hidden]) {
+      display: none !important;
+    }
+  }
+
+  @media (max-width: 360px) {
+    .app-navbar {
+      padding-inline: 0.35rem;
+    }
+
+    .app-navbar__menu,
+    .app-navbar__brand,
+    .app-logout-button {
+      padding-inline: 0.45rem;
+    }
+
+    .app-navbar__brand {
+      max-width: 6.75rem;
+    }
+
+    .app-theme-toggle {
+      display: none !important;
+    }
+  }
+
+  @media (min-width: 640px) {
+    .app-navbar {
+      gap: 0.5rem;
+      padding-inline: 1rem;
+    }
+
+    .app-navbar__start {
+      gap: 0.5rem;
+    }
+
+    .app-navbar__end {
+      gap: 0.5rem;
+    }
+
+    .app-navbar__brand {
+      max-width: none;
+      padding-inline: 1rem;
+      font-size: 1.25rem;
+      line-height: 1.75rem;
+    }
+
+    .app-logout-button {
+      padding-inline: 0.75rem;
+    }
+
+    .app-logout-label {
+      display: inline;
+    }
+  }
+
   .form-grid {
     @apply grid grid-cols-1 gap-4 md:grid-cols-2;
   }

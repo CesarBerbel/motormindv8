@@ -40,11 +40,11 @@
     ></div>
   {% endif %}
 
-  <div class="navbar sticky top-0 z-50 bg-base-100 shadow-sm" data-main-navbar>
-    <div class="navbar-start gap-2">
+  <div class="navbar app-navbar sticky top-0 z-50 bg-base-100 shadow-sm" data-main-navbar>
+    <div class="navbar-start app-navbar__start">
       {% if request.user.is_authenticated %}
         <details class="dropdown lg:hidden" data-menu-root>
-          <summary class="btn btn-ghost btn-sm list-none whitespace-nowrap">Menu</summary>
+          <summary class="btn btn-ghost btn-sm app-navbar__menu list-none whitespace-nowrap">Menu</summary>
           <ul class="menu dropdown-content z-50 mt-3 w-72 rounded-box bg-base-100 p-2 shadow">
             {% if perms.core.view_customer or perms.core.view_vehicle or perms.operations.view_vehiclecheckin %}
               <li>
@@ -210,7 +210,7 @@
         </details>
       {% endif %}
 
-      <a href="{% url 'dashboard' %}" class="btn btn-ghost text-xl whitespace-nowrap">MotorMind</a>
+      <a href="{% url 'dashboard' %}" class="btn btn-ghost app-navbar__brand whitespace-nowrap" aria-label="Ir para o dashboard"><span class="app-navbar__brand-label">MotorMind</span></a>
     </div>
 
     <div class="navbar-center hidden lg:flex">
@@ -380,12 +380,12 @@
       {% endif %}
     </div>
 
-    <div class="navbar-end gap-2">
-      <button type="button" class="btn btn-ghost btn-sm btn-circle" data-theme-toggle aria-label="Alternar tema claro/escuro">
+    <div class="navbar-end app-navbar__end">
+      <button type="button" class="btn btn-ghost btn-sm btn-circle app-theme-toggle" data-theme-toggle aria-label="Alternar tema claro/escuro">
         <span data-theme-icon>🌙</span>
       </button>
       {% if request.user.is_authenticated %}
-        <button type="button" class="btn btn-outline btn-sm whitespace-nowrap" data-pwa-install hidden>
+        <button type="button" class="btn btn-outline btn-sm app-install-button whitespace-nowrap" data-pwa-install hidden>
           <span aria-hidden="true" data-pwa-install-icon>⬇️</span>
           <span data-pwa-install-label>Instalar app</span>
         </button>
@@ -414,7 +414,7 @@
         </details>
         <form action="{% url 'logout' %}" method="post">
           {% csrf_token %}
-          <button type="submit" class="btn btn-outline btn-sm whitespace-nowrap">Sair</button>
+          <button type="submit" class="btn btn-outline btn-sm app-logout-button whitespace-nowrap" aria-label="Sair"><span aria-hidden="true" class="sm:hidden">⎋</span><span class="app-logout-label">Sair</span></button>
         </form>
       {% else %}
         <a href="{% url 'login' %}" class="btn btn-primary btn-sm whitespace-nowrap">Entrar</a>
