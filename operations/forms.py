@@ -52,11 +52,12 @@ class ServiceCategoryForm(DaisyFormMixin, forms.ModelForm):
 
 
 class ServiceForm(DaisyFormMixin, forms.ModelForm):
-    valor = MoneyFormField(label='Valor')
+    valor = MoneyFormField(label='Valor do serviço')
+    custo = MoneyFormField(label='Custo do serviço', required=False)
 
     class Meta:
         model = Service
-        fields = ['nome', 'categoria', 'descricao', 'duracao_minutos', 'valor']
+        fields = ['nome', 'categoria', 'descricao', 'duracao_minutos', 'valor', 'custo']
         widgets = {
             'descricao': forms.Textarea(attrs={'rows': 3}),
             'duracao_minutos': forms.NumberInput(attrs={'min': '1', 'step': '1'}),
@@ -72,12 +73,17 @@ class ServiceForm(DaisyFormMixin, forms.ModelForm):
             'placeholder': '60',
             'inputmode': 'numeric',
         })
+        self.fields['valor'].help_text = 'Valor base da mão de obra/serviço cobrado do cliente. Peças padrão serão somadas ao valor final.'
+        self.fields['custo'].help_text = 'Custo interno da execução/mão de obra. Insumos padrão entram no custo operacional da OS.'
 
     def clean_duracao_minutos(self):
         value = self.cleaned_data.get('duracao_minutos')
         if value is None or value < 1:
             raise forms.ValidationError('Informe uma duração maior que zero.')
         return value
+
+    def clean_custo(self):
+        return self.cleaned_data.get('custo') or 0
 
 
 class ServiceDefaultPartForm(DaisyFormMixin, forms.ModelForm):

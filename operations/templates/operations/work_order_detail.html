@@ -104,7 +104,9 @@
         <div class="stat px-0"><div class="stat-title">Serviços</div><div class="stat-value text-2xl">{{ order.subtotal_servicos|money_br }}</div></div>
         <div class="stat px-0"><div class="stat-title">Combos</div><div class="stat-value text-2xl">{{ order.subtotal_combos|money_br }}</div></div>
         <div class="stat px-0"><div class="stat-title">Peças</div><div class="stat-value text-2xl">{{ order.subtotal_pecas|money_br }}</div><div class="stat-desc">Somente itens cobrados do cliente</div></div>
+        <div class="stat px-0"><div class="stat-title">Custo serviços</div><div class="stat-value text-2xl">{{ order.custo_servicos|money_br }}</div><div class="stat-desc">Custo interno de execução</div></div>
         <div class="stat px-0"><div class="stat-title">Insumos internos</div><div class="stat-value text-2xl">{{ order.custo_insumos|money_br }}</div><div class="stat-desc">Despesa da oficina; não soma no total</div></div>
+        <div class="stat px-0"><div class="stat-title">Custo operacional</div><div class="stat-value text-2xl">{{ order.custo_operacional|money_br }}</div><div class="stat-desc">Serviços + insumos</div></div>
         <div class="stat px-0"><div class="stat-title">Desconto</div><div class="stat-value text-2xl">{{ order.valor_desconto|money_br }}</div><div class="stat-desc">{{ order.desconto_percentual|default:'0,00' }}%</div></div>
         <div class="stat px-0"><div class="stat-title">Total</div><div class="stat-value text-2xl">{{ order.valor_total|money_br }}</div></div>
       </div>
@@ -205,11 +207,11 @@
       <h2 class="card-title">Serviços da OS</h2>
       <div class="overflow-x-auto">
         <table class="table">
-          <thead><tr><th>Código</th><th>Serviço</th><th>Qtd</th><th>Valor unit.</th><th>Subtotal</th></tr></thead>
+          <thead><tr><th>Código</th><th>Serviço</th><th>Qtd</th><th>Valor unit.</th><th>Subtotal</th><th>Custo unit.</th><th>Custo total</th></tr></thead>
           <tbody>
             {% for item in order.servicos_os.all %}
-              <tr><td class="font-mono whitespace-nowrap">{{ item.service.codigo }}</td><td>{{ item.service.nome }}</td><td>{{ item.quantidade }}</td><td>{{ item.valor_unitario|money_br }}</td><td>{{ item.subtotal|money_br }}</td></tr>
-            {% empty %}<tr><td colspan="5" class="text-center">Nenhum serviço.</td></tr>{% endfor %}
+              <tr><td class="font-mono whitespace-nowrap">{{ item.service.codigo }}</td><td>{{ item.service.nome }}</td><td>{{ item.quantidade }}</td><td>{{ item.valor_unitario|money_br }}</td><td>{{ item.subtotal|money_br }}</td><td>{{ item.custo_unitario|money_br }}</td><td>{{ item.custo_total|money_br }}</td></tr>
+            {% empty %}<tr><td colspan="7" class="text-center">Nenhum serviço.</td></tr>{% endfor %}
           </tbody>
         </table>
       </div>
@@ -221,11 +223,11 @@
       <h2 class="card-title">Combos da OS</h2>
       <div class="overflow-x-auto">
         <table class="table">
-          <thead><tr><th>Código</th><th>Combo</th><th>Qtd</th><th>Valor unit.</th><th>Subtotal</th></tr></thead>
+          <thead><tr><th>Código</th><th>Combo</th><th>Qtd</th><th>Valor unit.</th><th>Subtotal</th><th>Custo unit.</th><th>Custo total</th></tr></thead>
           <tbody>
             {% for item in order.combos_os.all %}
-              <tr><td class="font-mono whitespace-nowrap">{{ item.combo.codigo }}</td><td>{{ item.combo.nome }}</td><td>{{ item.quantidade }}</td><td>{{ item.valor_unitario|money_br }}</td><td>{{ item.subtotal|money_br }}</td></tr>
-            {% empty %}<tr><td colspan="5" class="text-center">Nenhum combo.</td></tr>{% endfor %}
+              <tr><td class="font-mono whitespace-nowrap">{{ item.combo.codigo }}</td><td>{{ item.combo.nome }}</td><td>{{ item.quantidade }}</td><td>{{ item.valor_unitario|money_br }}</td><td>{{ item.subtotal|money_br }}</td><td>{{ item.custo_unitario|money_br }}</td><td>{{ item.custo_total|money_br }}</td></tr>
+            {% empty %}<tr><td colspan="7" class="text-center">Nenhum combo.</td></tr>{% endfor %}
           </tbody>
         </table>
       </div>

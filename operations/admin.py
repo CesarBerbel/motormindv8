@@ -39,7 +39,7 @@ class ServiceDefaultPartInline(admin.TabularInline):
 
 @admin.register(Service)
 class ServiceAdmin(admin.ModelAdmin):
-    list_display = ('codigo', 'nome', 'categoria', 'duracao_minutos', 'valor', 'criado_em', 'atualizado_em')
+    list_display = ('codigo', 'nome', 'categoria', 'duracao_minutos', 'valor', 'custo', 'criado_em', 'atualizado_em')
     list_filter = ('categoria',)
     search_fields = ('codigo', 'nome', 'categoria__nome', 'descricao', 'pecas_associadas__item__sku', 'pecas_associadas__item__nome')
     readonly_fields = ('codigo',)

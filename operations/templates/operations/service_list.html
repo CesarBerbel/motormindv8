@@ -7,7 +7,7 @@
 <div class="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
   <div>
     <h1 class="page-title">Serviços</h1>
-    <p class="text-base-content/70">Cadastro operacional de serviços com código automático, duração, valor e peças padrão.</p>
+    <p class="text-base-content/70">Cadastro operacional de serviços com código automático, duração, valor, custo, peças e insumos padrão.</p>
   </div>
   <div class="flex flex-wrap gap-2 lg:justify-end">
     {% if perms.operations.view_servicecategory %}
@@ -61,7 +61,7 @@
 
         <div class="lg:col-span-5">
           <label class="label" for="id_peca_filter">
-            <span class="label-text">Peça padrão</span>
+            <span class="label-text">Peça/Insumo padrão</span>
           </label>
           <select id="id_peca_filter" name="peca" class="select select-bordered w-full">
             <option value="">Todas</option>
@@ -129,7 +129,9 @@
         <th>Nome</th>
         <th>Categoria</th>
         <th>Duração</th>
-        <th>Valor</th>
+        <th>Valor base</th>
+        <th>Valor final</th>
+        <th>Custo operacional</th>
         <th class="text-right whitespace-nowrap">Ações</th>
       </tr>
     </thead>
@@ -149,6 +151,8 @@
           </td>
           <td class="whitespace-nowrap">{{ service.duracao_formatada }}</td>
           <td class="whitespace-nowrap">{{ service.valor|money_br }}</td>
+          <td class="whitespace-nowrap">{{ service.valor_estimado_total|money_br }}</td>
+          <td class="whitespace-nowrap">{{ service.custo_operacional_estimado|money_br }}</td>
           <td class="text-right whitespace-nowrap">
             <div class="inline-flex flex-nowrap items-center justify-end gap-1 whitespace-nowrap">
               <a href="{% url 'service_detail' service.pk %}" class="btn btn-xs btn-ghost whitespace-nowrap">Ver</a>
@@ -163,7 +167,7 @@
         </tr>
       {% empty %}
         <tr>
-          <td colspan="6" class="text-center">Nenhum serviço cadastrado.</td>
+          <td colspan="8" class="text-center">Nenhum serviço cadastrado.</td>
         </tr>
       {% endfor %}
     </tbody>

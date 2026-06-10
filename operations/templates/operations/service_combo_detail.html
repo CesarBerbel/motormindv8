@@ -28,6 +28,9 @@
         <div><span class="text-sm text-base-content/60">Código</span><p class="font-mono font-medium">{{ combo.codigo }}</p></div>
         <div><span class="text-sm text-base-content/60">Duração total</span><p class="font-medium">{{ combo.duracao_formatada }} <span class="text-base-content/60">({{ combo.duracao_total_minutos }} min)</span></p></div>
         <div><span class="text-sm text-base-content/60">Subtotal dos serviços</span><p class="font-medium">{{ combo.subtotal_servicos|money_br }}</p></div>
+        <div><span class="text-sm text-base-content/60">Custo dos serviços</span><p class="font-medium">{{ combo.custo_servicos|money_br }}</p></div>
+        <div><span class="text-sm text-base-content/60">Peças padrão</span><p class="font-medium">{{ combo.valor_pecas_padrao|money_br }}</p></div>
+        <div><span class="text-sm text-base-content/60">Insumos internos</span><p class="font-medium">{{ combo.custo_insumos_padrao|money_br }}</p></div>
         <div><span class="text-sm text-base-content/60">Desconto</span><p class="font-medium">{{ combo.desconto_percentual|default:'0,00' }}%</p></div>
       </div>
       <div class="mt-4">
@@ -69,8 +72,10 @@
             <th>Código</th>
             <th>Serviço</th>
             <th>Duração</th>
-            <th>Valor</th>
-            <th>Peças padrão</th>
+            <th>Valor base</th>
+            <th>Custo base</th>
+            <th>Valor final</th>
+            <th>Peças/Insumos padrão</th>
             <th>Descrição</th>
           </tr>
         </thead>
@@ -83,10 +88,12 @@
               </td>
               <td class="whitespace-nowrap">{{ item.service.duracao_formatada }}</td>
               <td class="whitespace-nowrap">{{ item.service.valor|money_br }}</td>
+              <td class="whitespace-nowrap">{{ item.service.custo_base|money_br }}</td>
+              <td class="whitespace-nowrap">{{ item.service.valor_estimado_total|money_br }}</td>
               <td>
                 <div class="flex max-w-md flex-wrap gap-1">
                   {% for part in item.service.pecas_associadas.all %}
-                    <span class="badge badge-outline whitespace-nowrap">{{ part.item.sku }} - {{ part.item.nome }} · {{ part.quantidade }} {{ part.item.unidade.sigla }} · {% if part.obrigatoria %}obrigatória{% else %}opcional{% endif %}</span>
+                    <span class="badge badge-outline whitespace-nowrap">{{ part.item.sku }} - {{ part.item.nome }} · {{ part.item.get_tipo_display }} · {{ part.quantidade }} {{ part.item.unidade.sigla }}{% if part.item.tipo == 'peca' %} · {% if part.obrigatoria %}obrigatória{% else %}opcional{% endif %}{% endif %}</span>
                   {% empty %}
                     <span class="text-base-content/60">-</span>
                   {% endfor %}

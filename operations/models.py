@@ -78,7 +78,12 @@ class Service(SoftDeleteModel):
     )
     descricao = models.TextField('Descrição', blank=True)
     duracao_minutos = models.PositiveIntegerField('Duração em minutos', default=60, validators=[MinValueValidator(1)])
-    valor = MoneyField('Valor', default=Decimal('0.00'))
+    valor = MoneyField('Valor do serviço', default=Decimal('0.00'))
+    custo = MoneyField(
+        'Custo do serviço',
+        default=Decimal('0.00'),
+        help_text='Custo interno da mão de obra/execução. Não é cobrado diretamente do cliente.',
+    )
     pecas_padrao = models.ManyToManyField(
         InventoryItem,
         verbose_name='Peças padrão',
@@ -124,11 +129,28 @@ class Service(SoftDeleteModel):
         return f'{minutos}min'
 
     @property
+    def custo_base(self):
+        return (self.custo or Decimal('0.00')).quantize(Decimal('0.01'))
+
+    @property
     def custo_pecas_padrao(self):
         total = Decimal('0.00')
         for part in self.pecas_associadas.select_related('item'):
-            total += (part.item.preco_custo or Decimal('0.00')) * part.quantidade
+            if part.item.tipo == InventoryItemType.PECA:
+                total += (part.item.preco_custo or Decimal('0.00')) * part.quantidade
         return total.quantize(Decimal('0.01'))
+
+    @property
+    def custo_insumos_padrao(self):
+        total = Decimal('0.00')
+        for part in self.pecas_associadas.select_related('item'):
+            if part.item.tipo == InventoryItemType.INSUMO:
+                total += (part.item.preco_custo or Decimal('0.00')) * part.quantidade
+        return total.quantize(Decimal('0.01'))
+
+    @property
+    def custo_operacional_estimado(self):
+        return (self.custo_base + self.custo_insumos_padrao).quantize(Decimal('0.01'))
 
     @property
     def valor_pecas_padrao(self):
@@ -251,6 +273,27 @@ class ServiceCombo(SoftDeleteModel):
         total = Decimal('0.00')
         for item in self.servicos_associados.select_related('service'):
             total += item.service.valor or Decimal('0.00')
+        return total.quantize(Decimal('0.01'))
+
+    @property
+    def custo_servicos(self):
+        total = Decimal('0.00')
+        for item in self.servicos_associados.select_related('service'):
+            total += item.service.custo_base
+        return total.quantize(Decimal('0.01'))
+
+    @property
+    def valor_pecas_padrao(self):
+        total = Decimal('0.00')
+        for item in self.servicos_associados.select_related('service'):
+            total += item.service.valor_pecas_padrao
+        return total.quantize(Decimal('0.01'))
+
+    @property
+    def custo_insumos_padrao(self):
+        total = Decimal('0.00')
+        for item in self.servicos_associados.select_related('service'):
+            total += item.service.custo_insumos_padrao
         return total.quantize(Decimal('0.01'))
 
     @property
@@ -718,6 +761,18 @@ class WorkOrder(SoftDeleteModel):
         return custo_insumos(self)
 
     @property
+    def custo_servicos(self):
+        from operations.services.work_order_totals import custo_servicos
+
+        return custo_servicos(self)
+
+    @property
+    def custo_operacional(self):
+        from operations.services.work_order_totals import custo_operacional
+
+        return custo_operacional(self)
+
+    @property
     def subtotal(self):
         from operations.services.work_order_totals import subtotal
 
@@ -899,6 +954,16 @@ class WorkOrderServiceItem(models.Model):
     def subtotal(self):
         return ((self.valor_unitario or Decimal('0.00')) * self.quantidade).quantize(Decimal('0.01'))
 
+    @property
+    def custo_unitario(self):
+        if not self.service_id:
+            return Decimal('0.00')
+        return self.service.custo_base
+
+    @property
+    def custo_total(self):
+        return (self.custo_unitario * self.quantidade).quantize(Decimal('0.01'))
+
 
 class WorkOrderComboItem(models.Model):
     ordem_servico = models.ForeignKey(
@@ -935,6 +1000,16 @@ class WorkOrderComboItem(models.Model):
     @property
     def subtotal(self):
         return ((self.valor_unitario or Decimal('0.00')) * self.quantidade).quantize(Decimal('0.01'))
+
+    @property
+    def custo_unitario(self):
+        if not self.combo_id:
+            return Decimal('0.00')
+        return self.combo.custo_servicos
+
+    @property
+    def custo_total(self):
+        return (self.custo_unitario * self.quantidade).quantize(Decimal('0.01'))
 
 
 class WorkOrderPartItem(models.Model):

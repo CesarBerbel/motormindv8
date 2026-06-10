@@ -7,7 +7,7 @@
 <div class="mb-6 flex items-center justify-between gap-4">
   <div>
     <h1 class="page-title">{{ title }}</h1>
-    <p class="text-base-content/70">Preencha os dados do serviço e associe as peças padrão quando necessário.</p>
+    <p class="text-base-content/70">Preencha valor/custo do serviço e associe peças ou insumos padrão quando necessário.</p>
   </div>
   <a href="{{ cancel_url }}" class="btn btn-ghost whitespace-nowrap">Cancelar</a>
 </div>
@@ -28,11 +28,11 @@
     <div class="card-body">
       <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
         <div>
-          <h2 class="card-title">Peças padrão</h2>
-          <p class="text-sm text-base-content/70">Adicione as peças/insumos normalmente usados nesse serviço. Isso não movimenta estoque.</p>
+          <h2 class="card-title">Peças e insumos padrão</h2>
+          <p class="text-sm text-base-content/70">Peças somam no valor final do serviço. Insumos entram apenas no custo operacional da OS e não aparecem para o cliente.</p>
         </div>
         <button type="button" class="btn btn-primary whitespace-nowrap" data-service-part-open-modal>
-          Adicionar peça
+          Adicionar item
         </button>
       </div>
 
@@ -83,7 +83,7 @@
       <div class="mt-4 space-y-3" data-service-parts-list></div>
 
       <div class="mt-4 rounded-box border border-dashed border-base-300 bg-base-200 p-6 text-center text-sm text-base-content/60" data-service-parts-empty>
-        Nenhuma peça padrão adicionada. Clique em <strong>Adicionar peça</strong> para selecionar uma peça/insumo e informar a quantidade.
+        Nenhuma peça/insumo padrão adicionada. Clique em <strong>Adicionar item</strong> para selecionar uma peça ou insumo e informar a quantidade.
       </div>
 
       <div class="card-actions justify-end mt-6">
@@ -94,7 +94,7 @@
   </div>
 </form>
 
-{% include 'includes/reusable_select_modal.html' with modal_id='service_part_picker_modal' modal_title='Adicionar peça padrão' modal_description='Busque a peça ou insumo, confira os dados no card e informe a quantidade padrão do serviço.' search_label='Peça/Insumo' search_placeholder='Digite SKU, nome, categoria ou marca' quantity_label='Quantidade padrão' quantity_placeholder='1' empty_message='Nenhuma peça/insumo encontrada.' %}
+{% include 'includes/reusable_select_modal.html' with modal_id='service_part_picker_modal' modal_title='Adicionar peça ou insumo padrão' modal_description='Busque o item, confira se é peça ou insumo e informe a quantidade padrão do serviço.' search_label='Peça/Insumo' search_placeholder='Digite SKU, nome, categoria ou marca' quantity_label='Quantidade padrão' quantity_placeholder='1' empty_message='Nenhuma peça/insumo encontrada.' %}
 
 {{ service_part_items_json|json_script:'service-part-items-data' }}
 {% endblock %}

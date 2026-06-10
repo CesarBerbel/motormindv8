@@ -109,6 +109,7 @@
         <th class="text-center whitespace-nowrap">Qtd. serviços</th>
         <th>Desconto</th>
         <th>Valor total</th>
+        <th>Custo serviços</th>
         <th class="text-right whitespace-nowrap">Ações</th>
       </tr>
     </thead>
@@ -124,6 +125,7 @@
           </td>
           <td class="whitespace-nowrap">{{ combo.desconto_percentual|default:'0,00' }}%</td>
           <td class="whitespace-nowrap">{{ combo.valor_total|money_br }}</td>
+          <td class="whitespace-nowrap">{{ combo.custo_servicos|money_br }}</td>
           <td class="text-right whitespace-nowrap">
             <div class="inline-flex flex-nowrap items-center justify-end gap-1 whitespace-nowrap">
               <a href="{% url 'service_combo_detail' combo.pk %}" class="btn btn-xs btn-ghost whitespace-nowrap">Ver</a>

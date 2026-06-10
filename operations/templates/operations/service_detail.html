@@ -28,8 +28,11 @@
         <div><span class="text-sm text-base-content/60">Código</span><p class="font-mono font-medium">{{ service.codigo }}</p></div>
         <div><span class="text-sm text-base-content/60">Categoria</span><p class="font-medium">{{ service.categoria.nome|default:'-' }}</p></div>
         <div><span class="text-sm text-base-content/60">Duração</span><p class="font-medium">{{ service.duracao_formatada }} <span class="text-base-content/60">({{ service.duracao_minutos }} min)</span></p></div>
-        <div><span class="text-sm text-base-content/60">Valor do serviço</span><p class="font-medium">{{ service.valor|money_br }}</p></div>
-        <div><span class="text-sm text-base-content/60">Custo estimado das peças</span><p class="font-medium">{{ service.custo_pecas_padrao|money_br }}</p></div>
+        <div><span class="text-sm text-base-content/60">Valor base do serviço</span><p class="font-medium">{{ service.valor|money_br }}</p></div>
+        <div><span class="text-sm text-base-content/60">Custo base do serviço</span><p class="font-medium">{{ service.custo_base|money_br }}</p></div>
+        <div><span class="text-sm text-base-content/60">Peças cobradas</span><p class="font-medium">{{ service.valor_pecas_padrao|money_br }}</p></div>
+        <div><span class="text-sm text-base-content/60">Insumos internos</span><p class="font-medium">{{ service.custo_insumos_padrao|money_br }}</p></div>
+        <div><span class="text-sm text-base-content/60">Valor final estimado</span><p class="font-medium">{{ service.valor_estimado_total|money_br }}</p></div>
       </div>
       <div class="mt-4">
         <span class="text-sm text-base-content/60">Descrição</span>
@@ -43,28 +46,41 @@
       <h2 class="card-title">Resumo</h2>
       <div class="stats stats-vertical shadow-none">
         <div class="stat px-0">
-          <div class="stat-title">Valor do serviço</div>
+          <div class="stat-title">Valor base</div>
           <div class="stat-value text-2xl">{{ service.valor|money_br }}</div>
+          <div class="stat-desc">Mão de obra/serviço</div>
         </div>
         <div class="stat px-0">
-          <div class="stat-title">Serviço + peças</div>
+          <div class="stat-title">Peças</div>
+          <div class="stat-value text-2xl">{{ service.valor_pecas_padrao|money_br }}</div>
+          <div class="stat-desc">Somam no valor final</div>
+        </div>
+        <div class="stat px-0">
+          <div class="stat-title">Valor final</div>
           <div class="stat-value text-2xl">{{ service.valor_estimado_total|money_br }}</div>
         </div>
+        <div class="stat px-0">
+          <div class="stat-title">Custo operacional</div>
+          <div class="stat-value text-2xl">{{ service.custo_operacional_estimado|money_br }}</div>
+          <div class="stat-desc">Custo do serviço + insumos</div>
+        </div>
       </div>
-      <p class="text-sm text-base-content/60">O total com peças é uma estimativa com base no preço de custo atual dos itens vinculados.</p>
+      <p class="text-sm text-base-content/60">Peças do tipo peça entram no valor cobrado. Itens do tipo insumo são custo interno e não aparecem para o cliente.</p>
     </div>
   </div>
 </div>
 
 <div class="mt-6 card bg-base-100 shadow">
   <div class="card-body">
-    <h2 class="card-title">Peças padrão associadas</h2>
+    <h2 class="card-title">Peças e insumos padrão</h2>
+    <p class="text-sm text-base-content/60">Peças podem ser obrigatórias ou opcionais no orçamento. Insumos são internos e servem apenas para custo/estoque.</p>
     <div class="overflow-x-auto">
       <table class="table">
         <thead>
           <tr>
             <th>SKU</th>
-            <th>Peça/Insumo</th>
+            <th>Item</th>
+            <th>Tipo</th>
             <th>Categoria</th>
             <th>Marca</th>
             <th>Quantidade</th>
@@ -83,21 +99,26 @@
               <td class="whitespace-nowrap">
                 <a href="{% url 'inventory_item_detail' part.item.pk %}" class="link link-primary">{{ part.item.nome }}</a>
               </td>
+              <td class="whitespace-nowrap"><span class="badge badge-outline">{{ part.item.get_tipo_display }}</span></td>
               <td class="whitespace-nowrap">{{ part.item.categoria.nome }}</td>
               <td class="whitespace-nowrap">{{ part.item.marca.nome|default:'-' }}</td>
               <td class="whitespace-nowrap">{{ part.quantidade }} {{ part.item.unidade.sigla }}</td>
               <td class="whitespace-nowrap">
-                {% if part.obrigatoria %}<span class="badge badge-primary badge-outline">Obrigatória</span>{% else %}<span class="badge badge-warning badge-outline">Opcional</span>{% endif %}
+                {% if part.item.tipo == 'peca' %}
+                  {% if part.obrigatoria %}<span class="badge badge-primary badge-outline">Obrigatória</span>{% else %}<span class="badge badge-warning badge-outline">Opcional</span>{% endif %}
+                {% else %}
+                  <span class="badge badge-ghost">Interno</span>
+                {% endif %}
               </td>
               <td class="whitespace-nowrap">{{ part.item.preco_custo|money_br }}</td>
-              <td class="whitespace-nowrap">{{ part.item.valor_venda|money_br }}</td>
+              <td class="whitespace-nowrap">{% if part.item.tipo == 'insumo' %}<span class="text-base-content/60">Não cobra</span>{% else %}{{ part.item.valor_venda|money_br }}{% endif %}</td>
               <td class="whitespace-nowrap">{{ part.custo_total|money_br }}</td>
-              <td class="whitespace-nowrap">{{ part.valor_total|money_br }}</td>
+              <td class="whitespace-nowrap">{% if part.item.tipo == 'insumo' %}<span class="text-base-content/60">Não cobra</span>{% else %}{{ part.valor_total|money_br }}{% endif %}</td>
               <td>{{ part.observacao|default:'-' }}</td>
             </tr>
           {% empty %}
             <tr>
-              <td colspan="11" class="text-center">Nenhuma peça padrão associada.</td>
+              <td colspan="12" class="text-center">Nenhuma peça/insumo padrão associada.</td>
             </tr>
           {% endfor %}
         </tbody>

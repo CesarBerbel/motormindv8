@@ -84,8 +84,9 @@ function setupServicePartsModal() {
       const itemId = getField(row, 'item')?.value;
       const quantity = getField(row, 'quantidade')?.value;
       const requiredInput = getField(row, 'obrigatoria');
-      const required = requiredInput ? requiredInput.checked : true;
       const item = itemsById.get(String(itemId));
+      const isSupply = Boolean(item?.interno_oficina);
+      const required = !isSupply && requiredInput ? requiredInput.checked : true;
       const errorsHtml = getRowErrors(row);
 
       if (!item) {
@@ -102,22 +103,28 @@ function setupServicePartsModal() {
               <span class="badge badge-outline font-mono">${escapeHtml(item.sku || 'Sem SKU')}</span>
               <span class="font-semibold">${escapeHtml(item.nome)}</span>
               <span class="badge badge-ghost">${escapeHtml(item.tipo || 'Item')}</span>
-              <span class="badge ${required ? 'badge-primary badge-outline' : 'badge-warning badge-outline'}" data-service-part-required-badge>${required ? 'Obrigatória' : 'Opcional'}</span>
+              ${isSupply ? '<span class="badge badge-info badge-outline" data-service-part-required-badge>Insumo interno</span>' : `<span class="badge ${required ? 'badge-primary badge-outline' : 'badge-warning badge-outline'}" data-service-part-required-badge>${required ? 'Obrigatória' : 'Opcional'}</span>`}
             </div>
             <div class="mt-2 grid gap-2 text-sm text-base-content/70 md:grid-cols-4">
               <div><span class="block text-xs text-base-content/50">Categoria</span>${escapeHtml(item.categoria || '-')}</div>
               <div><span class="block text-xs text-base-content/50">Marca</span>${escapeHtml(item.marca || '-')}</div>
               <div><span class="block text-xs text-base-content/50">Quantidade padrão</span><strong>${escapeHtml(formatQuantity(quantity))} ${escapeHtml(item.unidade || '')}</strong></div>
               <div><span class="block text-xs text-base-content/50">Custo unitário</span>${escapeHtml(item.preco_custo || 'R$ 0,00')}</div>
-              <div><span class="block text-xs text-base-content/50">Venda unitária</span>${escapeHtml(item.preco_venda || item.valor || item.preco_custo || 'R$ 0,00')}</div>
+              <div><span class="block text-xs text-base-content/50">Venda unitária</span>${isSupply ? 'Não cobra' : escapeHtml(item.preco_venda || item.valor || item.preco_custo || 'R$ 0,00')}</div>
             </div>
             ${errorsHtml ? `<div class="alert alert-error mt-3 text-sm">${errorsHtml}</div>` : ''}
           </div>
           <div class="flex shrink-0 flex-col gap-2 sm:items-end">
-            <label class="label cursor-pointer justify-start gap-2 rounded-box border border-base-300 px-3 py-2 text-sm">
-              <input type="checkbox" class="checkbox checkbox-primary checkbox-sm" data-service-part-required-toggle ${required ? 'checked' : ''}>
-              <span class="label-text">Obrigatória</span>
-            </label>
+            ${isSupply ? `
+              <div class="rounded-box border border-base-300 px-3 py-2 text-sm text-base-content/60">
+                Insumo interno: entra no custo do serviço e não é exibido ao cliente.
+              </div>
+            ` : `
+              <label class="label cursor-pointer justify-start gap-2 rounded-box border border-base-300 px-3 py-2 text-sm">
+                <input type="checkbox" class="checkbox checkbox-primary checkbox-sm" data-service-part-required-toggle ${required ? 'checked' : ''}>
+                <span class="label-text">Obrigatória</span>
+              </label>
+            `}
             <button type="button" class="btn btn-error btn-outline btn-sm whitespace-nowrap" data-service-part-remove>Excluir</button>
           </div>
         </div>
@@ -129,6 +136,9 @@ function setupServicePartsModal() {
         }
         renderList();
       });
+      if (isSupply && requiredInput) {
+        requiredInput.checked = true;
+      }
 
       card.querySelector('[data-service-part-remove]')?.addEventListener('click', () => {
         const deleteInput = getField(row, 'DELETE');

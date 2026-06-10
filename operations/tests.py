@@ -156,6 +156,20 @@ class WorkOrderItemTests(WorkOrderFixtureMixin, TestCase):
         self.assertEqual(line.valor_unitario, Decimal('50.00'))
         self.assertEqual(line.subtotal, Decimal('100.00'))
 
+    def test_service_splits_part_value_and_supply_cost(self):
+        self.service.custo = Decimal('35.00')
+        self.service.save(update_fields=['custo'])
+        ServiceDefaultPart.objects.create(service=self.service, item=self.item, quantidade=2, obrigatoria=True)
+        ServiceDefaultPart.objects.create(service=self.service, item=self.insumo, quantidade=3, obrigatoria=True)
+
+        self.assertEqual(self.service.valor, Decimal('100.00'))
+        self.assertEqual(self.service.custo_base, Decimal('35.00'))
+        self.assertEqual(self.service.valor_pecas_padrao, Decimal('100.00'))
+        self.assertEqual(self.service.custo_pecas_padrao, Decimal('60.00'))
+        self.assertEqual(self.service.custo_insumos_padrao, Decimal('36.00'))
+        self.assertEqual(self.service.valor_estimado_total, Decimal('200.00'))
+        self.assertEqual(self.service.custo_operacional_estimado, Decimal('71.00'))
+
 
 class WorkOrderTotalsTests(WorkOrderFixtureMixin, TestCase):
     def test_subtotal_servicos(self):
@@ -209,6 +223,21 @@ class WorkOrderTotalsTests(WorkOrderFixtureMixin, TestCase):
         self.assertFalse(requirement['is_billable_to_customer'])
         self.assertEqual(requirement['subtotal'], Decimal('0.00'))
         self.assertEqual(requirement['custo_total'], Decimal('24.00'))
+
+    def test_service_cost_and_supplies_compose_operational_cost_without_changing_sale_total(self):
+        self.service.custo = Decimal('25.00')
+        self.service.save(update_fields=['custo'])
+        ServiceDefaultPart.objects.create(service=self.service, item=self.item, quantidade=1, obrigatoria=True)
+        ServiceDefaultPart.objects.create(service=self.service, item=self.insumo, quantidade=2, obrigatoria=True)
+        order = self._work_order()
+        WorkOrderServiceItem.objects.create(ordem_servico=order, service=self.service, quantidade=2)
+
+        self.assertEqual(order.subtotal_servicos, Decimal('200.00'))
+        self.assertEqual(order.subtotal_pecas, Decimal('100.00'))
+        self.assertEqual(order.valor_total, Decimal('300.00'))
+        self.assertEqual(order.custo_servicos, Decimal('50.00'))
+        self.assertEqual(order.custo_insumos, Decimal('48.00'))
+        self.assertEqual(order.custo_operacional, Decimal('98.00'))
 
     def test_approval_budget_hides_insumo_from_customer_and_excludes_from_total(self):
         order = self._work_order()

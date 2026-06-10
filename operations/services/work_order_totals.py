@@ -63,6 +63,19 @@ def subtotal_insumos(order):
     return custo_insumos(order)
 
 
+def custo_servicos(order):
+    total = Decimal('0.00')
+    for item in order.servicos_os.select_related('service'):
+        total += item.custo_total
+    for item in order.combos_os.select_related('combo').prefetch_related('combo__servicos_associados__service'):
+        total += item.custo_total
+    return money(total)
+
+
+def custo_operacional(order):
+    return money(order.custo_servicos + order.custo_insumos)
+
+
 def subtotal(order):
     budget = order.get_effective_approval_budget()
     if budget:
