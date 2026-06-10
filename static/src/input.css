@@ -658,3 +658,152 @@ body {
     padding: 0 1rem 1rem;
   }
 }
+
+/* Conferência da importação XML de peças e insumos. */
+.inventory-xml-review__hero {
+  background:
+    radial-gradient(circle at top left, color-mix(in oklch, var(--fallback-p, oklch(var(--p) / 1)) 14%, transparent), transparent 34rem),
+    linear-gradient(135deg, color-mix(in oklch, var(--fallback-p, oklch(var(--p) / 1)) 7%, var(--fallback-b1, oklch(var(--b1) / 1))), var(--fallback-b1, oklch(var(--b1) / 1)));
+}
+
+.inventory-xml-review__metric {
+  border: 1px solid color-mix(in oklch, currentColor 10%, transparent);
+  border-radius: var(--rounded-box, 1rem);
+  background: color-mix(in oklch, var(--fallback-b1, oklch(var(--b1) / 1)) 86%, white 14%);
+  padding: 0.85rem 1rem;
+  box-shadow: 0 10px 24px color-mix(in oklch, currentColor 5%, transparent);
+}
+
+.inventory-xml-review__metric span {
+  display: block;
+  color: color-mix(in oklch, currentColor 55%, transparent);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.inventory-xml-review__metric strong {
+  display: block;
+  margin-top: 0.2rem;
+  color: color-mix(in oklch, currentColor 86%, transparent);
+  font-size: 1.35rem;
+  line-height: 1.2;
+}
+
+.inventory-xml-document-card,
+.inventory-xml-item-card,
+.inventory-xml-option-card {
+  border: 1px solid color-mix(in oklch, currentColor 10%, transparent);
+  border-radius: var(--rounded-box, 1rem);
+  background: var(--fallback-b1, oklch(var(--b1) / 1));
+}
+
+.inventory-xml-document-card {
+  padding: 1rem;
+}
+
+.inventory-xml-document-card dl div {
+  min-width: 0;
+  border-radius: 0.75rem;
+  background: color-mix(in oklch, currentColor 3%, transparent);
+  padding: 0.55rem 0.65rem;
+}
+
+.inventory-xml-document-card dt,
+.inventory-xml-source-grid dt {
+  color: color-mix(in oklch, currentColor 50%, transparent);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.inventory-xml-document-card dd,
+.inventory-xml-source-grid dd {
+  margin-top: 0.12rem;
+  overflow-wrap: anywhere;
+}
+
+.inventory-xml-item-card {
+  padding: 1rem;
+  box-shadow: 0 10px 26px color-mix(in oklch, currentColor 5%, transparent);
+}
+
+.inventory-xml-item-card__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.9rem;
+}
+
+.inventory-xml-item-card__checkbox,
+.inventory-xml-option-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+
+.inventory-xml-item-card__checkbox {
+  min-width: 7.6rem;
+  border-radius: 0.85rem;
+  background: color-mix(in oklch, var(--fallback-p, oklch(var(--p) / 1)) 7%, transparent);
+  color: color-mix(in oklch, currentColor 82%, transparent);
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 700;
+  padding: 0.65rem 0.75rem;
+}
+
+.inventory-xml-item-card input,
+.inventory-xml-item-card select,
+.inventory-xml-item-card textarea,
+.inventory-xml-review aside input,
+.inventory-xml-review aside select {
+  font-size: 0.875rem;
+}
+
+.inventory-xml-source-grid {
+  display: grid;
+  gap: 0.65rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.inventory-xml-source-grid div {
+  min-width: 0;
+  border-radius: 0.75rem;
+  background: color-mix(in oklch, currentColor 3.5%, transparent);
+  padding: 0.55rem 0.65rem;
+}
+
+.inventory-xml-option-card {
+  cursor: pointer;
+  padding: 0.85rem;
+}
+
+.inventory-xml-option-card:hover,
+.inventory-xml-item-card:hover,
+.inventory-xml-document-card:hover {
+  border-color: color-mix(in oklch, var(--fallback-p, oklch(var(--p) / 1)) 28%, transparent);
+}
+
+@media (min-width: 1280px) {
+  .inventory-xml-review aside.xl\:sticky {
+    top: calc(var(--mm-navbar-offset, 4rem) + 1rem);
+  }
+}
+
+@media (max-width: 767.98px) {
+  .inventory-xml-item-card__header {
+    display: block;
+  }
+
+  .inventory-xml-item-card__checkbox {
+    margin-bottom: 0.85rem;
+    width: 100%;
+  }
+
+  .inventory-xml-source-grid {
+    grid-template-columns: 1fr;
+  }
+}

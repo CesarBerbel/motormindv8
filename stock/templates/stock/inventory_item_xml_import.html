@@ -78,37 +78,34 @@
 </div>
 
 {% if preview %}
-  <div class="mt-6 space-y-6">
-    <section class="card border border-primary/20 bg-primary/5 shadow-sm">
-      <div class="card-body">
-        <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-          <div>
-            <h2 class="card-title">2. Revisar prévia</h2>
-            <p class="text-sm text-base-content/70">
-              {{ total_rows }} produto(s) encontrado(s). O campo <strong>Código da peça</strong> já vem preenchido a partir do XML quando possível,
-              mas pode ser editado antes de importar.
-            </p>
+  <div class="inventory-xml-review mt-6 space-y-6">
+    <section class="inventory-xml-review__hero rounded-box border border-primary/20 bg-base-100 shadow-sm">
+      <div class="flex flex-col gap-5 p-5 lg:flex-row lg:items-start lg:justify-between">
+        <div class="min-w-0">
+          <div class="mb-2 flex flex-wrap items-center gap-2">
+            <span class="badge badge-primary badge-outline">Prévia não salva</span>
+            <span class="badge badge-outline">Conferência do XML</span>
           </div>
-          <span class="badge badge-primary badge-outline whitespace-nowrap">Prévia não salva</span>
+          <h2 class="text-2xl font-bold tracking-tight">Revise os produtos antes de importar</h2>
+          <p class="mt-2 max-w-3xl text-sm text-base-content/70">
+            Confira os dados lidos do XML, ajuste o código da peça/SKU e desmarque o que não deve entrar no estoque.
+            A gravação só acontece ao confirmar a importação.
+          </p>
         </div>
-
-        {% if parsed_documents %}
-          <div class="mt-3 grid gap-3 lg:grid-cols-2">
-            {% for document in parsed_documents %}
-              <div class="rounded-box border border-base-300 bg-base-100 p-3 text-sm">
-                <div class="font-semibold">{{ document.filename }}</div>
-                <div class="mt-1 text-base-content/65">
-                  NF-e: {{ document.numero|default:'-' }} · Chave: {{ document.chave|default:'-' }}
-                </div>
-                <div class="mt-1 text-base-content/65">
-                  Fornecedor XML: {{ document.fornecedor.nome|default:'-' }}
-                  {% if document.fornecedor.documento %} · {{ document.fornecedor.documento }}{% endif %}
-                </div>
-                <div class="mt-1 text-base-content/65">{{ document.produtos|length }} produto(s)</div>
-              </div>
-            {% endfor %}
+        <div class="grid w-full grid-cols-2 gap-3 sm:w-auto sm:min-w-96 lg:grid-cols-3">
+          <div class="inventory-xml-review__metric">
+            <span>Produtos</span>
+            <strong>{{ total_rows }}</strong>
           </div>
-        {% endif %}
+          <div class="inventory-xml-review__metric">
+            <span>Arquivos</span>
+            <strong>{{ parsed_documents|length|default:'-' }}</strong>
+          </div>
+          <div class="inventory-xml-review__metric col-span-2 lg:col-span-1">
+            <span>Status</span>
+            <strong>Em revisão</strong>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -116,167 +113,234 @@
       {% csrf_token %}
       <input type="hidden" name="action" value="import">
       <input type="hidden" name="payload" value="{{ payload }}">
+      {{ formset.management_form }}
 
-      <section class="card border border-base-300 bg-base-100 shadow-sm">
-        <div class="card-body">
-          <h2 class="card-title">3. Opções de importação</h2>
-          {% if options_form.non_field_errors %}
-            <div class="alert alert-error">
-              {{ options_form.non_field_errors }}
-            </div>
+      <div class="grid gap-6 xl:grid-cols-[minmax(0,1fr)_22rem]">
+        <div class="space-y-6">
+          {% if parsed_documents %}
+            <section class="card border border-base-300 bg-base-100 shadow-sm">
+              <div class="card-body gap-4 p-5">
+                <div>
+                  <h2 class="card-title">Arquivos e fornecedor identificados</h2>
+                  <p class="text-sm text-base-content/65">Resumo dos documentos lidos para rastreabilidade antes da importação.</p>
+                </div>
+                <div class="grid gap-3 lg:grid-cols-2">
+                  {% for document in parsed_documents %}
+                    <article class="inventory-xml-document-card">
+                      <div class="flex items-start justify-between gap-3">
+                        <div class="min-w-0">
+                          <p class="truncate font-semibold">{{ document.filename }}</p>
+                          <p class="mt-1 text-xs text-base-content/60">{{ document.produtos|length }} produto(s) no arquivo</p>
+                        </div>
+                        <span class="badge badge-sm badge-outline whitespace-nowrap">XML</span>
+                      </div>
+                      <dl class="mt-3 grid gap-2 text-xs text-base-content/70">
+                        <div><dt>NF-e</dt><dd>{{ document.numero|default:'-' }}</dd></div>
+                        <div><dt>Chave</dt><dd class="break-all font-mono">{{ document.chave|default:'-' }}</dd></div>
+                        <div><dt>Fornecedor XML</dt><dd>{{ document.fornecedor.nome|default:'-' }}</dd></div>
+                        {% if document.fornecedor.documento %}
+                          <div><dt>Documento</dt><dd class="font-mono">{{ document.fornecedor.documento }}</dd></div>
+                        {% endif %}
+                      </dl>
+                    </article>
+                  {% endfor %}
+                </div>
+              </div>
+            </section>
           {% endif %}
 
-          <div class="grid gap-4 lg:grid-cols-3">
-            <div class="lg:col-span-1">
-              <label class="label" for="{{ options_form.fornecedor.id_for_label }}">
-                <span class="label-text">{{ options_form.fornecedor.label }}</span>
-              </label>
-              {{ options_form.fornecedor }}
-              {% if options_form.fornecedor.help_text %}
-                <p class="mt-1 text-xs text-base-content/60">{{ options_form.fornecedor.help_text }}</p>
+          <section class="card border border-base-300 bg-base-100 shadow-sm">
+            <div class="card-body gap-4 p-5">
+              <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                <div>
+                  <h2 class="card-title">Produtos encontrados</h2>
+                  <p class="text-sm text-base-content/65">
+                    Cada card representa uma linha do XML. O código/SKU é editável; categorias vazias serão importadas como <strong>Importado XML</strong>.
+                  </p>
+                </div>
+                <div class="flex flex-wrap gap-2 text-xs text-base-content/60">
+                  <span class="rounded-full bg-base-200 px-3 py-1">Código tenta usar cProd</span>
+                  <span class="rounded-full bg-base-200 px-3 py-1">EAN como fallback</span>
+                </div>
+              </div>
+
+              {% if formset.non_form_errors %}
+                <div class="alert alert-error">
+                  {{ formset.non_form_errors }}
+                </div>
               {% endif %}
-              {% for error in options_form.fornecedor.errors %}
-                <p class="mt-1 text-sm text-error">{{ error }}</p>
-              {% endfor %}
-            </div>
 
-            <label class="label cursor-pointer justify-start gap-3 rounded-box border border-base-300 p-3">
-              {{ options_form.registrar_entrada }}
-              <span>
-                <span class="label-text font-medium">{{ options_form.registrar_entrada.label }}</span>
-                <span class="block text-xs text-base-content/60">Cria movimentações de entrada usando a quantidade do XML.</span>
-              </span>
-            </label>
-
-            <label class="label cursor-pointer justify-start gap-3 rounded-box border border-base-300 p-3">
-              {{ options_form.atualizar_existentes }}
-              <span>
-                <span class="label-text font-medium">{{ options_form.atualizar_existentes.label }}</span>
-                <span class="block text-xs text-base-content/60">Se o código já existir, atualiza dados do cadastro.</span>
-              </span>
-            </label>
-          </div>
-        </div>
-      </section>
-
-      <section class="card border border-base-300 bg-base-100 shadow-sm">
-        <div class="card-body">
-          <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-              <h2 class="card-title">4. Produtos encontrados</h2>
-              <p class="text-sm text-base-content/65">
-                Desmarque linhas que não devem entrar no estoque. Categorias vazias serão importadas como <strong>Importado XML</strong>.
-              </p>
-            </div>
-            <button type="submit" class="btn btn-primary whitespace-nowrap">Confirmar importação</button>
-          </div>
-
-          {% if formset.non_form_errors %}
-            <div class="alert alert-error mt-3">
-              {{ formset.non_form_errors }}
-            </div>
-          {% endif %}
-
-          {{ formset.management_form }}
-
-          <div class="mt-4 overflow-x-auto rounded-box border border-base-300">
-            <table class="table table-sm">
-              <thead>
-                <tr>
-                  <th>Importar</th>
-                  <th>XML</th>
-                  <th>Código da peça</th>
-                  <th>Nome</th>
-                  <th>Tipo</th>
-                  <th>Categoria</th>
-                  <th>Marca</th>
-                  <th>Unid.</th>
-                  <th>Qtde</th>
-                  <th>Custo</th>
-                  <th>Venda</th>
-                  <th>Mín.</th>
-                  <th>Descrição</th>
-                </tr>
-              </thead>
-              <tbody>
+              <div class="space-y-4">
                 {% for form in formset %}
-                  <tr>
-                    <td class="align-top">
-                      {% for hidden in form.hidden_fields %}{{ hidden }}{% endfor %}
-                      {{ form.importar }}
-                      {% for error in form.importar.errors %}<p class="text-xs text-error">{{ error }}</p>{% endfor %}
-                    </td>
-                    <td class="align-top text-xs">
-                      <div><span class="font-semibold">cProd:</span> {{ form.xml_codigo.value|default:'-' }}</div>
-                      <div><span class="font-semibold">EAN:</span> {{ form.xml_ean.value|default:'-' }}</div>
-                      <div><span class="font-semibold">NCM:</span> {{ form.xml_ncm.value|default:'-' }}</div>
-                      <div><span class="font-semibold">CFOP:</span> {{ form.xml_cfop.value|default:'-' }}</div>
-                      <div><span class="font-semibold">Unid. XML:</span> {{ form.xml_unidade.value|default:'-' }}</div>
-                      <div><span class="font-semibold">Qtde XML:</span> {{ form.quantidade_original.value|default:'-' }}</div>
-                    </td>
-                    <td class="align-top min-w-44">
-                      {{ form.sku }}
-                      {% for error in form.sku.errors %}<p class="text-xs text-error">{{ error }}</p>{% endfor %}
-                    </td>
-                    <td class="align-top min-w-64">
-                      {{ form.nome }}
-                      {% for error in form.nome.errors %}<p class="text-xs text-error">{{ error }}</p>{% endfor %}
-                    </td>
-                    <td class="align-top min-w-36">
-                      {{ form.tipo }}
-                      {% for error in form.tipo.errors %}<p class="text-xs text-error">{{ error }}</p>{% endfor %}
-                    </td>
-                    <td class="align-top min-w-44">
-                      {{ form.categoria }}
-                      {% for error in form.categoria.errors %}<p class="text-xs text-error">{{ error }}</p>{% endfor %}
-                    </td>
-                    <td class="align-top min-w-40">
-                      {{ form.marca }}
-                      {% for error in form.marca.errors %}<p class="text-xs text-error">{{ error }}</p>{% endfor %}
-                    </td>
-                    <td class="align-top min-w-32">
-                      {{ form.unidade }}
-                      {% for error in form.unidade.errors %}<p class="text-xs text-error">{{ error }}</p>{% endfor %}
-                    </td>
-                    <td class="align-top min-w-28">
-                      {{ form.quantidade }}
-                      {% for error in form.quantidade.errors %}<p class="text-xs text-error">{{ error }}</p>{% endfor %}
-                    </td>
-                    <td class="align-top min-w-32">
-                      {{ form.preco_custo }}
-                      {% for error in form.preco_custo.errors %}<p class="text-xs text-error">{{ error }}</p>{% endfor %}
-                    </td>
-                    <td class="align-top min-w-32">
-                      {{ form.preco_venda }}
-                      {% for error in form.preco_venda.errors %}<p class="text-xs text-error">{{ error }}</p>{% endfor %}
-                    </td>
-                    <td class="align-top min-w-24">
-                      {{ form.estoque_minimo }}
-                      {% for error in form.estoque_minimo.errors %}<p class="text-xs text-error">{{ error }}</p>{% endfor %}
-                    </td>
-                    <td class="align-top min-w-72">
-                      {{ form.descricao }}
-                      {% for error in form.descricao.errors %}<p class="text-xs text-error">{{ error }}</p>{% endfor %}
-                    </td>
-                  </tr>
-                  {% if form.non_field_errors %}
-                    <tr>
-                      <td colspan="13">
-                        <div class="alert alert-error">{{ form.non_field_errors }}</div>
-                      </td>
-                    </tr>
-                  {% endif %}
-                {% endfor %}
-              </tbody>
-            </table>
-          </div>
+                  <article class="inventory-xml-item-card">
+                    {% for hidden in form.hidden_fields %}{{ hidden }}{% endfor %}
 
-          <div class="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-            <a href="{% url 'inventory_item_import_xml' %}" class="btn btn-ghost whitespace-nowrap">Cancelar prévia</a>
-            <button type="submit" class="btn btn-primary whitespace-nowrap">Confirmar importação</button>
-          </div>
+                    <div class="inventory-xml-item-card__header">
+                      <div class="flex min-w-0 items-start gap-3">
+                        <label class="inventory-xml-item-card__checkbox">
+                          {{ form.importar }}
+                          <span>Importar</span>
+                        </label>
+                        <div class="min-w-0">
+                          <div class="flex flex-wrap items-center gap-2">
+                            <span class="badge badge-primary badge-outline">#{{ forloop.counter }}</span>
+                            <span class="badge badge-ghost font-mono">{{ form.xml_codigo.value|default:'sem cProd' }}</span>
+                          </div>
+                          <p class="mt-2 line-clamp-2 text-base font-semibold">{{ form.nome.value|default:'Produto sem nome' }}</p>
+                          <p class="mt-1 text-xs text-base-content/60">
+                            XML: {{ form.quantidade_original.value|default:'0' }} {{ form.xml_unidade.value|default:'UN' }} ·
+                            NCM {{ form.xml_ncm.value|default:'-' }} · CFOP {{ form.xml_cfop.value|default:'-' }}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {% if form.non_field_errors %}
+                      <div class="alert alert-error mt-4">{{ form.non_field_errors }}</div>
+                    {% endif %}
+
+                    <div class="mt-4 grid gap-4 lg:grid-cols-12">
+                      <div class="lg:col-span-3">
+                        <label class="label" for="{{ form.sku.id_for_label }}"><span class="label-text">Código da peça/SKU</span></label>
+                        {{ form.sku }}
+                        {% for error in form.sku.errors %}<p class="mt-1 text-xs text-error">{{ error }}</p>{% endfor %}
+                      </div>
+                      <div class="lg:col-span-5">
+                        <label class="label" for="{{ form.nome.id_for_label }}"><span class="label-text">Nome</span></label>
+                        {{ form.nome }}
+                        {% for error in form.nome.errors %}<p class="mt-1 text-xs text-error">{{ error }}</p>{% endfor %}
+                      </div>
+                      <div class="lg:col-span-2">
+                        <label class="label" for="{{ form.tipo.id_for_label }}"><span class="label-text">Tipo</span></label>
+                        {{ form.tipo }}
+                        {% for error in form.tipo.errors %}<p class="mt-1 text-xs text-error">{{ error }}</p>{% endfor %}
+                      </div>
+                      <div class="lg:col-span-2">
+                        <label class="label" for="{{ form.unidade.id_for_label }}"><span class="label-text">Unidade</span></label>
+                        {{ form.unidade }}
+                        {% for error in form.unidade.errors %}<p class="mt-1 text-xs text-error">{{ error }}</p>{% endfor %}
+                      </div>
+
+                      <div class="lg:col-span-3">
+                        <label class="label" for="{{ form.categoria.id_for_label }}"><span class="label-text">Categoria</span></label>
+                        {{ form.categoria }}
+                        {% for error in form.categoria.errors %}<p class="mt-1 text-xs text-error">{{ error }}</p>{% endfor %}
+                      </div>
+                      <div class="lg:col-span-3">
+                        <label class="label" for="{{ form.marca.id_for_label }}"><span class="label-text">Marca</span></label>
+                        {{ form.marca }}
+                        {% for error in form.marca.errors %}<p class="mt-1 text-xs text-error">{{ error }}</p>{% endfor %}
+                      </div>
+                      <div class="lg:col-span-2">
+                        <label class="label" for="{{ form.quantidade.id_for_label }}"><span class="label-text">Qtde</span></label>
+                        {{ form.quantidade }}
+                        {% for error in form.quantidade.errors %}<p class="mt-1 text-xs text-error">{{ error }}</p>{% endfor %}
+                      </div>
+                      <div class="lg:col-span-2">
+                        <label class="label" for="{{ form.preco_custo.id_for_label }}"><span class="label-text">Custo</span></label>
+                        {{ form.preco_custo }}
+                        {% for error in form.preco_custo.errors %}<p class="mt-1 text-xs text-error">{{ error }}</p>{% endfor %}
+                      </div>
+                      <div class="lg:col-span-2">
+                        <label class="label" for="{{ form.preco_venda.id_for_label }}"><span class="label-text">Venda</span></label>
+                        {{ form.preco_venda }}
+                        {% for error in form.preco_venda.errors %}<p class="mt-1 text-xs text-error">{{ error }}</p>{% endfor %}
+                      </div>
+
+                      <div class="lg:col-span-2">
+                        <label class="label" for="{{ form.estoque_minimo.id_for_label }}"><span class="label-text">Mínimo</span></label>
+                        {{ form.estoque_minimo }}
+                        {% for error in form.estoque_minimo.errors %}<p class="mt-1 text-xs text-error">{{ error }}</p>{% endfor %}
+                      </div>
+                      <div class="lg:col-span-10">
+                        <label class="label" for="{{ form.descricao.id_for_label }}"><span class="label-text">Descrição e rastreabilidade</span></label>
+                        {{ form.descricao }}
+                        {% for error in form.descricao.errors %}<p class="mt-1 text-xs text-error">{{ error }}</p>{% endfor %}
+                      </div>
+                    </div>
+
+                    <details class="collapse collapse-arrow mt-4 rounded-box border border-base-300 bg-base-100/70">
+                      <summary class="collapse-title min-h-0 py-3 text-sm font-semibold">Dados lidos do XML</summary>
+                      <div class="collapse-content">
+                        <dl class="inventory-xml-source-grid">
+                          <div><dt>cProd</dt><dd>{{ form.xml_codigo.value|default:'-' }}</dd></div>
+                          <div><dt>EAN</dt><dd>{{ form.xml_ean.value|default:'-' }}</dd></div>
+                          <div><dt>NCM</dt><dd>{{ form.xml_ncm.value|default:'-' }}</dd></div>
+                          <div><dt>CFOP</dt><dd>{{ form.xml_cfop.value|default:'-' }}</dd></div>
+                          <div><dt>Unidade XML</dt><dd>{{ form.xml_unidade.value|default:'-' }}</dd></div>
+                          <div><dt>Qtde XML</dt><dd>{{ form.quantidade_original.value|default:'-' }}</dd></div>
+                        </dl>
+                      </div>
+                    </details>
+                  </article>
+                {% endfor %}
+              </div>
+            </div>
+          </section>
         </div>
-      </section>
+
+        <aside class="space-y-4 xl:sticky xl:top-24 xl:self-start">
+          <section class="card border border-base-300 bg-base-100 shadow-sm">
+            <div class="card-body gap-4 p-5">
+              <div>
+                <h2 class="card-title">Opções de importação</h2>
+                <p class="text-sm text-base-content/65">Defina como os itens serão gravados no estoque.</p>
+              </div>
+
+              {% if options_form.non_field_errors %}
+                <div class="alert alert-error">
+                  {{ options_form.non_field_errors }}
+                </div>
+              {% endif %}
+
+              <div>
+                <label class="label" for="{{ options_form.fornecedor.id_for_label }}">
+                  <span class="label-text">{{ options_form.fornecedor.label }}</span>
+                </label>
+                {{ options_form.fornecedor }}
+                {% if options_form.fornecedor.help_text %}
+                  <p class="mt-1 text-xs text-base-content/60">{{ options_form.fornecedor.help_text }}</p>
+                {% endif %}
+                {% for error in options_form.fornecedor.errors %}
+                  <p class="mt-1 text-sm text-error">{{ error }}</p>
+                {% endfor %}
+              </div>
+
+              <label class="inventory-xml-option-card">
+                {{ options_form.registrar_entrada }}
+                <span>
+                  <span class="block font-medium">{{ options_form.registrar_entrada.label }}</span>
+                  <span class="block text-xs text-base-content/60">Cria movimentações de entrada usando a quantidade do XML.</span>
+                </span>
+              </label>
+
+              <label class="inventory-xml-option-card">
+                {{ options_form.atualizar_existentes }}
+                <span>
+                  <span class="block font-medium">{{ options_form.atualizar_existentes.label }}</span>
+                  <span class="block text-xs text-base-content/60">Se o SKU já existir, atualiza dados do cadastro.</span>
+                </span>
+              </label>
+
+              <div class="divider my-0"></div>
+
+              <button type="submit" class="btn btn-primary w-full whitespace-nowrap">Confirmar importação</button>
+              <a href="{% url 'inventory_item_import_xml' %}" class="btn btn-ghost w-full whitespace-nowrap">Cancelar prévia</a>
+            </div>
+          </section>
+
+          <section class="card border border-info/25 bg-info/5 shadow-sm">
+            <div class="card-body gap-2 p-4 text-sm">
+              <h3 class="font-semibold text-info">Conferência recomendada</h3>
+              <ul class="list-disc space-y-1 pl-5 text-base-content/70">
+                <li>Confirme se o código da peça é o padrão usado na oficina.</li>
+                <li>Confira custo e unidade antes de registrar entrada.</li>
+                <li>Desmarque itens fiscais que não devem virar estoque.</li>
+              </ul>
+            </div>
+          </section>
+        </aside>
+      </div>
     </form>
   </div>
 {% endif %}

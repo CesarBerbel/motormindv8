@@ -10,35 +10,9 @@
     <p class="text-base-content/70">Cadastro de itens de estoque com código editável e importação por XML de NF-e.</p>
   </div>
   {% if perms.stock.add_inventoryitem %}
-    <div class="inventory-import-quick grid w-full gap-3 xl:w-auto">
-      <form
-        method="post"
-        action="{% url 'inventory_item_import_xml' %}"
-        enctype="multipart/form-data"
-        class="rounded-box border border-base-300 bg-base-100 p-3 shadow-sm"
-      >
-        {% csrf_token %}
-        <input type="hidden" name="action" value="preview">
-        <label class="label py-0 pb-2" for="id_inventory_xml_quick_upload">
-          <span class="label-text font-semibold">Importar XML/ZIP de NF-e</span>
-        </label>
-        <div class="inventory-import-quick__controls grid gap-2">
-          <input
-            id="id_inventory_xml_quick_upload"
-            name="arquivo"
-            type="file"
-            accept=".xml,.zip,application/xml,text/xml,application/zip"
-            class="file-input file-input-bordered file-input-sm w-full"
-            required
-          >
-          <button type="submit" class="btn btn-primary btn-sm whitespace-nowrap">Ler XML</button>
-        </div>
-        <p class="mt-2 text-xs text-base-content/60">Após enviar, o sistema abre a prévia para revisar e editar o código da peça antes de salvar.</p>
-      </form>
-      <div class="flex flex-row flex-wrap items-start justify-end gap-2 xl:flex-col">
-        <a href="{% url 'inventory_item_import_xml' %}" class="btn btn-outline btn-sm whitespace-nowrap">Importação avançada</a>
-        <a href="{% url 'inventory_item_create' %}" class="btn btn-primary btn-sm whitespace-nowrap">Novo item</a>
-      </div>
+    <div class="flex w-full flex-wrap items-center justify-start gap-2 sm:w-auto xl:justify-end">
+      <a href="{% url 'inventory_item_import_xml' %}" class="btn btn-outline btn-sm whitespace-nowrap">Importação avançada</a>
+      <a href="{% url 'inventory_item_create' %}" class="btn btn-primary btn-sm whitespace-nowrap">Novo item</a>
     </div>
   {% endif %}
 </div>
