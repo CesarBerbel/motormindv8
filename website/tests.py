@@ -352,9 +352,8 @@ class SiteSettingsManageTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Configurações da oficina')
 
-    def test_manager_can_update_settings(self):
-        self.client.force_login(self.manager)
-        response = self.client.post(reverse('site_settings'), {
+    def _settings_payload(self, **overrides):
+        payload = {
             'nome_fantasia': 'Oficina Nova',
             'slogan': 'Slogan novo',
             'sobre': 'Texto sobre',
@@ -364,6 +363,7 @@ class SiteSettingsManageTests(TestCase):
             'telefone_secundario': '',
             'whatsapp': '5511900000000',
             'email_contato': 'novo@oficina.com',
+            'email_oficina': '',
             'endereco': 'Rua X, 10',
             'bairro': 'Centro',
             'cidade': 'São Paulo',
@@ -375,7 +375,13 @@ class SiteSettingsManageTests(TestCase):
             'horario_domingo': 'Fechado',
             'instagram_url': '',
             'facebook_url': '',
-        })
+        }
+        payload.update(overrides)
+        return payload
+
+    def test_manager_can_update_settings(self):
+        self.client.force_login(self.manager)
+        response = self.client.post(reverse('site_settings'), self._settings_payload())
         self.assertRedirects(response, reverse('site_settings'))
         site = SiteSettings.get_solo()
         self.assertEqual(site.nome_fantasia, 'Oficina Nova')
@@ -383,6 +389,24 @@ class SiteSettingsManageTests(TestCase):
         # Sempre singleton (pk=1).
         self.assertEqual(site.pk, 1)
         self.assertEqual(SiteSettings.objects.count(), 1)
+
+    def test_manager_can_save_long_google_maps_embed_url(self):
+        self.client.force_login(self.manager)
+        maps_url = 'https://www.google.com/maps/embed?pb=' + ('!1m2!2m1!1sof%C3%ADcina%20sao%20paulo' * 20)
+        response = self.client.post(reverse('site_settings'), self._settings_payload(google_maps_embed=maps_url))
+        self.assertRedirects(response, reverse('site_settings'))
+        site = SiteSettings.get_solo()
+        self.assertEqual(site.google_maps_embed, maps_url)
+        self.assertGreater(len(site.google_maps_embed), 200)
+
+    def test_manager_can_paste_complete_google_maps_iframe(self):
+        self.client.force_login(self.manager)
+        maps_url = 'https://www.google.com/maps/embed?pb=!1m18!1m12!1sRua%20X%2010'
+        iframe = f'<iframe src="{maps_url}" width="600" height="450" style="border:0;" loading="lazy"></iframe>'
+        response = self.client.post(reverse('site_settings'), self._settings_payload(google_maps_embed=iframe))
+        self.assertRedirects(response, reverse('site_settings'))
+        site = SiteSettings.get_solo()
+        self.assertEqual(site.google_maps_embed, maps_url)
 
 
 class LeadManageViewTests(TestCase):

@@ -1,3 +1,7 @@
+from html import unescape
+import re
+from urllib.parse import urlparse
+
 from django import forms
 
 from core.forms import BASE_CHECKBOX_CLASS, BASE_INPUT_CLASS, BASE_SELECT_CLASS, format_phone
@@ -6,6 +10,41 @@ from .models import BlogPost, Lead, LeadStatus, PublicService, SiteSettings
 
 BASE_TEXTAREA_CLASS = 'textarea textarea-bordered min-h-32 w-full'
 BASE_FILE_CLASS = 'file-input file-input-bordered w-full'
+
+GOOGLE_MAPS_EMBED_MAX_LENGTH = 2000
+GOOGLE_MAPS_IFRAME_SRC_RE = re.compile(r'<iframe[^>]+src=[\"\']([^\"\']+)[\"\']', re.IGNORECASE)
+
+
+def normalize_google_maps_embed_url(value):
+    """Extrai e valida a URL src de incorporacao do Google Maps."""
+    value = (value or '').strip()
+    if not value:
+        return ''
+
+    iframe_match = GOOGLE_MAPS_IFRAME_SRC_RE.search(value)
+    if iframe_match:
+        value = iframe_match.group(1).strip()
+
+    value = unescape(value).strip()
+    parsed = urlparse(value)
+    hostname = (parsed.hostname or '').lower()
+
+    is_google_maps_host = (
+        hostname in {'google.com', 'www.google.com', 'maps.google.com'}
+        or hostname.endswith('.google.com')
+        or hostname.endswith('.google.com.br')
+    )
+
+    if parsed.scheme not in {'http', 'https'} or not is_google_maps_host:
+        raise forms.ValidationError('Informe uma URL de incorporacao do Google Maps valida.')
+
+    if '/maps/embed' not in parsed.path:
+        raise forms.ValidationError('Use a URL de incorporacao do Google Maps, no formato https://www.google.com/maps/embed?...')
+
+    if len(value) > GOOGLE_MAPS_EMBED_MAX_LENGTH:
+        raise forms.ValidationError(f'A URL de incorporacao deve ter no maximo {GOOGLE_MAPS_EMBED_MAX_LENGTH} caracteres.')
+
+    return value
 
 
 class LeadForm(forms.ModelForm):
@@ -136,6 +175,17 @@ class BlogPostForm(forms.ModelForm):
 
 
 class SiteSettingsForm(forms.ModelForm):
+    google_maps_embed = forms.CharField(
+        label='URL de incorporacao do Google Maps',
+        required=False,
+        max_length=GOOGLE_MAPS_EMBED_MAX_LENGTH,
+        help_text='Cole o src do iframe ou o iframe completo gerado em Compartilhar > Incorporar mapa.',
+        widget=forms.TextInput(attrs={
+            'class': BASE_INPUT_CLASS,
+            'placeholder': 'https://www.google.com/maps/embed?...',
+        }),
+    )
+
     class Meta:
         model = SiteSettings
         fields = [
@@ -163,10 +213,13 @@ class SiteSettingsForm(forms.ModelForm):
             'cidade': forms.TextInput(attrs={'class': BASE_INPUT_CLASS}),
             'uf': forms.TextInput(attrs={'class': BASE_INPUT_CLASS, 'maxlength': 2}),
             'cep': forms.TextInput(attrs={'class': BASE_INPUT_CLASS, 'placeholder': '00000-000'}),
-            'google_maps_embed': forms.URLInput(attrs={'class': BASE_INPUT_CLASS, 'placeholder': 'https://www.google.com/maps/embed?...'}),
+            # Campo sobrescrito acima para aceitar tambem o iframe completo do Google Maps.
             'horario_semana': forms.TextInput(attrs={'class': BASE_INPUT_CLASS}),
             'horario_sabado': forms.TextInput(attrs={'class': BASE_INPUT_CLASS}),
             'horario_domingo': forms.TextInput(attrs={'class': BASE_INPUT_CLASS}),
             'instagram_url': forms.URLInput(attrs={'class': BASE_INPUT_CLASS, 'placeholder': 'https://instagram.com/...'}),
             'facebook_url': forms.URLInput(attrs={'class': BASE_INPUT_CLASS, 'placeholder': 'https://facebook.com/...'}),
         }
+
+    def clean_google_maps_embed(self):
+        return normalize_google_maps_embed_url(self.cleaned_data.get('google_maps_embed'))

@@ -60,8 +60,9 @@ class SiteSettings(models.Model):
     facebook_url = models.URLField('Facebook', blank=True)
     google_maps_embed = models.URLField(
         'URL de incorporação do Google Maps',
+        max_length=2000,
         blank=True,
-        help_text='Cole aqui o endereço "src" do iframe de incorporação do Google Maps.',
+        help_text='Cole aqui o endereco src do iframe de incorporacao do Google Maps.',
     )
 
     hero_titulo = models.CharField(
