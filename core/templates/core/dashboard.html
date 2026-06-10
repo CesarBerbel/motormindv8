@@ -28,6 +28,44 @@
     </div>
   </div>
 
+  <section class="card border {% if action_center_summary.critical %}border-error/30 bg-error/5{% elif action_center_summary.high %}border-warning/30 bg-warning/5{% else %}border-base-300 bg-base-100{% endif %} shadow-sm">
+    <div class="card-body gap-4 p-4">
+      <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <div class="flex flex-wrap items-center gap-2">
+            <h2 class="card-title text-base">Central de ações</h2>
+            <span class="badge badge-outline">{{ action_center_summary.total }} pendentes</span>
+            {% if action_center_summary.critical %}<span class="badge badge-error badge-sm">{{ action_center_summary.critical }} críticas</span>{% endif %}
+            {% if action_center_summary.high %}<span class="badge badge-warning badge-sm">{{ action_center_summary.high }} alta prioridade</span>{% endif %}
+          </div>
+          <p class="text-sm text-base-content/65">Inbox operacional com o que precisa de decisão ou execução agora.</p>
+        </div>
+        <a href="{% url 'action_center' %}" class="btn btn-primary btn-sm whitespace-nowrap">Ver central</a>
+      </div>
+      {% if dashboard_priority_actions %}
+        <div class="grid gap-2 lg:grid-cols-2 xl:grid-cols-3">
+          {% for item in dashboard_priority_actions %}
+            <a href="{{ item.url }}" class="rounded-box border border-base-300 bg-base-100/80 p-3 transition hover:bg-base-100 hover:shadow-sm">
+              <div class="flex items-start justify-between gap-2">
+                <div class="min-w-0">
+                  <p class="truncate text-sm font-semibold">{{ item.title }}</p>
+                  <p class="mt-1 line-clamp-2 text-xs text-base-content/60">{{ item.description }}</p>
+                </div>
+                <span class="badge badge-xs shrink-0 {{ item.priority_badge_class }}">{{ item.priority_label }}</span>
+              </div>
+              <div class="mt-2 flex items-center justify-between gap-3 text-xs text-base-content/55">
+                <span class="truncate">{{ item.type_label }} · {{ item.status|default:'-' }}</span>
+                <span class="shrink-0">{{ item.age_label }}</span>
+              </div>
+            </a>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="rounded-box border border-dashed border-base-300 bg-base-100/70 p-4 text-sm text-base-content/60">Nenhuma ação pendente neste momento.</div>
+      {% endif %}
+    </div>
+  </section>
+
   {% if quick_actions %}
     <div class="card border border-base-300 bg-base-100 shadow-sm">
       <div class="card-body gap-3 p-4">

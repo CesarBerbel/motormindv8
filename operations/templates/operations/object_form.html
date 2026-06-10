@@ -3,24 +3,39 @@
 {% block title %}{{ title }} | MotorMind{% endblock %}
 
 {% block content %}
-<div class="mb-6 flex items-center justify-between gap-4">
-  <div>
-    <h1 class="page-title">{{ title }}</h1>
-    <p class="text-base-content/70">Preencha os dados do cadastro.</p>
+<div class="form-page-shell">
+  <div class="form-page-header">
+    <div>
+      <h1 class="page-title">{{ title }}</h1>
+      <p class="text-base-content/70">Preencha os dados do cadastro. O sistema avisa se houver alterações não salvas.</p>
+    </div>
+    <a href="{{ cancel_url }}" class="btn btn-ghost whitespace-nowrap">Cancelar</a>
   </div>
-  <a href="{{ cancel_url }}" class="btn btn-ghost whitespace-nowrap">Cancelar</a>
-</div>
 
-<form method="post" class="card-section">
-  {% csrf_token %}
-  <div class="card-body">
-    <div class="form-grid">
-      {% include 'includes/form_fields.html' %}
+  <form method="post" class="form-card" data-ux-form data-form-dirty-guard data-form-autosave data-form-autosave-id="{{ request.resolver_match.view_name }}-{{ object.pk|default:'novo' }}">
+    {% csrf_token %}
+    <div class="card-body">
+      <div class="form-mobile-progress">
+        <div class="flex items-center justify-between gap-3 text-xs font-semibold uppercase tracking-wide text-base-content/60">
+          <span>Preenchimento</span>
+          <span data-form-progress-label></span>
+        </div>
+        <progress class="progress progress-primary mt-2" value="0" max="100" data-form-progress></progress>
+      </div>
+      <div class="flex flex-wrap items-center gap-2">
+        <span class="form-draft-badge hidden" data-form-draft-badge>Rascunho local salvo</span>
+        <button type="button" class="btn btn-ghost btn-xs hidden" data-form-clear-draft>Limpar rascunho</button>
+      </div>
+      <div class="form-grid">
+        {% include 'includes/form_fields.html' %}
+      </div>
+      <div class="form-actions-sticky">
+        <div class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <a href="{{ cancel_url }}" class="btn btn-ghost whitespace-nowrap">Voltar</a>
+          <button type="submit" class="btn btn-primary whitespace-nowrap">Salvar</button>
+        </div>
+      </div>
     </div>
-    <div class="card-actions justify-end mt-6">
-      <a href="{{ cancel_url }}" class="btn btn-ghost whitespace-nowrap">Voltar</a>
-      <button type="submit" class="btn btn-primary whitespace-nowrap">Salvar</button>
-    </div>
-  </div>
-</form>
+  </form>
+</div>
 {% endblock %}

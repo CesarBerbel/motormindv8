@@ -4,7 +4,7 @@
 {% block title %}{{ title }} | MotorMind{% endblock %}
 
 {% block content %}
-<div class="mb-6 flex items-center justify-between gap-4">
+<div class="form-page-header mb-6">
   <div>
     <h1 class="page-title">{{ title }}</h1>
     <p class="text-base-content/70">Informe o cliente, veículo, serviços, combos e peças/insumos usados na ordem de serviço.</p>
@@ -12,8 +12,16 @@
   <a href="{{ cancel_url }}" class="btn btn-ghost whitespace-nowrap">Cancelar</a>
 </div>
 
-<form method="post" class="space-y-6" data-work-order-form data-work-order-vehicles-url="{% url 'work_order_customer_vehicles' %}" data-current-vehicle-id="{{ form.instance.veiculo_id|default_if_none:'' }}" {% if form.instance.pk %}data-work-order-locked="true"{% endif %}>
+<form method="post" class="space-y-6" data-ux-form data-form-dirty-guard data-form-autosave data-form-autosave-id="work-order-{{ form.instance.pk|default:'novo' }}" data-work-order-form data-work-order-vehicles-url="{% url 'work_order_customer_vehicles' %}" data-current-vehicle-id="{{ form.instance.veiculo_id|default_if_none:'' }}" {% if form.instance.pk %}data-work-order-locked="true"{% endif %}>
   {% csrf_token %}
+
+  <div class="form-mobile-progress">
+    <div class="flex items-center justify-between gap-3 text-xs font-semibold uppercase tracking-wide text-base-content/60">
+      <span>Preenchimento</span>
+      <span data-form-progress-label></span>
+    </div>
+    <progress class="progress progress-primary mt-2" value="0" max="100" data-form-progress></progress>
+  </div>
 
   <div class="card-section">
     <div class="card-body">
@@ -152,9 +160,11 @@
       <div class="mt-4 space-y-3" data-work-order-parts-list></div>
       <div class="mt-4 rounded-box border border-dashed border-base-300 bg-base-200 p-6 text-center text-sm text-base-content/60" data-work-order-parts-empty>Nenhuma peça avulsa adicionada.</div>
 
-      <div class="card-actions justify-end mt-6">
-        <a href="{{ cancel_url }}" class="btn btn-ghost whitespace-nowrap">Voltar</a>
-        <button type="submit" class="btn btn-primary whitespace-nowrap">Salvar OS</button>
+      <div class="form-actions-sticky">
+        <div class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <a href="{{ cancel_url }}" class="btn btn-ghost whitespace-nowrap">Voltar</a>
+          <button type="submit" class="btn btn-primary whitespace-nowrap">Salvar OS</button>
+        </div>
       </div>
     </div>
   </div>

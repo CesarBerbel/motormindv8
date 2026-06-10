@@ -5,6 +5,7 @@ urlpatterns = [
     path('healthz/', views.HealthCheckView.as_view(), name='health_check'),
     path('sw.js', views.ServiceWorkerView.as_view(), name='service_worker'),
     path('dashboard/', views.DashboardView.as_view(), name='dashboard'),
+    path('dashboard/acoes/', views.ActionCenterView.as_view(), name='action_center'),
     path('notificacoes/feed/', views.NotificationFeedView.as_view(), name='notification_feed'),
     path('notificacoes/<int:pk>/lida/', views.NotificationReadView.as_view(), name='notification_read'),
 

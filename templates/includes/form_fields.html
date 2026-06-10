@@ -9,7 +9,7 @@
 {% endif %}
 
 {% for field in form %}
-  <div class="form-control {% if field.field.widget.input_type == 'checkbox' or field.name == 'categorias' %}md:col-span-2{% endif %}" {% if field.name == 'problema_relatado' or field.name == 'diagnostico' or field.name == 'observacao' %}data-ai-field-wrapper{% endif %}>
+  <div class="form-control form-field-block {% if field.field.widget.input_type == 'checkbox' or field.name == 'categorias' %}md:col-span-2{% endif %}" {% if field.name == 'problema_relatado' or field.name == 'diagnostico' or field.name == 'observacao' %}data-ai-field-wrapper{% endif %}>
     {% if field.name == 'categorias' %}
       <label class="label" for="{{ field.id_for_label }}">
         <span class="label-text">

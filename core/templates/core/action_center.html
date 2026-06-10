@@ -1,0 +1,152 @@
+{% extends 'base.html' %}
+
+{% block title %}Central de ações | MotorMind{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+  <div class="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+    <div>
+      <div class="flex flex-wrap items-center gap-2">
+        <h1 class="page-title">Central de ações</h1>
+        <span class="badge badge-primary badge-outline">Inbox operacional</span>
+      </div>
+      <p class="text-sm text-base-content/65">Pendências consolidadas do sistema com ação direta para resolver cada item.</p>
+    </div>
+    <a href="{% url 'dashboard' %}" class="btn btn-ghost btn-sm whitespace-nowrap">Voltar ao dashboard</a>
+  </div>
+
+  <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+    <div class="card border border-base-300 bg-base-100 shadow-sm"><div class="card-body gap-1 p-4"><p class="text-xs font-semibold uppercase tracking-wide text-base-content/55">Total pendente</p><p class="text-2xl font-bold">{{ all_action_summary.total }}</p></div></div>
+    <div class="card border {% if all_action_summary.critical %}border-error/30 bg-error/5{% else %}border-base-300 bg-base-100{% endif %} shadow-sm"><div class="card-body gap-1 p-4"><p class="text-xs font-semibold uppercase tracking-wide text-base-content/55">Críticas</p><p class="text-2xl font-bold">{{ all_action_summary.critical }}</p></div></div>
+    <div class="card border {% if all_action_summary.high %}border-warning/30 bg-warning/5{% else %}border-base-300 bg-base-100{% endif %} shadow-sm"><div class="card-body gap-1 p-4"><p class="text-xs font-semibold uppercase tracking-wide text-base-content/55">Alta prioridade</p><p class="text-2xl font-bold">{{ all_action_summary.high }}</p></div></div>
+    <div class="card border border-base-300 bg-base-100 shadow-sm"><div class="card-body gap-1 p-4"><p class="text-xs font-semibold uppercase tracking-wide text-base-content/55">Filtradas</p><p class="text-2xl font-bold">{{ filtered_action_summary.total }}</p></div></div>
+  </div>
+
+  <section class="card responsive-filter-panel {% if has_active_filters %}is-open{% endif %} border-base-300 bg-base-100 shadow-sm">
+    <div class="responsive-filter-panel__header">
+      <div>
+        <p class="font-semibold">Filtros</p>
+        <p class="text-xs text-base-content/55">Busque por cliente, OS, placa, status ou origem.</p>
+      </div>
+      <button type="button" class="btn btn-outline btn-sm" data-responsive-filter-toggle>{% if has_active_filters %}Ocultar{% else %}Mostrar{% endif %}</button>
+    </div>
+    <form method="get" class="card-body grid gap-3 md:grid-cols-4">
+      <label class="form-control md:col-span-2">
+        <span class="label-text">Busca</span>
+        <input type="search" name="q" value="{{ filters.q }}" class="input input-bordered" placeholder="Cliente, OS, placa, item, status...">
+      </label>
+      <label class="form-control">
+        <span class="label-text">Prioridade</span>
+        <select name="priority" class="select select-bordered">
+          <option value="">Todas</option>
+          {% for value,label in priority_choices %}
+            <option value="{{ value }}" {% if filters.priority == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label class="form-control">
+        <span class="label-text">Tipo</span>
+        <select name="type" class="select select-bordered">
+          <option value="">Todos</option>
+          {% for value,label in type_choices %}
+            <option value="{{ value }}" {% if filters.type == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <div class="flex flex-col gap-2 md:col-span-4 md:flex-row md:justify-end">
+        {% if has_active_filters %}<a href="{% url 'action_center' %}" class="btn btn-ghost">Limpar</a>{% endif %}
+        <button type="submit" class="btn btn-primary">Filtrar ações</button>
+      </div>
+    </form>
+  </section>
+
+  <section class="space-y-3" data-responsive-list>
+    <div class="hidden md:block responsive-list-shell responsive-list-shell--enhanced">
+      <table class="table table-sm">
+        <thead>
+          <tr>
+            <th data-sort="text">Ação</th>
+            <th data-sort="text">Tipo</th>
+            <th data-sort="text">Prioridade</th>
+            <th data-sort="text" class="responsive-tablet-hidden">Responsável</th>
+            <th data-sort="text">Status</th>
+            <th data-sort="number">Tempo</th>
+            <th class="text-right">Resolver</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in action_items %}
+            <tr>
+              <td class="min-w-72">
+                <a href="{{ item.url }}" class="font-semibold link link-hover">{{ item.title }}</a>
+                <p class="mt-1 line-clamp-2 max-w-xl text-xs text-base-content/60">{{ item.description }}</p>
+              </td>
+              <td><span class="badge badge-outline badge-sm">{{ item.type_label }}</span></td>
+              <td><span class="badge badge-sm {{ item.priority_badge_class }}">{{ item.priority_label }}</span></td>
+              <td class="responsive-tablet-hidden">{{ item.responsible|default:'-' }}</td>
+              <td>{{ item.status|default:'-' }}</td>
+              <td data-sort-value="{{ forloop.counter }}">{{ item.age_label }}</td>
+              <td class="text-right"><a href="{{ item.url }}" class="btn btn-primary btn-sm whitespace-nowrap">{{ item.primary_label }}</a></td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="7" class="text-base-content/60">Nenhuma ação pendente com os filtros atuais.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="responsive-card-list md:hidden">
+      {% for item in action_items %}
+        <article class="responsive-row-card">
+          <div class="responsive-row-card__header">
+            <div class="min-w-0">
+              <a href="{{ item.url }}" class="responsive-row-card__title link link-hover">{{ item.title }}</a>
+              <p class="responsive-row-card__subtitle line-clamp-3">{{ item.description }}</p>
+            </div>
+            <div class="responsive-row-card__status">
+              <span class="badge badge-sm {{ item.priority_badge_class }}">{{ item.priority_label }}</span>
+              <span class="badge badge-outline badge-sm">{{ item.type_label }}</span>
+            </div>
+          </div>
+          <dl class="responsive-row-card__meta">
+            <div class="responsive-row-card__meta-item"><dt>Status</dt><dd>{{ item.status|default:'-' }}</dd></div>
+            <div class="responsive-row-card__meta-item"><dt>Tempo</dt><dd>{{ item.age_label }}</dd></div>
+            {% for label,value in item.metadata|slice:':2' %}
+              <div class="responsive-row-card__meta-item"><dt>{{ label }}</dt><dd>{{ value }}</dd></div>
+            {% endfor %}
+          </dl>
+          <div class="responsive-row-card__actions">
+            <a href="{{ item.url }}" class="btn btn-primary flex-1">{{ item.primary_label }}</a>
+            {% if item.secondary_actions %}
+              <details class="dropdown dropdown-end">
+                <summary class="btn btn-outline">Mais</summary>
+                <ul class="menu dropdown-content z-20 mt-2 w-56 rounded-box bg-base-100 p-2 shadow">
+                  {% for action in item.secondary_actions %}<li><a href="{{ action.url }}">{{ action.label }}</a></li>{% endfor %}
+                </ul>
+              </details>
+            {% endif %}
+          </div>
+        </article>
+      {% empty %}
+        <div class="responsive-list-empty">Nenhuma ação pendente com os filtros atuais.</div>
+      {% endfor %}
+    </div>
+  </section>
+
+  {% if page_obj.has_other_pages %}
+    <div class="join flex justify-center">
+      {% if page_obj.has_previous %}
+        <a href="?{% if querystring %}{{ querystring }}&{% endif %}page={{ page_obj.previous_page_number }}" class="btn join-item">Anterior</a>
+      {% else %}
+        <button class="btn join-item" disabled>Anterior</button>
+      {% endif %}
+      <button class="btn join-item" disabled>Página {{ page_obj.number }} de {{ paginator.num_pages }}</button>
+      {% if page_obj.has_next %}
+        <a href="?{% if querystring %}{{ querystring }}&{% endif %}page={{ page_obj.next_page_number }}" class="btn join-item">Próxima</a>
+      {% else %}
+        <button class="btn join-item" disabled>Próxima</button>
+      {% endif %}
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

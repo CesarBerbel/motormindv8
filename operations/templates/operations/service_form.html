@@ -12,7 +12,7 @@
   <a href="{{ cancel_url }}" class="btn btn-ghost whitespace-nowrap">Cancelar</a>
 </div>
 
-<form method="post" class="space-y-6" data-service-parts-form>
+<form method="post" class="space-y-6" data-ux-form data-form-dirty-guard data-form-autosave data-service-parts-form>
   {% csrf_token %}
 
   <div class="card-section">
@@ -86,7 +86,7 @@
         Nenhuma peça/insumo padrão adicionada. Clique em <strong>Adicionar item</strong> para selecionar uma peça ou insumo e informar a quantidade.
       </div>
 
-      <div class="card-actions justify-end mt-6">
+      <div class="form-actions-sticky">
         <a href="{{ cancel_url }}" class="btn btn-ghost whitespace-nowrap">Voltar</a>
         <button type="submit" class="btn btn-primary whitespace-nowrap">Salvar</button>
       </div>

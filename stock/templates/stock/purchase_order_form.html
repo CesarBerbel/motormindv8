@@ -12,7 +12,7 @@
   <a href="{{ cancel_url }}" class="btn btn-ghost whitespace-nowrap">Cancelar</a>
 </div>
 
-<form method="post" class="space-y-6">
+<form method="post" class="space-y-6" data-ux-form data-form-dirty-guard data-form-autosave>
   {% csrf_token %}
   <div class="card bg-base-100 shadow">
     <div class="card-body">

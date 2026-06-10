@@ -160,6 +160,53 @@ class DashboardViewTests(TestCase):
         self.assertContains(response, 'OS ativas')
 
 
+    def test_dashboard_renders_action_center_summary(self):
+        User = get_user_model()
+        user = User.objects.create_superuser(
+            email='actions.dashboard@example.com',
+            password='segredo-forte-123',
+            nome_razao_social='Actions Dashboard',
+        )
+        self.client.force_login(user)
+
+        response = self.client.get('/dashboard/')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Central de ações')
+        self.assertContains(response, 'Ver central')
+
+    def test_action_center_requires_login_and_renders_for_authenticated_user(self):
+        response = self.client.get('/dashboard/acoes/')
+        self.assertEqual(response.status_code, 302)
+
+        User = get_user_model()
+        user = User.objects.create_superuser(
+            email='actions.center@example.com',
+            password='segredo-forte-123',
+            nome_razao_social='Actions Center',
+        )
+        self.client.force_login(user)
+        response = self.client.get('/dashboard/acoes/')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Inbox operacional')
+        self.assertContains(response, 'Filtrar ações')
+        self.assertContains(response, 'responsive-list-shell')
+
+    def test_base_template_loads_form_ux_assets(self):
+        User = get_user_model()
+        user = User.objects.create_user(
+            email='form.ux@example.com',
+            password='segredo-forte-123',
+            nome_razao_social='Form UX',
+        )
+        self.client.force_login(user)
+        response = self.client.get('/dashboard/')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'form-ux.js')
+
+
     def test_authenticated_pages_render_dynamic_company_watermark(self):
         site = SiteSettings.get_solo()
         site.nome_fantasia = 'Oficina Premium Teste'

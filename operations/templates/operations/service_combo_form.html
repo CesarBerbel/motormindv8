@@ -12,7 +12,7 @@
   <a href="{{ cancel_url }}" class="btn btn-ghost whitespace-nowrap">Cancelar</a>
 </div>
 
-<form method="post" class="space-y-6" data-combo-services-form>
+<form method="post" class="space-y-6" data-ux-form data-form-dirty-guard data-form-autosave data-combo-services-form>
   {% csrf_token %}
 
   <div class="card-section">
@@ -78,7 +78,7 @@
         Nenhum serviço adicionado. Clique em <strong>Adicionar serviço</strong> para selecionar os serviços do combo.
       </div>
 
-      <div class="card-actions justify-end mt-6">
+      <div class="form-actions-sticky">
         <a href="{{ cancel_url }}" class="btn btn-ghost whitespace-nowrap">Voltar</a>
         <button type="submit" class="btn btn-primary whitespace-nowrap">Salvar</button>
       </div>

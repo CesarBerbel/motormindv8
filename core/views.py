@@ -16,9 +16,17 @@ from django.http import JsonResponse
 from django.shortcuts import redirect
 from django.urls import reverse, reverse_lazy
 from django.utils import timezone
+from django.core.paginator import Paginator
 from django.views.generic import CreateView, DeleteView, DetailView, ListView, TemplateView, UpdateView, View
 
 from .forms import CategoryForm, CustomerForm, SupplierForm, VehicleForm, format_cep, format_cnpj, format_cpf, format_phone
+from .services.action_center import (
+    PRIORITY_LABELS,
+    TYPE_LABELS,
+    filter_action_center_items,
+    get_action_center_items,
+    get_action_center_summary,
+)
 from .models import (
     AppNotification,
     Category,
@@ -342,10 +350,13 @@ class DashboardView(LoginRequiredMixin, TemplateView):
         now = timezone.localtime()
         is_admin = self.user_is_admin_manager()
 
+        action_center_items = get_action_center_items(self.request.user)
         context.update({
             'dashboard_is_admin': is_admin,
             'dashboard_updated_at': now,
             'quick_actions': self.get_quick_actions(is_admin),
+            'action_center_summary': get_action_center_summary(action_center_items),
+            'dashboard_priority_actions': action_center_items[:6],
         })
 
         if is_admin:
@@ -353,6 +364,47 @@ class DashboardView(LoginRequiredMixin, TemplateView):
         else:
             context.update(self.get_staff_dashboard_context(now))
 
+        return context
+
+
+class ActionCenterView(LoginRequiredMixin, TemplateView):
+    template_name = 'core/action_center.html'
+    paginate_by = 20
+
+    def get_filters(self):
+        return {
+            'q': (self.request.GET.get('q') or '').strip(),
+            'priority': (self.request.GET.get('priority') or '').strip(),
+            'type': (self.request.GET.get('type') or '').strip(),
+        }
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        filters = self.get_filters()
+        all_items = get_action_center_items(self.request.user)
+        filtered_items = filter_action_center_items(
+            all_items,
+            query=filters['q'],
+            priority=filters['priority'],
+            type_name=filters['type'],
+        )
+        paginator = Paginator(filtered_items, self.paginate_by)
+        page_obj = paginator.get_page(self.request.GET.get('page'))
+        querydict = self.request.GET.copy()
+        querydict.pop('page', None)
+
+        context.update({
+            'filters': filters,
+            'has_active_filters': any(filters.values()),
+            'querystring': querydict.urlencode(),
+            'all_action_summary': get_action_center_summary(all_items),
+            'filtered_action_summary': get_action_center_summary(filtered_items),
+            'action_items': page_obj.object_list,
+            'page_obj': page_obj,
+            'paginator': paginator,
+            'priority_choices': [(key, label) for key, label in PRIORITY_LABELS.items()],
+            'type_choices': [(key, label) for key, label in TYPE_LABELS.items() if get_action_center_summary(all_items)['by_type'].get(key, 0)],
+        })
         return context
 
 

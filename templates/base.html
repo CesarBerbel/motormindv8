@@ -46,6 +46,7 @@
         <details class="dropdown lg:hidden" data-menu-root>
           <summary class="btn btn-ghost btn-sm app-navbar__menu list-none whitespace-nowrap">Menu</summary>
           <ul class="menu dropdown-content z-50 mt-3 w-72 rounded-box bg-base-100 p-2 shadow">
+            <li><a href="{% url 'dashboard' %}" class="whitespace-nowrap">Dashboard</a></li>
             {% if perms.core.view_customer or perms.core.view_vehicle or perms.operations.view_vehiclecheckin %}
               <li>
                 <details data-menu-nested>
@@ -154,11 +155,12 @@
               </li>
             {% endif %}
 
-            {% if perms.core.view_category or perms.accounts.view_user or perms.communications.change_messagesettings or perms.operations.change_workordersettings or perms.operations.view_servicecategory or perms.ai_assistant.change_aisettings or perms.stock.view_stockcategory or perms.stock.view_brand or perms.website.change_sitesettings or perms.audit.view_auditlog or request.user.is_superuser %}
+            {% if request.user.is_authenticated or perms.core.view_category or perms.accounts.view_user or perms.communications.change_messagesettings or perms.operations.change_workordersettings or perms.operations.view_servicecategory or perms.ai_assistant.change_aisettings or perms.stock.view_stockcategory or perms.stock.view_brand or perms.website.change_sitesettings or perms.audit.view_auditlog or request.user.is_superuser %}
               <li>
                 <details data-menu-nested>
                   <summary class="whitespace-nowrap">Configurações</summary>
                   <ul>
+                    <li><a href="{% url 'action_center' %}" class="whitespace-nowrap">Ações</a></li>
                     {% if perms.core.view_category or perms.stock.view_stockcategory or perms.operations.view_servicecategory %}
                       <li>
                         <details data-menu-nested>
@@ -324,11 +326,12 @@
             </li>
           {% endif %}
 
-          {% if perms.core.view_category or perms.accounts.view_user or perms.communications.change_messagesettings or perms.operations.change_workordersettings or perms.operations.view_servicecategory or perms.ai_assistant.change_aisettings or perms.stock.view_stockcategory or perms.stock.view_brand or perms.website.change_sitesettings or perms.audit.view_auditlog or request.user.is_superuser %}
+          {% if request.user.is_authenticated or perms.core.view_category or perms.accounts.view_user or perms.communications.change_messagesettings or perms.operations.change_workordersettings or perms.operations.view_servicecategory or perms.ai_assistant.change_aisettings or perms.stock.view_stockcategory or perms.stock.view_brand or perms.website.change_sitesettings or perms.audit.view_auditlog or request.user.is_superuser %}
             <li>
               <details data-menu-root>
                 <summary class="whitespace-nowrap">Configurações</summary>
                 <ul class="z-50 w-56 rounded-box bg-base-100 p-2 shadow">
+                  <li><a href="{% url 'action_center' %}" class="whitespace-nowrap">Ações</a></li>
                   {% if perms.core.view_category or perms.stock.view_stockcategory or perms.operations.view_servicecategory %}
                     <li>
                       <details data-menu-nested>
@@ -466,6 +469,8 @@
   <script src="{% static 'js/toasts.js' %}"></script>
   <script src="{% static 'js/money.js' %}"></script>
   <script src="{% static 'js/floating-dropdown.js' %}"></script>
+  <script src="{% static 'js/responsive-lists.js' %}"></script>
+  <script src="{% static 'js/form-ux.js' %}"></script>
   <script src="{% static 'js/theme-toggle.js' %}"></script>
   <script>
     window.MotorMindPWA = {

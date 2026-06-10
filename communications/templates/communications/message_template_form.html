@@ -10,7 +10,7 @@
     <p class="text-base-content/70">Configure o assunto e o corpo reutilizável da mensagem.</p>
   </div>
 
-  <form method="post" class="card-section">
+  <form method="post" class="card-section" data-ux-form data-form-dirty-guard data-form-autosave>
     {% csrf_token %}
     <div class="card-body space-y-6">
       {% if form.non_field_errors %}

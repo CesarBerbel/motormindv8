@@ -44,7 +44,8 @@
   </div>
 </div>
 
-<form method="get" class="mb-6 rounded-box border border-base-300 bg-base-100 p-4 shadow-sm">
+<div class="responsive-filter-panel mb-6 rounded-box border border-base-300 bg-base-100 p-4 shadow-sm" data-responsive-filter-panel>
+<form method="get">
   <div class="grid gap-3 lg:grid-cols-[minmax(0,1.6fr)_minmax(180px,0.7fr)_minmax(200px,0.9fr)_auto] lg:items-end">
     <div class="form-control">
       <label class="label py-1" for="{{ filter_form.q.id_for_label }}"><span class="label-text text-xs font-medium">Busca</span></label>
@@ -64,8 +65,9 @@
     </div>
   </div>
 </form>
+</div>
 
-<div class="hidden overflow-x-auto rounded-box border border-base-300 bg-base-100 shadow-sm lg:block">
+<div class="overflow-x-auto rounded-box border border-base-300 bg-base-100 shadow-sm" data-responsive-list>
   <table class="table table-zebra">
     <thead>
       <tr>
@@ -114,40 +116,6 @@
       {% endfor %}
     </tbody>
   </table>
-</div>
-
-<div class="space-y-3 lg:hidden">
-  {% for lead in leads %}
-    <article class="card border border-base-300 bg-base-100 shadow-sm">
-      <div class="card-body gap-3 p-4">
-        <div class="flex items-start justify-between gap-3">
-          <div class="min-w-0">
-            <h2 class="truncate font-semibold">{{ lead.nome }}</h2>
-            <p class="text-sm text-base-content/70">{{ lead.telefone }}</p>
-          </div>
-          {% if lead.status == 'novo' %}
-            <span class="badge badge-info badge-outline shrink-0">{{ lead.get_status_display }}</span>
-          {% elif lead.status == 'em_contato' %}
-            <span class="badge badge-warning badge-outline shrink-0">{{ lead.get_status_display }}</span>
-          {% elif lead.status == 'concluido' %}
-            <span class="badge badge-success badge-outline shrink-0">{{ lead.get_status_display }}</span>
-          {% else %}
-            <span class="badge badge-ghost shrink-0">{{ lead.get_status_display }}</span>
-          {% endif %}
-        </div>
-        <div class="grid gap-2 text-sm text-base-content/70">
-          <p><span class="font-medium text-base-content">Veículo:</span> {{ lead.veiculo|default:'-' }}{% if lead.placa %} · {{ lead.placa }}{% endif %}</p>
-          <p><span class="font-medium text-base-content">Serviço:</span> {{ lead.servico.titulo|default:'Não informado' }}</p>
-          <p><span class="font-medium text-base-content">Recebido:</span> {{ lead.criado_em|date:'d/m/Y H:i' }}</p>
-        </div>
-        <div class="card-actions justify-end">
-          <a href="{% url 'site_lead_detail' lead.pk %}" class="btn btn-primary btn-sm whitespace-nowrap">Ver pedido</a>
-        </div>
-      </div>
-    </article>
-  {% empty %}
-    <div class="rounded-box border border-dashed border-base-300 bg-base-100 p-8 text-center text-base-content/60">Nenhum pedido encontrado.</div>
-  {% endfor %}
 </div>
 
 {% include 'includes/pagination.html' %}
