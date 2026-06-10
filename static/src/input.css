@@ -183,7 +183,7 @@
 
   .app-toast-container {
     position: fixed;
-    top: 1rem;
+    top: calc(var(--app-navbar-height, 4rem) + 0.75rem);
     right: 1rem;
     left: 1rem;
     z-index: 1000;
@@ -228,7 +228,7 @@
 
   @media (max-width: 640px) {
     .app-toast-container {
-      top: 0.75rem;
+      top: calc(var(--app-navbar-height, 4rem) + 0.5rem);
       right: 0.75rem;
       left: 0.75rem;
       align-items: stretch;
@@ -412,6 +412,28 @@ body {
   }
 }
 
+/* Importação rápida de XML na lista de peças/insumos. */
+.inventory-import-quick {
+  align-items: start;
+}
+
+.inventory-import-quick__controls {
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 640px) {
+  .inventory-import-quick__controls {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+}
+
+@media (min-width: 1280px) {
+  .inventory-import-quick {
+    min-width: 34rem;
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+}
+
 /* Arquitetura reutilizável de listagens responsivas. */
 .responsive-list-shell {
   border: 1px solid color-mix(in oklch, currentColor 10%, transparent);
@@ -444,6 +466,21 @@ body {
 
 .responsive-list-shell--enhanced tbody tr:hover {
   background: color-mix(in oklch, currentColor 3.5%, transparent);
+}
+
+.inventory-items-list-shell.responsive-list-shell--enhanced {
+  max-height: none;
+  overflow-x: auto;
+  overflow-y: visible;
+  scrollbar-gutter: auto;
+}
+
+.inventory-items-list-shell.responsive-list-shell--enhanced table {
+  font-size: 1rem;
+}
+
+.inventory-items-list-shell.responsive-list-shell--enhanced thead th {
+  position: static;
 }
 
 .responsive-sortable-header {

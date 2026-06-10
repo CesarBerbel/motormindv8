@@ -20,6 +20,11 @@
   <meta name="csrf-token" content="{{ csrf_token }}">
   <title>{% block title %}MotorMind{% endblock %}</title>
   <link rel="stylesheet" href="{% static 'css/styles.css' %}">
+  <link rel="icon" href="{% static 'img/favicon.ico' %}" sizes="any">
+  <link rel="icon" type="image/png" sizes="16x16" href="{% static 'img/favicon-16x16.png' %}">
+  <link rel="icon" type="image/png" sizes="32x32" href="{% static 'img/favicon-32x32.png' %}">
+  <link rel="icon" type="image/png" sizes="192x192" href="{% static 'img/favicon-192x192.png' %}">
+
 
   <meta name="theme-color" content="#1f2937">
   {% if pwa_enabled %}
@@ -97,13 +102,16 @@
               </li>
             {% endif %}
 
-            {% if perms.stock.view_inventoryitem or perms.stock.view_purchaseorder or perms.stock.view_stockmovement or perms.core.view_supplier %}
+            {% if perms.stock.view_inventoryitem or perms.stock.add_inventoryitem or perms.stock.view_purchaseorder or perms.stock.view_stockmovement or perms.core.view_supplier %}
               <li>
                 <details data-menu-nested>
                   <summary class="whitespace-nowrap">Estoque</summary>
                   <ul>
                     {% if perms.stock.view_inventoryitem %}
                       <li><a href="{% url 'inventory_item_list' %}" class="whitespace-nowrap">Peças e insumos</a></li>
+                    {% endif %}
+                    {% if perms.stock.add_inventoryitem %}
+                      <li><a href="{% url 'inventory_item_import_xml' %}" class="whitespace-nowrap">Importar XML de peças</a></li>
                     {% endif %}
                     {% if perms.stock.view_purchaseorder %}
                       <li><a href="{% url 'purchase_order_list' %}" class="whitespace-nowrap">Pedidos de compra</a></li>
@@ -269,13 +277,16 @@
             </li>
           {% endif %}
 
-          {% if perms.stock.view_inventoryitem or perms.stock.view_purchaseorder or perms.stock.view_stockmovement or perms.core.view_supplier %}
+          {% if perms.stock.view_inventoryitem or perms.stock.add_inventoryitem or perms.stock.view_purchaseorder or perms.stock.view_stockmovement or perms.core.view_supplier %}
             <li>
               <details data-menu-root>
                 <summary class="whitespace-nowrap">Estoque</summary>
                 <ul class="z-50 w-64 rounded-box bg-base-100 p-2 shadow">
                   {% if perms.stock.view_inventoryitem %}
                     <li><a href="{% url 'inventory_item_list' %}" class="whitespace-nowrap">Peças e insumos</a></li>
+                  {% endif %}
+                  {% if perms.stock.add_inventoryitem %}
+                    <li><a href="{% url 'inventory_item_import_xml' %}" class="whitespace-nowrap">Importar XML de peças</a></li>
                   {% endif %}
                   {% if perms.stock.view_purchaseorder %}
                     <li><a href="{% url 'purchase_order_list' %}" class="whitespace-nowrap">Pedidos de compra</a></li>

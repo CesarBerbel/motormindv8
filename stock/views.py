@@ -1,20 +1,22 @@
 from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
+from django.core import signing
 from django.core.exceptions import ValidationError
+from django.db import IntegrityError, transaction
 from django.db.models import BooleanField, Case, F, IntegerField, Q, Sum, Value, When
 from django.db.models.functions import Coalesce, Lower
 from django.http import JsonResponse
-from django.shortcuts import get_object_or_404, redirect
+from django.shortcuts import get_object_or_404, redirect, render
 from django.utils.dateparse import parse_date
-from django.urls import reverse_lazy
+from django.urls import reverse, reverse_lazy
 from django.views.generic import CreateView, DeleteView, DetailView, ListView, UpdateView, View
 
-from core.models import Supplier
+from core.models import Supplier, only_digits
 from core.money import format_money_br, normalize_money
 from core.views import FormTitleMixin, SoftDeleteMixin
 
-from .forms import BrandForm, InventoryItemForm, PurchaseOrderForm, PurchaseOrderItemFormSet, StockCategoryForm, StockMovementForm
+from .forms import BrandForm, InventoryItemForm, InventoryXmlImportItemFormSet, InventoryXmlImportOptionsForm, InventoryXmlUploadForm, PurchaseOrderForm, PurchaseOrderItemFormSet, StockCategoryForm, StockMovementForm
 from .models import (
     Brand,
     InventoryItem,
@@ -26,8 +28,11 @@ from .models import (
     StockCategory,
     StockMovement,
     StockMovementType,
+    UnitOfMeasure,
     ZERO_QUANTITY,
 )
+
+from .services.xml_inventory_import import InventoryXmlImportError, parse_inventory_xml_upload
 
 
 class SearchContextMixin:
@@ -394,6 +399,290 @@ class InventoryItemDeleteView(LoginRequiredMixin, PermissionRequiredMixin, FormT
 
     def get_queryset(self):
         return InventoryItem.objects.all()
+
+
+def _find_supplier_by_document(documento):
+    digits = only_digits(documento or '')
+    if not digits:
+        return None
+
+    for supplier in Supplier.objects.exclude(documento__isnull=True).exclude(documento=''):
+        if only_digits(supplier.documento) == digits:
+            return supplier
+
+    return None
+
+
+def _default_import_category():
+    category, _ = StockCategory.objects.get_or_create(
+        nome='Importado XML',
+        defaults={'descricao': 'Categoria criada automaticamente para itens importados por XML de NF-e.'},
+    )
+    return category
+
+
+def _first_active_unit():
+    return (
+        UnitOfMeasure.objects.filter(ativo=True, sigla__iexact='UN').first()
+        or UnitOfMeasure.objects.filter(ativo=True).order_by(Lower('nome'), 'pk').first()
+    )
+
+
+def _unit_by_xml_sigla(sigla):
+    normalized = (sigla or 'UN').strip()
+    return (
+        UnitOfMeasure.objects.filter(ativo=True, sigla__iexact=normalized).first()
+        or _first_active_unit()
+    )
+
+
+class InventoryItemXmlImportView(LoginRequiredMixin, PermissionRequiredMixin, View):
+    template_name = 'stock/inventory_item_xml_import.html'
+    permission_required = 'stock.add_inventoryitem'
+    formset_prefix = 'items'
+
+    def get(self, request, *args, **kwargs):
+        return self.render_upload(request, upload_form=InventoryXmlUploadForm())
+
+    def post(self, request, *args, **kwargs):
+        action = request.POST.get('action')
+
+        if action == 'preview':
+            return self.preview(request)
+
+        if action == 'import':
+            return self.import_items(request)
+
+        messages.error(request, 'Ação de importação inválida.')
+        return redirect('inventory_item_import_xml')
+
+    def render_upload(self, request, **context):
+        context.setdefault('upload_form', InventoryXmlUploadForm())
+        context.setdefault('mapping_rows', self.mapping_rows())
+        return render(request, self.template_name, context)
+
+    def mapping_rows(self):
+        return [
+            ('cProd', 'Código da peça/SKU', 'Preenche o código da peça. O usuário pode editar antes de importar.'),
+            ('cEAN / cEANTrib', 'Código alternativo/EAN', 'Usado como fallback quando o cProd não vem preenchido.'),
+            ('xProd', 'Nome e descrição', 'Preenche o nome do item e compõe a descrição.'),
+            ('uCom / uTrib', 'Unidade', 'Tenta encontrar a unidade cadastrada pela sigla; se não encontrar, usa UN.'),
+            ('qCom / qTrib', 'Quantidade', 'Pode registrar entrada de estoque quando um fornecedor é selecionado.'),
+            ('vUnCom / vUnTrib', 'Preço de custo', 'Preenche o custo unitário do item.'),
+            ('vProd', 'Valor total XML', 'Exibido como referência na prévia.'),
+            ('NCM / CEST / CFOP', 'Descrição', 'Guardados na descrição para rastreabilidade fiscal.'),
+            ('emit/CNPJ e emit/xNome', 'Fornecedor', 'Tenta localizar fornecedor já cadastrado pelo CNPJ.'),
+        ]
+
+    def preview(self, request):
+        upload_form = InventoryXmlUploadForm(request.POST, request.FILES)
+        if not upload_form.is_valid():
+            messages.error(request, 'Não foi possível ler o arquivo. Confira o XML/ZIP enviado.')
+            return self.render_upload(request, upload_form=upload_form)
+
+        try:
+            documents = parse_inventory_xml_upload(upload_form.cleaned_data['arquivo'])
+        except InventoryXmlImportError as exc:
+            messages.error(request, str(exc))
+            return self.render_upload(request, upload_form=upload_form)
+
+        rows = self.build_initial_rows(documents)
+        if not rows:
+            messages.error(request, 'Nenhum produto foi encontrado nos XMLs enviados.')
+            return self.render_upload(request, upload_form=upload_form)
+
+        supplier = self.guess_supplier(documents)
+        payload = signing.dumps({
+            'documents': [document.to_dict() for document in documents],
+            'rows_count': len(rows),
+        })
+
+        return self.render_upload(
+            request,
+            upload_form=InventoryXmlUploadForm(),
+            options_form=InventoryXmlImportOptionsForm(fornecedor_initial=supplier),
+            formset=InventoryXmlImportItemFormSet(initial=rows, prefix=self.formset_prefix),
+            preview=True,
+            payload=payload,
+            parsed_documents=documents,
+            total_rows=len(rows),
+        )
+
+    def build_initial_rows(self, documents):
+        rows = []
+        for document in documents:
+            for produto in document.produtos:
+                unit = _unit_by_xml_sigla(produto.unidade_sigla)
+                existing = InventoryItem.objects.filter(sku__iexact=produto.codigo).first() if produto.codigo else None
+                rows.append({
+                    'line_id': f'{produto.document_index}:{produto.line_index}',
+                    'xml_codigo': produto.codigo,
+                    'xml_ean': produto.codigo_barras,
+                    'xml_ncm': produto.ncm,
+                    'xml_cfop': produto.cfop,
+                    'xml_unidade': produto.unidade_sigla,
+                    'quantidade_original': produto.quantidade_original,
+                    'importar': True,
+                    'sku': existing.sku if existing else produto.codigo,
+                    'nome': existing.nome if existing else produto.nome,
+                    'tipo': existing.tipo if existing else produto.tipo_sugerido,
+                    'categoria': existing.categoria_id if existing else None,
+                    'marca': existing.marca_id if existing else None,
+                    'unidade': existing.unidade_id if existing else (unit.pk if unit else None),
+                    'estoque_minimo': existing.estoque_minimo if existing else ZERO_QUANTITY,
+                    'quantidade': produto.quantidade,
+                    'preco_custo': existing.preco_custo if existing else produto.preco_unitario,
+                    'preco_venda': existing.preco_venda if existing else produto.preco_unitario,
+                    'descricao': existing.descricao if existing else produto.descricao,
+                })
+        return rows
+
+    def guess_supplier(self, documents):
+        for document in documents:
+            supplier = _find_supplier_by_document(document.fornecedor.documento)
+            if supplier:
+                return supplier
+        return None
+
+    def import_items(self, request):
+        payload = request.POST.get('payload') or ''
+        try:
+            signing.loads(payload, max_age=60 * 60)
+        except signing.BadSignature:
+            messages.error(request, 'A prévia da importação expirou ou foi alterada. Envie o XML novamente.')
+            return redirect('inventory_item_import_xml')
+
+        options_form = InventoryXmlImportOptionsForm(request.POST)
+        formset = InventoryXmlImportItemFormSet(request.POST, prefix=self.formset_prefix)
+
+        if not options_form.is_valid() or not formset.is_valid():
+            messages.error(request, 'Revise os campos marcados antes de concluir a importação.')
+            return self.render_upload(
+                request,
+                upload_form=InventoryXmlUploadForm(),
+                options_form=options_form,
+                formset=formset,
+                preview=True,
+                payload=payload,
+                total_rows=formset.total_form_count(),
+            )
+
+        stats = {
+            'created': 0,
+            'updated': 0,
+            'skipped': 0,
+            'movements': 0,
+            'errors': [],
+        }
+
+        fornecedor = options_form.cleaned_data.get('fornecedor')
+        registrar_entrada = options_form.cleaned_data.get('registrar_entrada')
+        atualizar_existentes = options_form.cleaned_data.get('atualizar_existentes')
+
+        for index, form in enumerate(formset.forms, start=1):
+            data = form.cleaned_data
+            if not data.get('importar'):
+                stats['skipped'] += 1
+                continue
+
+            try:
+                item, created = self.create_or_update_item(data, atualizar_existentes)
+                if item is None:
+                    stats['skipped'] += 1
+                    continue
+
+                if created:
+                    stats['created'] += 1
+                else:
+                    stats['updated'] += 1
+
+                if registrar_entrada and fornecedor and data.get('quantidade', 0) > 0:
+                    self.create_stock_entry(item, fornecedor, data, request.user)
+                    stats['movements'] += 1
+            except (ValidationError, IntegrityError) as exc:
+                stats['errors'].append(f'Linha {index}: {exc}')
+                continue
+
+        self.add_result_messages(request, stats)
+        return redirect('inventory_item_list')
+
+    def create_or_update_item(self, data, atualizar_existentes):
+        sku = data.get('sku')
+        category = data.get('categoria') or _default_import_category()
+        brand = data.get('marca')
+
+        item = None
+        if sku:
+            item = InventoryItem.objects.filter(sku__iexact=sku).first()
+
+        if item is None:
+            item = InventoryItem.objects.filter(
+                nome__iexact=data['nome'],
+                categoria=category,
+                marca=brand,
+            ).first()
+
+        if item is not None and not atualizar_existentes:
+            return None, False
+
+        created = item is None
+        if created:
+            item = InventoryItem()
+
+        item.sku = sku or item.sku
+        item.tipo = data['tipo']
+        item.nome = data['nome']
+        item.descricao = data.get('descricao') or ''
+        item.categoria = category
+        item.marca = brand
+        item.estoque_minimo = data.get('estoque_minimo') or ZERO_QUANTITY
+        item.unidade = data['unidade']
+        item.preco_custo = data.get('preco_custo') or 0
+        item.preco_venda = data.get('preco_venda') or 0
+
+        with transaction.atomic():
+            item.full_clean()
+            item.save()
+
+        return item, created
+
+    def create_stock_entry(self, item, fornecedor, data, user):
+        movement = StockMovement(
+            item=item,
+            fornecedor=fornecedor,
+            tipo=StockMovementType.ENTRADA,
+            quantidade=data['quantidade'],
+            custo_unitario=data.get('preco_custo') or item.preco_custo,
+            observacao=(
+                'Entrada automática por importação XML'
+                f' | Código XML: {data.get("xml_codigo") or "-"}'
+                f' | NCM: {data.get("xml_ncm") or "-"}'
+                f' | CFOP: {data.get("xml_cfop") or "-"}'
+            ),
+            criado_por=user if getattr(user, 'is_authenticated', False) else None,
+        )
+        with transaction.atomic():
+            movement.full_clean()
+            movement.save()
+        return movement
+
+    def add_result_messages(self, request, stats):
+        messages.success(
+            request,
+            (
+                'Importação XML concluída: '
+                f'{stats["created"]} criado(s), '
+                f'{stats["updated"]} atualizado(s), '
+                f'{stats["skipped"]} ignorado(s), '
+                f'{stats["movements"]} entrada(s) de estoque.'
+            ),
+        )
+
+        if stats['errors']:
+            preview = ' '.join(stats['errors'][:5])
+            if len(stats['errors']) > 5:
+                preview += f' Mais {len(stats["errors"]) - 5} erro(s) não exibido(s).'
+            messages.warning(request, f'Alguns itens não foram importados. {preview}')
 
 
 class StockMovementSearchMixin(SearchContextMixin):

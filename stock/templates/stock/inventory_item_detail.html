@@ -28,7 +28,7 @@
     <div class="card-body">
       <h2 class="card-title">Dados do item</h2>
       <div class="grid gap-4 md:grid-cols-2">
-        <div><span class="text-sm text-base-content/60">SKU</span><p class="font-medium">{{ item.sku }}</p></div>
+        <div><span class="text-sm text-base-content/60">Código/SKU</span><p class="font-medium">{{ item.sku }}</p></div>
         <div><span class="text-sm text-base-content/60">Tipo</span><p class="font-medium">{{ item.get_tipo_display }}</p></div>
         <div><span class="text-sm text-base-content/60">Categoria</span><p class="font-medium">{{ item.categoria.nome }}</p></div>
         <div><span class="text-sm text-base-content/60">Marca</span><p class="font-medium">{{ item.marca.nome|default:'-' }}</p></div>

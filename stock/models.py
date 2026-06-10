@@ -111,7 +111,7 @@ class InventoryItemType(models.TextChoices):
 
 class InventoryItem(SoftDeleteModel):
     tipo = models.CharField('Tipo', max_length=20, choices=InventoryItemType.choices, default=InventoryItemType.PECA)
-    sku = models.CharField('SKU', max_length=20, unique=True, blank=True, null=True, editable=False, db_index=True)
+    sku = models.CharField('Código da peça/SKU', max_length=60, unique=True, blank=True, null=True, db_index=True)
     nome = models.CharField('Nome', max_length=180)
     descricao = models.TextField('Descrição', blank=True)
     categoria = models.ForeignKey(

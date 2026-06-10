@@ -87,3 +87,69 @@ class StockMovementTests(StockFixtureMixin, TestCase):
     def test_entrada_requires_fornecedor(self):
         with self.assertRaises(ValidationError):
             self._move(StockMovementType.ENTRADA, 5)
+
+
+class InventoryItemManualSkuTests(StockFixtureMixin, TestCase):
+    def test_manual_sku_is_preserved_on_creation(self):
+        item = InventoryItem.objects.create(
+            sku='XML-ABC-123',
+            nome='Filtro importado XML',
+            categoria=self.categoria,
+            unidade=self.unidade,
+            preco_custo=Decimal('10.00'),
+            preco_venda=Decimal('15.00'),
+        )
+
+        self.assertEqual(item.sku, 'XML-ABC-123')
+
+
+class InventoryXmlParserTests(TestCase):
+    def test_parse_nfe_products_maps_xml_fields_to_inventory_fields(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+
+        from stock.services.xml_inventory_import import parse_inventory_xml_upload
+
+        xml = """<?xml version="1.0" encoding="UTF-8"?>
+        <nfeProc xmlns="http://www.portalfiscal.inf.br/nfe">
+          <NFe>
+            <infNFe Id="NFe35123456789012345678901234567890123456789012">
+              <ide><nNF>123</nNF></ide>
+              <emit>
+                <CNPJ>12345678000190</CNPJ>
+                <xNome>Fornecedor Teste</xNome>
+                <enderEmit><xMun>Sao Paulo</xMun><UF>SP</UF></enderEmit>
+              </emit>
+              <det nItem="1">
+                <prod>
+                  <cProd>FILTRO-001</cProd>
+                  <cEAN>7891234567890</cEAN>
+                  <xProd>Filtro de oleo importado</xProd>
+                  <NCM>84212300</NCM>
+                  <CFOP>5102</CFOP>
+                  <uCom>UN</uCom>
+                  <qCom>2.0000</qCom>
+                  <vUnCom>25.50</vUnCom>
+                  <vProd>51.00</vProd>
+                </prod>
+              </det>
+            </infNFe>
+          </NFe>
+        </nfeProc>""".encode('utf-8')
+
+        uploaded = SimpleUploadedFile('nfe.xml', xml, content_type='application/xml')
+        documents = parse_inventory_xml_upload(uploaded)
+
+        self.assertEqual(len(documents), 1)
+        self.assertEqual(documents[0].numero, '123')
+        self.assertEqual(documents[0].fornecedor.documento, '12345678000190')
+        self.assertEqual(len(documents[0].produtos), 1)
+
+        product = documents[0].produtos[0]
+        self.assertEqual(product.codigo, 'FILTRO-001')
+        self.assertEqual(product.codigo_barras, '7891234567890')
+        self.assertEqual(product.nome, 'Filtro de oleo importado')
+        self.assertEqual(product.unidade_sigla, 'UN')
+        self.assertEqual(product.quantidade, '2')
+        self.assertEqual(product.preco_unitario, '25.50')
+        self.assertEqual(product.valor_total, '51.00')
+        self.assertIn('NCM: 84212300', product.descricao)

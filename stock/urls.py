@@ -5,6 +5,7 @@ from . import views
 urlpatterns = [
     path('estoque/itens/', views.InventoryItemListView.as_view(), name='inventory_item_list'),
     path('estoque/itens/novo/', views.InventoryItemCreateView.as_view(), name='inventory_item_create'),
+    path('estoque/itens/importar-xml/', views.InventoryItemXmlImportView.as_view(), name='inventory_item_import_xml'),
     path('estoque/itens/autocomplete/', views.InventoryItemAutocompleteView.as_view(), name='inventory_item_autocomplete'),
     path('estoque/itens/<int:pk>/', views.InventoryItemDetailView.as_view(), name='inventory_item_detail'),
     path('estoque/itens/<int:pk>/editar/', views.InventoryItemUpdateView.as_view(), name='inventory_item_update'),
