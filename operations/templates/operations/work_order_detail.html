@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{% load money %}
+{% load static money %}
 
 {% block title %}{{ order.codigo }} | MotorMind{% endblock %}
 
@@ -31,13 +31,56 @@
 </dialog>
 {% endif %}
 
-<div class="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-  <div>
-    <h1 class="page-title">{{ order.codigo }}</h1>
-    <p class="text-base-content/70">{{ order.cliente.nome_razao_social }} · {{ order.get_status_display }}</p>
+<section class="work-order-hero mb-6">
+  <div class="work-order-hero__content">
+    <div class="min-w-0">
+      <div class="mb-3 flex flex-wrap items-center gap-2">
+        <span class="badge badge-neutral badge-outline">Ordem de Serviço</span>
+        <span class="badge {{ order.status_badge_class }}">{{ order.get_status_display }}</span>
+        {% if order.estoque_baixado %}
+          <span class="badge badge-success badge-outline">Estoque baixado</span>
+        {% else %}
+          <span class="badge badge-warning badge-outline">Estoque pendente</span>
+        {% endif %}
+      </div>
+      <h1 class="text-3xl font-bold tracking-tight md:text-4xl">{{ order.codigo }}</h1>
+      <p class="mt-2 max-w-3xl text-base text-base-content/70">
+        {{ order.cliente.nome_razao_social }}
+        {% if order.veiculo %}
+          · {{ order.veiculo.placa }} - {{ order.veiculo.marca }} {{ order.veiculo.modelo }}
+        {% endif %}
+      </p>
+    </div>
+
+    <div class="work-order-hero__total">
+      <span>Total da OS</span>
+      <strong>{{ order.valor_total|money_br }}</strong>
+      <small>Desconto {{ order.valor_desconto|money_br }}{% if order.desconto_percentual %} · {{ order.desconto_percentual }}%{% endif %}</small>
+    </div>
   </div>
-  <div class="flex flex-wrap gap-2">
+
+  <div class="work-order-hero__metrics">
+    <div class="work-order-metric">
+      <span>Abertura</span>
+      <strong>{{ order.data_abertura|date:'d/m/Y H:i' }}</strong>
+    </div>
+    <div class="work-order-metric">
+      <span>Previsão</span>
+      <strong>{{ order.previsao_entrega|date:'d/m/Y H:i'|default:'Sem previsão' }}</strong>
+    </div>
+    <div class="work-order-metric">
+      <span>Duração</span>
+      <strong>{{ order.duracao_formatada }}</strong>
+    </div>
+    <div class="work-order-metric">
+      <span>Responsável</span>
+      <strong>{% if order.tecnico_responsavel_id %}{{ order.tecnico_responsavel.nome_razao_social|default:order.tecnico_responsavel.email }}{% else %}Não definido{% endif %}</strong>
+    </div>
+  </div>
+
+  <div class="work-order-action-bar">
     <a href="{% url 'work_order_list' %}" class="btn btn-ghost whitespace-nowrap">Voltar</a>
+    <a href="{% url 'work_order_pdf' order.pk %}" target="_blank" rel="noopener" class="btn btn-outline whitespace-nowrap">Gerar PDF</a>
     {% if vehicle_checkin and perms.operations.view_vehiclecheckin %}
       <a href="{% url 'vehicle_checkin_detail' vehicle_checkin.pk %}" class="btn btn-outline whitespace-nowrap">Ver check-in</a>
     {% elif perms.operations.add_vehiclecheckin and order.veiculo %}
@@ -70,62 +113,119 @@
     {% if can_change %}<a href="{% url 'work_order_update' order.pk %}" class="btn btn-outline whitespace-nowrap">Editar</a>{% endif %}
     {% if can_delete %}<a href="{% url 'work_order_delete' order.pk %}" class="btn btn-error btn-outline whitespace-nowrap">Excluir</a>{% endif %}
   </div>
-</div>
+</section>
 
 {% include 'operations/includes/work_order_status_timeline.html' %}
 
-<div class="grid gap-6 lg:grid-cols-3">
-  <div class="card bg-base-100 shadow lg:col-span-2">
-    <div class="card-body">
-      <h2 class="card-title">Dados da OS</h2>
-      <div class="grid gap-4 md:grid-cols-2">
-        <div><span class="text-sm text-base-content/60">Código</span><p class="font-mono font-medium">{{ order.codigo }}</p></div>
-        <div><span class="text-sm text-base-content/60">Status</span><p><span class="badge {{ order.status_badge_class }}">{{ order.get_status_display }}</span></p></div>
-        <div><span class="text-sm text-base-content/60">Cliente</span><p class="font-medium"><a href="{% url 'customer_detail' order.cliente.pk %}" class="link link-primary">{{ order.cliente.nome_razao_social }}</a></p></div>
-        <div><span class="text-sm text-base-content/60">Veículo</span><p class="font-medium">{% if order.veiculo %}<a href="{% url 'vehicle_detail' order.veiculo.pk %}" class="link link-primary">{{ order.veiculo.placa }} - {{ order.veiculo.marca }} {{ order.veiculo.modelo }}</a>{% else %}-{% endif %}</p></div>
-        <div><span class="text-sm text-base-content/60">Abertura</span><p>{{ order.data_abertura|date:'d/m/Y H:i' }}</p></div>
-        <div><span class="text-sm text-base-content/60">Previsão</span><p>{{ order.previsao_entrega|date:'d/m/Y H:i'|default:'-' }}</p></div>
-        <div><span class="text-sm text-base-content/60">Finalização</span><p>{{ order.data_finalizacao|date:'d/m/Y H:i'|default:'-' }}</p></div>
-        <div><span class="text-sm text-base-content/60">KM atual</span><p>{{ order.km_atual|default:'-' }}</p></div>
-        <div><span class="text-sm text-base-content/60">Técnico responsável</span><p>{% if order.tecnico_responsavel_id %}{{ order.tecnico_responsavel.nome_razao_social|default:order.tecnico_responsavel.email }}{% else %}-{% endif %}</p></div>
-        <div><span class="text-sm text-base-content/60">Duração estimada</span><p>{{ order.duracao_formatada }}</p></div>
-        <div><span class="text-sm text-base-content/60">Estoque</span><p>{% if order.estoque_baixado %}<span class="badge badge-success">Baixado</span>{% else %}<span class="badge badge-warning">Pendente</span>{% endif %}</p></div>
+<div class="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
+  <div class="space-y-6">
+    <section class="card-section work-order-info-card">
+      <div class="card-body">
+        <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h2 class="card-title">Dados principais</h2>
+            <p class="text-sm text-base-content/60">Identificação, cliente, veículo e controle operacional da OS.</p>
+          </div>
+          <span class="badge {{ order.status_badge_class }} whitespace-nowrap">{{ order.get_status_display }}</span>
+        </div>
+
+        <div class="work-order-data-grid mt-5">
+          <div>
+            <span>Código</span>
+            <p class="font-mono">{{ order.codigo }}</p>
+          </div>
+          <div>
+            <span>Cliente</span>
+            <p><a href="{% url 'customer_detail' order.cliente.pk %}" class="link link-primary font-medium">{{ order.cliente.nome_razao_social }}</a></p>
+          </div>
+          <div>
+            <span>Veículo</span>
+            <p>{% if order.veiculo %}<a href="{% url 'vehicle_detail' order.veiculo.pk %}" class="link link-primary font-medium">{{ order.veiculo.placa }} - {{ order.veiculo.marca }} {{ order.veiculo.modelo }}</a>{% else %}-{% endif %}</p>
+          </div>
+          <div>
+            <span>KM atual</span>
+            <p>{{ order.km_atual|default:'-' }}</p>
+          </div>
+          <div>
+            <span>Abertura</span>
+            <p>{{ order.data_abertura|date:'d/m/Y H:i' }}</p>
+          </div>
+          <div>
+            <span>Previsão</span>
+            <p>{{ order.previsao_entrega|date:'d/m/Y H:i'|default:'-' }}</p>
+          </div>
+          <div>
+            <span>Finalização</span>
+            <p>{{ order.data_finalizacao|date:'d/m/Y H:i'|default:'-' }}</p>
+          </div>
+          <div>
+            <span>Técnico responsável</span>
+            <p>{% if order.tecnico_responsavel_id %}{{ order.tecnico_responsavel.nome_razao_social|default:order.tecnico_responsavel.email }}{% else %}-{% endif %}</p>
+          </div>
+          <div>
+            <span>Estoque</span>
+            <p>{% if order.estoque_baixado %}<span class="badge badge-success">Baixado</span>{% else %}<span class="badge badge-warning">Pendente</span>{% endif %}</p>
+          </div>
+        </div>
       </div>
-      <div class="mt-4 grid gap-4 md:grid-cols-3">
-        <div><span class="text-sm text-base-content/60">Problema relatado</span><p class="mt-1 whitespace-pre-line">{{ order.problema_relatado|default:'-' }}</p></div>
-        <div><span class="text-sm text-base-content/60">Diagnóstico</span><p class="mt-1 whitespace-pre-line">{{ order.diagnostico|default:'-' }}</p></div>
-        <div><span class="text-sm text-base-content/60">Observação</span><p class="mt-1 whitespace-pre-line">{{ order.observacao|default:'-' }}</p></div>
+    </section>
+
+    <section class="card-section work-order-note-section">
+      <div class="card-body">
+        <h2 class="card-title">Relato, diagnóstico e observações</h2>
+        <div class="grid gap-3">
+          <article>
+            <span>Problema relatado</span>
+            <p>{{ order.problema_relatado|default:'-' }}</p>
+          </article>
+          <article>
+            <span>Diagnóstico</span>
+            <p>{{ order.diagnostico|default:'-' }}</p>
+          </article>
+          <article>
+            <span>Observação</span>
+            <p>{{ order.observacao|default:'-' }}</p>
+          </article>
+        </div>
       </div>
-    </div>
+    </section>
   </div>
 
-  <div class="card bg-base-100 shadow">
-    <div class="card-body">
-      <h2 class="card-title">Resumo financeiro</h2>
-      <div class="stats stats-vertical shadow-none">
-        <div class="stat px-0"><div class="stat-title">Serviços</div><div class="stat-value text-2xl">{{ order.subtotal_servicos|money_br }}</div></div>
-        <div class="stat px-0"><div class="stat-title">Combos</div><div class="stat-value text-2xl">{{ order.subtotal_combos|money_br }}</div></div>
-        <div class="stat px-0"><div class="stat-title">Peças</div><div class="stat-value text-2xl">{{ order.subtotal_pecas|money_br }}</div><div class="stat-desc">Somente itens cobrados do cliente</div></div>
-        <div class="stat px-0"><div class="stat-title">Custo serviços</div><div class="stat-value text-2xl">{{ order.custo_servicos|money_br }}</div><div class="stat-desc">Custo interno de execução</div></div>
-        <div class="stat px-0"><div class="stat-title">Insumos internos</div><div class="stat-value text-2xl">{{ order.custo_insumos|money_br }}</div><div class="stat-desc">Despesa da oficina; não soma no total</div></div>
-        <div class="stat px-0"><div class="stat-title">Custo operacional</div><div class="stat-value text-2xl">{{ order.custo_operacional|money_br }}</div><div class="stat-desc">Serviços + insumos</div></div>
-        <div class="stat px-0"><div class="stat-title">Desconto</div><div class="stat-value text-2xl">{{ order.valor_desconto|money_br }}</div><div class="stat-desc">{{ order.desconto_percentual|default:'0,00' }}%</div></div>
-        <div class="stat px-0"><div class="stat-title">Total</div><div class="stat-value text-2xl">{{ order.valor_total|money_br }}</div></div>
+  <aside class="space-y-6 xl:self-start">
+    <section class="card-section work-order-finance-card">
+      <div class="card-body">
+        <div>
+          <h2 class="card-title">Resumo financeiro</h2>
+          <p class="text-sm text-base-content/60">Composição de cobrança e custo interno.</p>
+        </div>
+        <div class="work-order-finance-list mt-2">
+          <div><span>Serviços</span><strong>{{ order.subtotal_servicos|money_br }}</strong></div>
+          <div><span>Combos</span><strong>{{ order.subtotal_combos|money_br }}</strong></div>
+          <div><span>Peças cobradas</span><strong>{{ order.subtotal_pecas|money_br }}</strong></div>
+          <div><span>Custo serviços</span><strong>{{ order.custo_servicos|money_br }}</strong></div>
+          <div><span>Insumos internos</span><strong>{{ order.custo_insumos|money_br }}</strong></div>
+          <div><span>Custo operacional</span><strong>{{ order.custo_operacional|money_br }}</strong></div>
+          <div><span>Desconto</span><strong>{{ order.valor_desconto|money_br }}</strong></div>
+          <div class="work-order-finance-list__total"><span>Total</span><strong>{{ order.valor_total|money_br }}</strong></div>
+        </div>
+        {% if order.estoque_baixado %}
+          <p class="mt-3 text-sm text-base-content/60">Baixa realizada em {{ order.estoque_baixado_em|date:'d/m/Y H:i' }}{% if order.estoque_baixado_por %} por {{ order.estoque_baixado_por.email }}{% endif %}.</p>
+        {% endif %}
       </div>
-      {% if order.estoque_baixado %}
-        <p class="text-sm text-base-content/60">Baixa realizada em {{ order.estoque_baixado_em|date:'d/m/Y H:i' }}{% if order.estoque_baixado_por %} por {{ order.estoque_baixado_por.email }}{% endif %}.</p>
-      {% endif %}
-    </div>
-  </div>
+    </section>
+  </aside>
 </div>
 
-
 {% if current_approval_budget %}
-<div class="mt-6 card bg-base-100 shadow">
+<section class="mt-6 card-section work-order-panel">
   <div class="card-body">
     <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
       <div>
-        <h2 class="card-title">Orçamento versionado</h2>
+        <div class="flex flex-wrap items-center gap-2">
+          <h2 class="card-title">Orçamento versionado</h2>
+          <span class="badge badge-outline">v{{ current_approval_budget.versao }}</span>
+          <span class="badge badge-outline">{{ current_approval_budget.get_status_display }}</span>
+        </div>
         <p class="text-sm text-base-content/60">Snapshot congelado dos itens da OS para aprovação do cliente. Insumos internos ficam visíveis apenas para a oficina.</p>
       </div>
       <div class="flex flex-wrap gap-2">
@@ -137,11 +237,11 @@
     </div>
 
     <div class="mt-4 grid gap-3 md:grid-cols-5">
-      <div><span class="text-sm text-base-content/60">Versão</span><p class="font-medium">v{{ current_approval_budget.versao }}</p></div>
-      <div><span class="text-sm text-base-content/60">Status</span><p><span class="badge badge-outline">{{ current_approval_budget.get_status_display }}</span></p></div>
-      <div><span class="text-sm text-base-content/60">Snapshot</span><p>{{ current_approval_budget.valor_total_snapshot|money_br }}</p></div>
-      <div><span class="text-sm text-base-content/60">Aprovado</span><p>{{ current_approval_budget.valor_total_aprovado|money_br }}</p></div>
-      <div><span class="text-sm text-base-content/60">Email</span><p>{% if current_approval_budget.email_enviado %}<span class="badge badge-success">Enviado</span>{% else %}<span class="badge badge-warning">Pendente/erro</span>{% endif %}</p></div>
+      <div class="work-order-mini-card"><span>Versão</span><strong>v{{ current_approval_budget.versao }}</strong></div>
+      <div class="work-order-mini-card"><span>Status</span><strong>{{ current_approval_budget.get_status_display }}</strong></div>
+      <div class="work-order-mini-card"><span>Snapshot</span><strong>{{ current_approval_budget.valor_total_snapshot|money_br }}</strong></div>
+      <div class="work-order-mini-card"><span>Aprovado</span><strong>{{ current_approval_budget.valor_total_aprovado|money_br }}</strong></div>
+      <div class="work-order-mini-card"><span>Email</span><strong>{% if current_approval_budget.email_enviado %}Enviado{% else %}Pendente/erro{% endif %}</strong></div>
     </div>
 
     {% if order.has_locked_approval %}
@@ -174,7 +274,7 @@
       </div>
     {% endif %}
 
-    <div class="overflow-x-auto mt-4">
+    <div class="work-order-table-shell mt-4">
       <table class="table table-sm">
         <thead><tr><th>Tipo</th><th>Item</th><th>Qtd</th><th>Valor unit.</th><th>Subtotal</th><th>Resposta</th></tr></thead>
         <tbody>
@@ -200,14 +300,20 @@
       </table>
     </div>
   </div>
-</div>
+</section>
 {% endif %}
 
 <div class="mt-6 grid gap-6 xl:grid-cols-2">
-  <div class="card bg-base-100 shadow">
+  <section class="card-section work-order-panel">
     <div class="card-body">
-      <h2 class="card-title">Serviços da OS</h2>
-      <div class="overflow-x-auto">
+      <div class="mb-4 flex items-start justify-between gap-3">
+        <div>
+          <h2 class="card-title">Serviços da OS</h2>
+          <p class="text-sm text-base-content/60">Mão de obra e procedimentos vinculados.</p>
+        </div>
+        <span class="badge badge-outline">{{ order.subtotal_servicos|money_br }}</span>
+      </div>
+      <div class="work-order-table-shell">
         <table class="table">
           <thead><tr><th>Código</th><th>Serviço</th><th>Qtd</th><th>Valor unit.</th><th>Subtotal</th><th>Custo unit.</th><th>Custo total</th></tr></thead>
           <tbody>
@@ -218,12 +324,18 @@
         </table>
       </div>
     </div>
-  </div>
+  </section>
 
-  <div class="card bg-base-100 shadow">
+  <section class="card-section work-order-panel">
     <div class="card-body">
-      <h2 class="card-title">Combos da OS</h2>
-      <div class="overflow-x-auto">
+      <div class="mb-4 flex items-start justify-between gap-3">
+        <div>
+          <h2 class="card-title">Combos da OS</h2>
+          <p class="text-sm text-base-content/60">Pacotes comerciais aplicados à OS.</p>
+        </div>
+        <span class="badge badge-outline">{{ order.subtotal_combos|money_br }}</span>
+      </div>
+      <div class="work-order-table-shell">
         <table class="table">
           <thead><tr><th>Código</th><th>Combo</th><th>Qtd</th><th>Valor unit.</th><th>Subtotal</th><th>Custo unit.</th><th>Custo total</th></tr></thead>
           <tbody>
@@ -234,14 +346,19 @@
         </table>
       </div>
     </div>
-  </div>
+  </section>
 </div>
 
-<div class="mt-6 card bg-base-100 shadow">
+<section class="mt-6 card-section work-order-panel">
   <div class="card-body">
-    <h2 class="card-title">Peças e insumos avulsos</h2>
-    <p class="text-sm text-base-content/60">Peças somam no valor da OS. Insumos são despesa interna e ficam fora do orçamento do cliente.</p>
-    <div class="overflow-x-auto">
+    <div class="mb-4 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+      <div>
+        <h2 class="card-title">Peças e insumos avulsos</h2>
+        <p class="text-sm text-base-content/60">Peças somam no valor da OS. Insumos são despesa interna e ficam fora do orçamento do cliente.</p>
+      </div>
+      <span class="badge badge-outline">{{ order.subtotal_pecas_avulsas|money_br }}</span>
+    </div>
+    <div class="work-order-table-shell">
       <table class="table">
         <thead><tr><th>SKU</th><th>Peça/Insumo</th><th>Qtd</th><th>Estoque atual</th><th>Valor unit.</th><th>Subtotal</th><th>Custo interno</th></tr></thead>
         <tbody>
@@ -252,9 +369,9 @@
       </table>
     </div>
   </div>
-</div>
+</section>
 
-<div class="mt-6 card bg-base-100 shadow">
+<section class="mt-6 card-section work-order-panel">
   <div class="card-body">
     <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
       <div>
@@ -271,7 +388,7 @@
       <form method="post" action="{% url 'work_order_stock_requirement_update' order.pk %}" class="mt-4">
         {% csrf_token %}
         <input type="hidden" name="next" value="{{ request.get_full_path }}">
-        <div class="overflow-x-auto">
+        <div class="work-order-table-shell">
           <table class="table">
             <thead><tr><th>SKU</th><th>Peça/Insumo</th><th>Qtd padrão</th><th>Qtd desta OS</th><th>Estoque atual</th><th>Valor unit.</th><th>Subtotal</th><th>Custo interno</th></tr></thead>
             <tbody>
@@ -300,7 +417,7 @@
         </div>
       </form>
     {% else %}
-      <div class="mt-4 overflow-x-auto">
+      <div class="mt-4 work-order-table-shell">
         <table class="table">
           <thead><tr><th>SKU</th><th>Peça/Insumo</th><th>Qtd padrão</th><th>Qtd desta OS</th><th>Estoque atual</th><th>Valor unit.</th><th>Subtotal</th><th>Custo interno</th></tr></thead>
           <tbody>
@@ -321,30 +438,33 @@
       </div>
     {% endif %}
 
-    <div class="divider">Origem das peças previstas</div>
-    <div class="overflow-x-auto">
-      <table class="table table-sm">
-        <thead><tr><th>Origem</th><th>Item</th><th>Quantidade padrão</th><th>Valor unit.</th><th>Subtotal origem</th><th>Observação</th></tr></thead>
-        <tbody>
-          {% for row in stock_requirement_sources %}
-            <tr>
-              <td><span class="badge badge-outline whitespace-nowrap">{{ row.origem_tipo }}</span><p class="mt-1 text-xs text-base-content/60">{% if row.origem_codigo %}{{ row.origem_codigo }} - {% endif %}{{ row.origem_nome }}</p></td>
-              <td><span class="font-mono text-xs">{{ row.item.sku }}</span><br>{{ row.item.nome }}</td>
-              <td>{{ row.quantidade }} {{ row.item.unidade.sigla }}</td>
-              <td>{% if row.is_internal_supply %}<span class="text-base-content/60">Não cobra</span>{% else %}{{ row.valor_unitario|money_br }}{% endif %}</td>
-              <td>{% if row.is_internal_supply %}<span class="text-base-content/60">Não soma</span>{% else %}{{ row.subtotal|money_br }}{% endif %}</td>
-              <td class="text-sm text-base-content/70">{{ row.origem_observacao|default:'-' }}</td>
-            </tr>
-          {% empty %}<tr><td colspan="6" class="text-center">Nenhuma origem de peça prevista.</td></tr>{% endfor %}
-        </tbody>
-      </table>
-    </div>
+    <details class="collapse collapse-arrow mt-5 rounded-box border border-base-300 bg-base-100">
+      <summary class="collapse-title font-medium">Origem das peças previstas</summary>
+      <div class="collapse-content">
+        <div class="work-order-table-shell">
+          <table class="table table-sm">
+            <thead><tr><th>Origem</th><th>Item</th><th>Quantidade padrão</th><th>Valor unit.</th><th>Subtotal origem</th><th>Observação</th></tr></thead>
+            <tbody>
+              {% for row in stock_requirement_sources %}
+                <tr>
+                  <td><span class="badge badge-outline whitespace-nowrap">{{ row.origem_tipo }}</span><p class="mt-1 text-xs text-base-content/60">{% if row.origem_codigo %}{{ row.origem_codigo }} - {% endif %}{{ row.origem_nome }}</p></td>
+                  <td><span class="font-mono text-xs">{{ row.item.sku }}</span><br>{{ row.item.nome }}</td>
+                  <td>{{ row.quantidade }} {{ row.item.unidade.sigla }}</td>
+                  <td>{% if row.is_internal_supply %}<span class="text-base-content/60">Não cobra</span>{% else %}{{ row.valor_unitario|money_br }}{% endif %}</td>
+                  <td>{% if row.is_internal_supply %}<span class="text-base-content/60">Não soma</span>{% else %}{{ row.subtotal|money_br }}{% endif %}</td>
+                  <td class="text-sm text-base-content/70">{{ row.origem_observacao|default:'-' }}</td>
+                </tr>
+              {% empty %}<tr><td colspan="6" class="text-center">Nenhuma origem de peça prevista.</td></tr>{% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </details>
   </div>
-</div>
-
+</section>
 
 {% if can_view_purchase_orders %}
-<div class="mt-6 card bg-base-100 shadow">
+<section class="mt-6 card-section work-order-panel">
   <div class="card-body">
     <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
       <div>
@@ -353,7 +473,7 @@
       </div>
       <a href="{% url 'purchase_order_list' %}?q={{ order.codigo }}" class="btn btn-sm btn-ghost whitespace-nowrap">Ver no estoque</a>
     </div>
-    <div class="overflow-x-auto mt-4">
+    <div class="work-order-table-shell mt-4">
       <table class="table">
         <thead><tr><th>Código</th><th>Status</th><th>Origem</th><th>Fornecedor</th><th>Itens</th><th>Total</th><th>Ações</th></tr></thead>
         <tbody>
@@ -374,24 +494,33 @@
       </table>
     </div>
   </div>
-</div>
+</section>
 {% endif %}
 
-<div class="mt-6 card bg-base-100 shadow">
+<section class="mt-6 card-section work-order-panel">
   <div class="card-body">
-    <h2 class="card-title">Histórico de estados</h2>
-    <div class="space-y-3">
+    <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+      <div>
+        <h2 class="card-title">Histórico de estados</h2>
+        <p class="text-sm text-base-content/60">Registro cronológico de mudanças de status.</p>
+      </div>
+      <span class="badge badge-outline">{{ status_history|length }} movimento(s)</span>
+    </div>
+    <div class="mt-4 space-y-3">
       {% for transition in status_history %}
-        <div class="rounded-box border border-base-300 p-3 text-sm">
-          <p><span class="font-medium">{{ transition.get_status_anterior_display }}</span> → <span class="font-medium">{{ transition.get_status_novo_display }}</span></p>
-          <p class="text-base-content/60">{{ transition.criado_em|date:'d/m/Y H:i' }}{% if transition.criado_por %} · {{ transition.criado_por.email }}{% endif %}</p>
-          {% if transition.observacao %}<p class="mt-1 whitespace-pre-line text-base-content/70">{{ transition.observacao }}</p>{% endif %}
+        <div class="work-order-history-item">
+          <div class="work-order-history-item__dot"></div>
+          <div>
+            <p><span class="font-medium">{{ transition.get_status_anterior_display }}</span> → <span class="font-medium">{{ transition.get_status_novo_display }}</span></p>
+            <p class="text-sm text-base-content/60">{{ transition.criado_em|date:'d/m/Y H:i' }}{% if transition.criado_por %} · {{ transition.criado_por.email }}{% endif %}</p>
+            {% if transition.observacao %}<p class="mt-1 whitespace-pre-line text-sm text-base-content/70">{{ transition.observacao }}</p>{% endif %}
+          </div>
         </div>
       {% empty %}
         <p class="text-sm text-base-content/60">Nenhuma transição registrada ainda.</p>
       {% endfor %}
     </div>
   </div>
-</div>
+</section>
 
 {% endblock %}

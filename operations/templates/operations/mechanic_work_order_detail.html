@@ -5,12 +5,35 @@
 {% block title %}Mecânica {{ order.codigo }} | MotorMind{% endblock %}
 
 {% block content %}
-<div class="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-  <div>
-    <h1 class="page-title">{{ order.codigo }} · Mecânica</h1>
-    <p class="text-base-content/70">{{ order.cliente.nome_razao_social }} · <span class="badge {{ order.status_badge_class }}">{{ order.get_status_display }}</span></p>
+<section class="work-order-hero work-order-hero--mechanic mb-6">
+  <div class="work-order-hero__content">
+    <div class="min-w-0">
+      <div class="mb-3 flex flex-wrap items-center gap-2">
+        <span class="badge badge-neutral badge-outline">Visão da mecânica</span>
+        <span class="badge {{ order.status_badge_class }}">{{ order.get_status_display }}</span>
+        {% if stock_shortages %}<span class="badge badge-warning badge-outline">Falta estoque</span>{% else %}<span class="badge badge-success badge-outline">Estoque OK</span>{% endif %}
+      </div>
+      <h1 class="text-3xl font-bold tracking-tight md:text-4xl">{{ order.codigo }} · Mecânica</h1>
+      <p class="mt-2 max-w-3xl text-base text-base-content/70">
+        {{ order.cliente.nome_razao_social }}
+        {% if order.veiculo %} · {{ order.veiculo.placa }} - {{ order.veiculo.marca }} {{ order.veiculo.modelo }}{% endif %}
+      </p>
+    </div>
+    <div class="work-order-hero__total">
+      <span>Previsão</span>
+      <strong>{{ order.previsao_entrega|date:'d/m H:i'|default:'Sem previsão' }}</strong>
+      <small>Duração estimada: {{ order.duracao_formatada }}</small>
+    </div>
   </div>
-  <div class="flex flex-wrap gap-2">
+
+  <div class="work-order-hero__metrics">
+    <div class="work-order-metric"><span>Cliente</span><strong>{{ order.cliente.nome_razao_social }}</strong></div>
+    <div class="work-order-metric"><span>Veículo</span><strong>{% if order.veiculo %}{{ order.veiculo.placa }} - {{ order.veiculo.modelo }}{% else %}Sem veículo{% endif %}</strong></div>
+    <div class="work-order-metric"><span>KM atual</span><strong>{{ order.km_atual|default:'-' }}</strong></div>
+    <div class="work-order-metric"><span>Estoque</span><strong>{% if stock_shortages %}Revisar peças{% else %}Suficiente{% endif %}</strong></div>
+  </div>
+
+  <div class="work-order-action-bar">
     <a href="{% url 'mechanic_work_order_list' %}" class="btn btn-ghost whitespace-nowrap">Voltar</a>
     <a href="{% url 'work_order_detail' order.pk %}" class="btn btn-outline whitespace-nowrap">Detalhe completo</a>
     {% if can_start_service %}
@@ -20,12 +43,12 @@
       </form>
     {% endif %}
   </div>
-</div>
+</section>
 
 {% include 'operations/includes/work_order_status_timeline.html' %}
 
 <div class="grid gap-6 lg:grid-cols-3">
-  <div class="card bg-base-100 shadow lg:col-span-2">
+  <div class="card-section work-order-info-card lg:col-span-2">
     <div class="card-body">
       <h2 class="card-title">Resumo da OS</h2>
       <div class="grid gap-4 md:grid-cols-2">
@@ -41,7 +64,7 @@
     </div>
   </div>
 
-  <div class="card bg-base-100 shadow">
+  <div class="card-section work-order-panel">
     <div class="card-body">
       <h2 class="card-title">Estoque previsto</h2>
       {% if stock_shortages %}
@@ -55,7 +78,7 @@
           {% csrf_token %}
           <input type="hidden" name="next" value="{{ request.get_full_path }}">
           {% for row in stock_requirements %}
-            <div class="rounded-box border border-base-300 p-3 text-sm">
+            <div class="work-order-stock-card">
               <p class="font-medium">{{ row.item.sku }} - {{ row.item.nome }}</p>
               <p class="text-base-content/70">Padrão: {{ row.quantidade_base }} {{ row.item.unidade.sigla }} · Disponível: {{ row.item.estoque_atual }} {{ row.item.unidade.sigla }}</p>
               <p class="text-base-content/70">Valor unit.: {{ row.valor_unitario|money_br }} · Subtotal: {{ row.subtotal|money_br }}</p>
@@ -70,7 +93,7 @@
       {% else %}
         <div class="mt-4 space-y-2 text-sm">
           {% for row in stock_requirements %}
-            <div class="rounded-box border border-base-300 p-3">
+            <div class="work-order-stock-card">
               <p class="font-medium">{{ row.item.sku }} - {{ row.item.nome }}</p>
               <p class="text-base-content/70">Necessário: {{ row.quantidade }} {{ row.item.unidade.sigla }} · Padrão: {{ row.quantidade_base }} {{ row.item.unidade.sigla }} · Disponível: {{ row.item.estoque_atual }} {{ row.item.unidade.sigla }}</p>
               <p class="text-base-content/70">Valor unit.: {{ row.valor_unitario|money_br }} · Subtotal: {{ row.subtotal|money_br }}</p>
@@ -192,22 +215,25 @@
 </form>
 {% endif %}
 
-<div class="mt-6 card bg-base-100 shadow">
+<section class="mt-6 card-section work-order-panel">
   <div class="card-body">
     <h2 class="card-title">Histórico de estados</h2>
     <div class="space-y-3">
       {% for transition in status_history %}
-        <div class="rounded-box border border-base-300 p-3 text-sm">
+        <div class="work-order-history-item">
+          <div class="work-order-history-item__dot"></div>
+          <div>
           <p><span class="font-medium">{{ transition.get_status_anterior_display }}</span> → <span class="font-medium">{{ transition.get_status_novo_display }}</span></p>
           <p class="text-base-content/60">{{ transition.criado_em|date:'d/m/Y H:i' }}{% if transition.criado_por %} · {{ transition.criado_por.email }}{% endif %}</p>
           {% if transition.observacao %}<p class="mt-1 whitespace-pre-line text-base-content/70">{{ transition.observacao }}</p>{% endif %}
+          </div>
         </div>
       {% empty %}
         <p class="text-sm text-base-content/60">Nenhuma transição registrada ainda.</p>
       {% endfor %}
     </div>
   </div>
-</div>
+</section>
 
 {% include 'includes/reusable_select_modal.html' with modal_id='work_order_service_picker_modal' modal_title='Adicionar serviço à OS' modal_description='Busque o serviço, confira os dados no card e informe a quantidade.' search_label='Serviço' search_placeholder='Digite código, nome ou descrição' quantity_label='Quantidade' quantity_placeholder='1' empty_message='Nenhum serviço encontrado.' %}
 {% include 'includes/reusable_select_modal.html' with modal_id='work_order_combo_picker_modal' modal_title='Adicionar combo à OS' modal_description='Busque o combo, confira os dados no card e informe a quantidade.' search_label='Combo' search_placeholder='Digite código, nome ou descrição' quantity_label='Quantidade' quantity_placeholder='1' empty_message='Nenhum combo encontrado.' %}

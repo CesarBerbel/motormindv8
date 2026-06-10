@@ -33,6 +33,8 @@
             {{ global_form.logo }}
             {% if global_form.instance.logo %}
               <span class="label-text-alt mt-2 text-base-content/70">Logo atual: {{ global_form.instance.logo.name }}</span>
+            {% else %}
+              <span class="label-text-alt mt-2 text-base-content/70">Se não houver logo específico de PDF, o sistema usa automaticamente o logo cadastrado nas configurações da oficina.</span>
             {% endif %}
             {% for error in global_form.logo.errors %}<span class="label-text-alt text-error">{{ error }}</span>{% endfor %}
           </div>

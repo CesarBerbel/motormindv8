@@ -269,6 +269,7 @@ def build_customer_vehicle_history_context(access):
             'direct_parts': direct_part_rows,
             'parts': requirement_rows,
             'transitions': transitions,
+            'status_timeline_entries': build_work_order_status_timeline(order),
         })
 
     active_orders = [row for row in order_cards if row['is_active']]
@@ -2691,7 +2692,32 @@ class PublicWorkOrderApprovalView(View):
 from django.core.mail import EmailMessage
 from .forms import VehicleCheckInForm
 from .models import VehicleCheckIn, VehicleCheckInPhoto
-from .pdf import generate_vehicle_checkin_pdf
+from .pdf import generate_vehicle_checkin_pdf, generate_work_order_pdf
+
+
+class WorkOrderPdfView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
+    model = WorkOrder
+    permission_required = 'operations.view_workorder'
+
+    def get_queryset(self):
+        return WorkOrder.objects.select_related(
+            'cliente',
+            'veiculo',
+            'tecnico_responsavel',
+        ).prefetch_related(
+            'servicos_os__service__pecas_associadas__item__unidade',
+            'combos_os__combo__servicos_associados__service__pecas_associadas__item__unidade',
+            'pecas_os__item__unidade',
+            'ajustes_pecas_previstas__item',
+            'checkins',
+            'orcamentos_aprovacao__itens',
+        )
+
+    def get(self, request, *args, **kwargs):
+        order = self.get_object()
+        pdf_bytes = generate_work_order_pdf(order)
+        filename = f'{order.codigo or "os"}.pdf'
+        return FileResponse(bytes_to_file(pdf_bytes), content_type='application/pdf', as_attachment=False, filename=filename)
 
 
 class VehicleCheckInSearchMixin(OperationsSearchMixin):

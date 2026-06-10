@@ -1,80 +1,206 @@
 {% load money %}
 {% with order=row.order %}
-<article class="card border border-base-300 bg-base-100 shadow-sm">
-  <div class="card-body gap-5">
-    <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-      <div>
-        <div class="flex flex-wrap items-center gap-2">
-          <a href="#" class="font-mono text-lg font-bold pointer-events-none">{{ order.codigo }}</a>
+<article class="work-order-customer-card space-y-6">
+  <section class="work-order-hero">
+    <div class="work-order-hero__content">
+      <div class="min-w-0">
+        <div class="mb-3 flex flex-wrap items-center gap-2">
+          <span class="badge badge-neutral badge-outline">Ordem de Serviço</span>
           <span class="badge {{ order.status_badge_class }}">{{ order.get_status_display }}</span>
         </div>
-        <p class="mt-1 text-sm text-base-content/60">Aberta em {{ order.data_abertura|date:'d/m/Y H:i' }}{% if order.previsao_entrega %} · previsão {{ order.previsao_entrega|date:'d/m/Y H:i' }}{% endif %}</p>
+        <h3 class="text-3xl font-bold tracking-tight">{{ order.codigo }}</h3>
+        <p class="mt-2 max-w-3xl text-sm text-base-content/70">
+          {{ order.veiculo.placa }} - {{ order.veiculo.marca }} {{ order.veiculo.modelo }}
+        </p>
       </div>
-      <div class="text-left lg:text-right">
-        <p class="text-xs uppercase tracking-wide text-base-content/50">Total cliente</p>
-        <p class="text-xl font-bold">{{ order.valor_total|money_br }}</p>
+
+      <div class="work-order-hero__total">
+        <span>Total da OS</span>
+        <strong>{{ order.valor_total|money_br }}</strong>
+        <small>Valor dos serviços e peças exibidos ao cliente</small>
       </div>
     </div>
 
-    <div class="grid gap-4 lg:grid-cols-3">
-      <div class="rounded-box border border-base-200 bg-base-200/40 p-4 lg:col-span-2">
-        <p class="text-xs font-semibold uppercase tracking-wide text-base-content/50">Problema relatado</p>
-        <p class="mt-1 text-sm text-base-content/80">{{ order.problema_relatado|linebreaksbr }}</p>
-        {% if order.diagnostico %}
-          <p class="mt-4 text-xs font-semibold uppercase tracking-wide text-base-content/50">Diagnóstico técnico</p>
-          <p class="mt-1 text-sm text-base-content/80">{{ order.diagnostico|linebreaksbr }}</p>
-        {% endif %}
+    <div class="work-order-hero__metrics">
+      <div class="work-order-metric">
+        <span>Abertura</span>
+        <strong>{{ order.data_abertura|date:'d/m/Y H:i' }}</strong>
       </div>
-
-      <div class="rounded-box border border-base-200 bg-base-200/40 p-4">
-        <p class="text-xs font-semibold uppercase tracking-wide text-base-content/50">Dados da OS</p>
-        <dl class="mt-2 space-y-2 text-sm">
-          <div><dt class="text-base-content/50">KM informado</dt><dd class="font-medium">{{ order.km_atual|default:'-' }}</dd></div>
-          <div><dt class="text-base-content/50">Finalização</dt><dd class="font-medium">{{ order.data_finalizacao|date:'d/m/Y H:i'|default:'-' }}</dd></div>
-        </dl>
+      <div class="work-order-metric">
+        <span>Previsão</span>
+        <strong>{{ order.previsao_entrega|date:'d/m/Y H:i'|default:'Sem previsão' }}</strong>
+      </div>
+      <div class="work-order-metric">
+        <span>KM informado</span>
+        <strong>{{ order.km_atual|default:'-' }}</strong>
+      </div>
+      <div class="work-order-metric">
+        <span>Finalização</span>
+        <strong>{{ order.data_finalizacao|date:'d/m/Y H:i'|default:'Em andamento' }}</strong>
       </div>
     </div>
+  </section>
 
-    {% if show_timeline %}
-      <section class="customer-history-timeline rounded-box border border-base-200 bg-base-100 p-4" aria-label="Linha do tempo da ordem de serviço">
-        <div class="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-          <h3 class="font-semibold">Linha do tempo</h3>
-          <span class="text-xs text-base-content/50">{{ row.transitions|length|add:1 }} eventos</span>
+  {% if show_timeline %}
+    <section class="card bg-base-100 shadow-sm border border-base-300">
+      <div class="card-body">
+        <div class="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+          <div>
+            <h3 class="card-title">Entradas de estados</h3>
+            <p class="text-sm text-base-content/60">Acompanhe a evolução da OS dentro da oficina.</p>
+          </div>
+          <span class="badge {{ order.status_badge_class }} w-fit whitespace-nowrap">Atual: {{ order.get_status_display }}</span>
         </div>
-        <ol class="customer-history-timeline__list mt-3">
-          <li class="customer-history-timeline__item">
-            <span class="customer-history-timeline__dot" aria-hidden="true"></span>
-            <div class="customer-history-timeline__event">
-              <p class="text-xs font-medium text-base-content/50">{{ order.data_abertura|date:'d/m/Y H:i' }}</p>
-              <p class="mt-0.5 break-words text-sm font-semibold text-base-content">OS aberta</p>
-            </div>
-          </li>
-          {% for transition in row.transitions %}
-            <li class="customer-history-timeline__item">
-              <span class="customer-history-timeline__dot" aria-hidden="true"></span>
-              <div class="customer-history-timeline__event">
-                <p class="text-xs font-medium text-base-content/50">{{ transition.criado_em|date:'d/m/Y H:i' }}</p>
-                <p class="mt-0.5 break-words text-sm font-semibold text-base-content">{{ transition.get_status_novo_display }}</p>
-              </div>
-            </li>
-          {% endfor %}
-        </ol>
-      </section>
-    {% endif %}
 
-    <div class="grid gap-4 lg:grid-cols-2">
-      <div class="rounded-box border border-base-200 p-4">
-        <h3 class="font-semibold">Serviços</h3>
+        <div class="mt-5 hidden overflow-x-auto md:block">
+          <ol class="work-order-status-grid grid grid-cols-8 pb-1">
+            {% for entry in row.status_timeline_entries %}
+              <li class="relative flex flex-col items-center px-2 text-center">
+                <p class="mb-3 flex min-h-10 items-end justify-center text-sm font-medium leading-tight text-base-content">{{ entry.label }}</p>
+                <div class="relative flex w-full items-center justify-center">
+                  {% if not forloop.first %}<span class="absolute left-0 top-1/2 h-px w-1/2 -translate-y-1/2 bg-base-300"></span>{% endif %}
+                  {% if not forloop.last %}<span class="absolute right-0 top-1/2 h-px w-1/2 -translate-y-1/2 bg-base-300"></span>{% endif %}
+                  <span class="relative z-10 flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold shadow-sm {% if entry.completed %}bg-success text-success-content{% else %}bg-base-300 text-base-content/70{% endif %}">
+                    {% if entry.completed %}✓{% else %}{{ entry.number }}{% endif %}
+                  </span>
+                </div>
+                <p class="mt-3 min-h-10 text-xs leading-relaxed text-base-content/80">
+                  {% if entry.completed_at %}
+                    {{ entry.completed_at|date:'d/m/y' }}<br>{{ entry.completed_at|date:'H:i' }}
+                  {% else %}
+                    <span class="opacity-0">00/00/00<br>00:00</span>
+                  {% endif %}
+                </p>
+              </li>
+            {% endfor %}
+          </ol>
+        </div>
+
+        <div class="mt-4 space-y-3 md:hidden">
+          {% for entry in row.status_timeline_entries %}
+            <div class="flex gap-3 rounded-box border border-base-300 p-3">
+              <span class="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-bold {% if entry.completed %}bg-success text-success-content{% else %}bg-base-300 text-base-content/70{% endif %}">
+                {% if entry.completed %}✓{% else %}{{ entry.number }}{% endif %}
+              </span>
+              <div class="min-w-0 flex-1">
+                <div class="flex flex-wrap items-center gap-2">
+                  <p class="font-medium leading-tight">{{ entry.label }}</p>
+                  {% if entry.is_current %}<span class="badge badge-sm badge-outline">Atual</span>{% endif %}
+                </div>
+                {% if entry.completed_at %}
+                  <p class="text-sm text-base-content/70">{{ entry.completed_at|date:'d/m/y' }} às {{ entry.completed_at|date:'H:i' }}</p>
+                {% else %}
+                  <p class="text-sm text-base-content/50">Ainda não registrado</p>
+                {% endif %}
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+    </section>
+  {% endif %}
+
+  <div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
+    <div class="space-y-6">
+      <section class="card-section work-order-info-card shadow-sm">
+        <div class="card-body">
+          <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <h3 class="card-title">Dados principais</h3>
+              <p class="text-sm text-base-content/60">Identificação e controle da ordem de serviço.</p>
+            </div>
+            <span class="badge {{ order.status_badge_class }} whitespace-nowrap">{{ order.get_status_display }}</span>
+          </div>
+
+          <div class="work-order-data-grid mt-5">
+            <div>
+              <span>Código</span>
+              <p class="font-mono">{{ order.codigo }}</p>
+            </div>
+            <div>
+              <span>Veículo</span>
+              <p>{{ order.veiculo.placa }} - {{ order.veiculo.marca }} {{ order.veiculo.modelo }}</p>
+            </div>
+            <div>
+              <span>KM atual</span>
+              <p>{{ order.km_atual|default:'-' }}</p>
+            </div>
+            <div>
+              <span>Abertura</span>
+              <p>{{ order.data_abertura|date:'d/m/Y H:i' }}</p>
+            </div>
+            <div>
+              <span>Previsão</span>
+              <p>{{ order.previsao_entrega|date:'d/m/Y H:i'|default:'-' }}</p>
+            </div>
+            <div>
+              <span>Finalização</span>
+              <p>{{ order.data_finalizacao|date:'d/m/Y H:i'|default:'-' }}</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="card-section work-order-note-section shadow-sm">
+        <div class="card-body">
+          <h3 class="card-title">Relato, diagnóstico e observações</h3>
+          <div class="grid gap-3">
+            <article>
+              <span>Problema relatado</span>
+              <p>{{ order.problema_relatado|default:'-' }}</p>
+            </article>
+            <article>
+              <span>Diagnóstico</span>
+              <p>{{ order.diagnostico|default:'-' }}</p>
+            </article>
+            <article>
+              <span>Observação</span>
+              <p>{{ order.observacao|default:'-' }}</p>
+            </article>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <aside class="space-y-6 xl:self-start">
+      <section class="card-section work-order-finance-card shadow-sm">
+        <div class="card-body">
+          <div>
+            <h3 class="card-title">Resumo financeiro</h3>
+            <p class="text-sm text-base-content/60">Valores apresentados ao cliente.</p>
+          </div>
+          <div class="work-order-finance-list mt-2">
+            <div><span>Serviços</span><strong>{{ order.subtotal_servicos|money_br }}</strong></div>
+            <div><span>Combos</span><strong>{{ order.subtotal_combos|money_br }}</strong></div>
+            <div><span>Peças</span><strong>{{ order.subtotal_pecas|money_br }}</strong></div>
+            <div><span>Desconto</span><strong>{{ order.valor_desconto|money_br }}</strong></div>
+            <div class="work-order-finance-list__total"><span>Total</span><strong>{{ order.valor_total|money_br }}</strong></div>
+          </div>
+        </div>
+      </section>
+    </aside>
+  </div>
+
+  <div class="grid gap-6 lg:grid-cols-2">
+    <section class="card-section work-order-panel shadow-sm">
+      <div class="card-body">
+        <h3 class="card-title">Serviços</h3>
         <div class="mt-3 space-y-2">
           {% for item in row.services %}
             <div class="flex items-start justify-between gap-3 rounded-box bg-base-200/50 px-3 py-2 text-sm">
-              <div><p class="font-medium">{{ item.service.nome }}</p><p class="text-xs text-base-content/50">{{ item.quantidade }} x {{ item.valor_unitario|money_br }}</p></div>
+              <div>
+                <p class="font-medium">{{ item.service.nome }}</p>
+                <p class="text-xs text-base-content/50">{{ item.quantidade }} x {{ item.valor_unitario|money_br }}</p>
+              </div>
               <span class="font-semibold">{{ item.subtotal|money_br }}</span>
             </div>
           {% endfor %}
           {% for item in row.combos %}
             <div class="flex items-start justify-between gap-3 rounded-box bg-base-200/50 px-3 py-2 text-sm">
-              <div><p class="font-medium">Combo: {{ item.combo.nome }}</p><p class="text-xs text-base-content/50">{{ item.quantidade }} x {{ item.valor_unitario|money_br }}</p></div>
+              <div>
+                <p class="font-medium">Combo: {{ item.combo.nome }}</p>
+                <p class="text-xs text-base-content/50">{{ item.quantidade }} x {{ item.valor_unitario|money_br }}</p>
+              </div>
               <span class="font-semibold">{{ item.subtotal|money_br }}</span>
             </div>
           {% empty %}
@@ -82,9 +208,11 @@
           {% endfor %}
         </div>
       </div>
+    </section>
 
-      <div class="rounded-box border border-base-200 p-4">
-        <h3 class="font-semibold">Peças trocadas / previstas</h3>
+    <section class="card-section work-order-panel shadow-sm">
+      <div class="card-body">
+        <h3 class="card-title">Peças trocadas / previstas</h3>
         <div class="mt-3 space-y-2">
           {% for part in row.parts %}
             <div class="flex items-start justify-between gap-3 rounded-box bg-base-200/50 px-3 py-2 text-sm">
@@ -99,7 +227,7 @@
           {% endfor %}
         </div>
       </div>
-    </div>
+    </section>
   </div>
 </article>
 {% endwith %}

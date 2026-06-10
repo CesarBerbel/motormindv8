@@ -4,31 +4,35 @@
 {% block title %}Ordens de Serviço | MotorMind{% endblock %}
 
 {% block content %}
-<div class="mb-6 flex items-center justify-between gap-4">
+<section class="work-order-list-hero mb-6">
   <div>
-    <h1 class="page-title">Ordens de Serviço</h1>
-    <p class="text-base-content/70">Controle operacional de atendimentos, serviços, combos, peças e baixa de estoque.</p>
+    <div class="mb-2 flex flex-wrap items-center gap-2">
+      <span class="badge badge-neutral badge-outline">Operação</span>
+      <span class="badge badge-primary badge-outline">{{ page_obj.paginator.count }} OS</span>
+    </div>
+    <h1 class="text-3xl font-bold tracking-tight md:text-4xl">Ordens de Serviço</h1>
+    <p class="mt-2 max-w-3xl text-base-content/70">Controle operacional de atendimentos, serviços, combos, peças, aprovações e baixa de estoque.</p>
   </div>
   {% if perms.operations.add_workorder %}
     <a href="{% url 'work_order_create' %}" class="btn btn-primary whitespace-nowrap">Nova OS</a>
   {% endif %}
-</div>
+</section>
 
 <div class="mb-6 grid gap-4 md:grid-cols-3">
-  <div class="stat rounded-box bg-base-100 shadow">
-    <div class="stat-title">Capacidade da oficina</div>
-    <div class="stat-value text-3xl">{{ workshop_settings.vagas_oficina }}</div>
-    <div class="stat-desc">Vaga(s) configurada(s)</div>
+  <div class="work-order-list-stat">
+    <span>Capacidade da oficina</span>
+    <strong>{{ workshop_settings.vagas_oficina }}</strong>
+    <p>Vaga(s) configurada(s)</p>
   </div>
-  <div class="stat rounded-box bg-base-100 shadow">
-    <div class="stat-title">Vagas ocupadas</div>
-    <div class="stat-value text-3xl">{{ vagas_ocupadas }}</div>
-    <div class="stat-desc">OS ativas na oficina</div>
+  <div class="work-order-list-stat">
+    <span>Vagas ocupadas</span>
+    <strong>{{ vagas_ocupadas }}</strong>
+    <p>OS ativas na oficina</p>
   </div>
-  <div class="stat rounded-box bg-base-100 shadow">
-    <div class="stat-title">Vagas disponíveis</div>
-    <div class="stat-value text-3xl {% if vagas_disponiveis == 0 %}text-error{% else %}text-success{% endif %}">{{ vagas_disponiveis }}</div>
-    <div class="stat-desc">{% if vagas_disponiveis == 0 %}Oficina cheia{% else %}Livre para nova OS{% endif %}</div>
+  <div class="work-order-list-stat {% if vagas_disponiveis == 0 %}work-order-list-stat--danger{% else %}work-order-list-stat--success{% endif %}">
+    <span>Vagas disponíveis</span>
+    <strong>{{ vagas_disponiveis }}</strong>
+    <p>{% if vagas_disponiveis == 0 %}Oficina cheia{% else %}Livre para nova OS{% endif %}</p>
   </div>
 </div>
 
@@ -112,7 +116,7 @@
   <span>Ordenação: mais recentes primeiro.</span>
 </div>
 
-<div class="overflow-x-auto rounded-box bg-base-100 shadow" data-responsive-list>
+<div class="work-order-table-shell work-order-list-table" data-responsive-list>
   <table class="table">
     <thead>
       <tr>
@@ -129,16 +133,17 @@
     <tbody>
       {% for order in orders %}
         <tr>
-          <td class="font-mono whitespace-nowrap">{{ order.codigo }}</td>
-          <td><a href="{% url 'work_order_detail' order.pk %}" class="link link-primary font-medium whitespace-nowrap">{{ order.cliente.nome_razao_social }}</a></td>
-          <td class="whitespace-nowrap">{% if order.veiculo %}{{ order.veiculo.placa }} - {{ order.veiculo.modelo }}{% else %}-{% endif %}</td>
+          <td class="font-mono whitespace-nowrap"><a href="{% url 'work_order_detail' order.pk %}" class="link link-primary">{{ order.codigo }}</a></td>
+          <td><a href="{% url 'work_order_detail' order.pk %}" class="font-medium whitespace-nowrap hover:text-primary">{{ order.cliente.nome_razao_social }}</a></td>
+          <td class="whitespace-nowrap">{% if order.veiculo %}<span class="font-medium">{{ order.veiculo.placa }}</span> · {{ order.veiculo.modelo }}{% else %}-{% endif %}</td>
           <td class="whitespace-nowrap"><span class="badge {{ order.status_badge_class }}">{{ order.get_status_display }}</span></td>
           <td class="whitespace-nowrap">{{ order.data_abertura|date:'d/m/Y H:i' }}</td>
-          <td class="whitespace-nowrap">{{ order.valor_total|money_br }}</td>
+          <td class="whitespace-nowrap font-semibold">{{ order.valor_total|money_br }}</td>
           <td class="whitespace-nowrap">{% if order.estoque_baixado %}<span class="badge badge-success">Baixado</span>{% else %}<span class="badge badge-warning">Pendente</span>{% endif %}</td>
           <td class="text-right whitespace-nowrap">
             <div class="inline-flex flex-nowrap items-center justify-end gap-1 whitespace-nowrap">
               <a href="{% url 'work_order_detail' order.pk %}" class="btn btn-xs btn-ghost whitespace-nowrap">Ver</a>
+              <a href="{% url 'work_order_pdf' order.pk %}" target="_blank" rel="noopener" class="btn btn-xs btn-outline whitespace-nowrap">PDF</a>
               {% if perms.operations.change_workorder %}<a href="{% url 'work_order_update' order.pk %}" class="btn btn-xs btn-outline whitespace-nowrap">Editar</a>{% endif %}
               {% if perms.operations.delete_workorder %}<a href="{% url 'work_order_delete' order.pk %}" class="btn btn-xs btn-error btn-outline whitespace-nowrap">Excluir</a>{% endif %}
             </div>

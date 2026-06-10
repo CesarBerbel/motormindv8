@@ -807,3 +807,287 @@ body {
     grid-template-columns: 1fr;
   }
 }
+
+/* Visual aprimorado das páginas de Ordem de Serviço. */
+.work-order-hero,
+.work-order-list-hero {
+  border: 1px solid color-mix(in oklch, currentColor 10%, transparent);
+  border-radius: var(--rounded-box, 1rem);
+  background:
+    radial-gradient(circle at top left, color-mix(in oklch, var(--fallback-p, oklch(var(--p) / 1)) 16%, transparent), transparent 34rem),
+    linear-gradient(135deg, color-mix(in oklch, var(--fallback-b1, oklch(var(--b1) / 1)) 92%, white 8%), var(--fallback-b1, oklch(var(--b1) / 1)));
+  box-shadow: 0 18px 45px color-mix(in oklch, currentColor 7%, transparent);
+  overflow: hidden;
+  padding: 1.25rem;
+}
+
+.work-order-hero--mechanic {
+  background:
+    radial-gradient(circle at top left, color-mix(in oklch, var(--fallback-a, oklch(var(--a) / 1)) 16%, transparent), transparent 34rem),
+    linear-gradient(135deg, color-mix(in oklch, var(--fallback-b1, oklch(var(--b1) / 1)) 92%, white 8%), var(--fallback-b1, oklch(var(--b1) / 1)));
+}
+
+.work-order-customer-card {
+  min-width: 0;
+}
+
+.work-order-status-grid {
+  min-width: 64rem;
+}
+
+.work-order-list-hero,
+.work-order-hero__content,
+.work-order-action-bar,
+.work-order-hero__metrics {
+  display: flex;
+  gap: 1rem;
+}
+
+.work-order-list-hero,
+.work-order-hero__content {
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.work-order-hero__content {
+  min-width: 0;
+}
+
+.work-order-hero__total {
+  min-width: 15rem;
+  border-radius: 1rem;
+  background: color-mix(in oklch, var(--fallback-p, oklch(var(--p) / 1)) 9%, var(--fallback-b1, oklch(var(--b1) / 1)));
+  padding: 1rem;
+  text-align: right;
+}
+
+.work-order-hero__total span,
+.work-order-metric span,
+.work-order-data-grid span,
+.work-order-note-section article span,
+.work-order-finance-list span,
+.work-order-mini-card span,
+.work-order-list-stat span {
+  display: block;
+  color: color-mix(in oklch, currentColor 52%, transparent);
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.work-order-hero__total strong {
+  display: block;
+  margin-top: 0.15rem;
+  font-size: 1.9rem;
+  line-height: 1.1;
+}
+
+.work-order-hero__total small {
+  display: block;
+  margin-top: 0.3rem;
+  color: color-mix(in oklch, currentColor 58%, transparent);
+}
+
+.work-order-hero__metrics {
+  margin-top: 1rem;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.work-order-metric,
+.work-order-mini-card,
+.work-order-list-stat {
+  min-width: 0;
+  border: 1px solid color-mix(in oklch, currentColor 9%, transparent);
+  border-radius: 0.9rem;
+  background: color-mix(in oklch, var(--fallback-b1, oklch(var(--b1) / 1)) 86%, white 14%);
+  padding: 0.85rem 1rem;
+}
+
+.work-order-metric strong,
+.work-order-mini-card strong,
+.work-order-list-stat strong {
+  display: block;
+  margin-top: 0.15rem;
+  overflow: hidden;
+  color: color-mix(in oklch, currentColor 88%, transparent);
+  font-size: 1rem;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.work-order-action-bar {
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: 1rem;
+  border-top: 1px solid color-mix(in oklch, currentColor 10%, transparent);
+  padding-top: 1rem;
+}
+
+.work-order-action-bar form {
+  display: inline-flex;
+}
+
+.work-order-info-card,
+.work-order-panel,
+.work-order-finance-card {
+  box-shadow: 0 12px 30px color-mix(in oklch, currentColor 5%, transparent);
+}
+
+.work-order-data-grid {
+  display: grid;
+  gap: 0.85rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.work-order-data-grid > div,
+.work-order-note-section article {
+  min-width: 0;
+  border-radius: 0.9rem;
+  background: color-mix(in oklch, currentColor 3%, transparent);
+  padding: 0.85rem;
+}
+
+.work-order-data-grid p,
+.work-order-note-section article p {
+  margin-top: 0.2rem;
+  overflow-wrap: anywhere;
+}
+
+.work-order-note-section article p {
+  color: color-mix(in oklch, currentColor 76%, transparent);
+  white-space: pre-line;
+}
+
+.work-order-finance-list {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.work-order-finance-list > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border-radius: 0.8rem;
+  background: color-mix(in oklch, currentColor 3%, transparent);
+  padding: 0.7rem 0.8rem;
+}
+
+.work-order-finance-list strong {
+  white-space: nowrap;
+}
+
+.work-order-finance-list__total {
+  background: color-mix(in oklch, var(--fallback-p, oklch(var(--p) / 1)) 12%, transparent) !important;
+}
+
+.work-order-finance-list__total strong {
+  font-size: 1.35rem;
+}
+
+.work-order-table-shell {
+  overflow-x: auto;
+  border: 1px solid color-mix(in oklch, currentColor 9%, transparent);
+  border-radius: var(--rounded-box, 1rem);
+  background: var(--fallback-b1, oklch(var(--b1) / 1));
+}
+
+.work-order-table-shell table {
+  min-width: 48rem;
+}
+
+.work-order-table-shell thead th {
+  background: color-mix(in oklch, currentColor 4%, transparent);
+  color: color-mix(in oklch, currentColor 58%, transparent);
+  font-size: 0.72rem;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.work-order-list-table table {
+  min-width: 64rem;
+}
+
+.work-order-history-item,
+.work-order-stock-card {
+  position: relative;
+  border: 1px solid color-mix(in oklch, currentColor 10%, transparent);
+  border-radius: 0.9rem;
+  background: color-mix(in oklch, currentColor 2.5%, transparent);
+  padding: 0.9rem;
+}
+
+.work-order-history-item {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.85rem;
+}
+
+.work-order-history-item__dot {
+  margin-top: 0.3rem;
+  width: 0.75rem;
+  height: 0.75rem;
+  border-radius: 999px;
+  background: var(--fallback-p, oklch(var(--p) / 1));
+  box-shadow: 0 0 0 4px color-mix(in oklch, var(--fallback-p, oklch(var(--p) / 1)) 14%, transparent);
+}
+
+.work-order-list-stat {
+  box-shadow: 0 12px 30px color-mix(in oklch, currentColor 5%, transparent);
+}
+
+.work-order-list-stat strong {
+  font-size: 2rem;
+}
+
+.work-order-list-stat p {
+  color: color-mix(in oklch, currentColor 58%, transparent);
+  font-size: 0.875rem;
+}
+
+.work-order-list-stat--success {
+  border-color: color-mix(in oklch, var(--fallback-su, oklch(var(--su) / 1)) 35%, transparent);
+}
+
+.work-order-list-stat--danger {
+  border-color: color-mix(in oklch, var(--fallback-er, oklch(var(--er) / 1)) 35%, transparent);
+}
+
+@media (max-width: 1023.98px) {
+  .work-order-hero__metrics,
+  .work-order-data-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 767.98px) {
+  .work-order-hero,
+  .work-order-list-hero {
+    padding: 1rem;
+  }
+
+  .work-order-list-hero,
+  .work-order-hero__content {
+    flex-direction: column;
+  }
+
+  .work-order-hero__total {
+    min-width: 0;
+    width: 100%;
+    text-align: left;
+  }
+
+  .work-order-hero__metrics,
+  .work-order-data-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .work-order-action-bar .btn,
+  .work-order-action-bar form,
+  .work-order-list-hero .btn {
+    width: 100%;
+  }
+}

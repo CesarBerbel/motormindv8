@@ -38,6 +38,7 @@ urlpatterns = [
     path('operacional/os/autocomplete/', views.WorkOrderAutocompleteView.as_view(), name='work_order_autocomplete'),
     path('operacional/os/cliente-veiculos/', views.WorkOrderCustomerVehiclesView.as_view(), name='work_order_customer_vehicles'),
     path('operacional/os/<int:pk>/', views.WorkOrderDetailView.as_view(), name='work_order_detail'),
+    path('operacional/os/<int:pk>/pdf/', views.WorkOrderPdfView.as_view(), name='work_order_pdf'),
     path('operacional/os/<int:pk>/editar/', views.WorkOrderUpdateView.as_view(), name='work_order_update'),
     path('operacional/os/<int:pk>/excluir/', views.WorkOrderDeleteView.as_view(), name='work_order_delete'),
     path('operacional/os/<int:pk>/baixar-estoque/', views.WorkOrderStockOutView.as_view(), name='work_order_stock_out'),
