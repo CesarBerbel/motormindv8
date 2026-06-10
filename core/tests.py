@@ -106,7 +106,7 @@ class PWAServiceWorkerTests(TestCase):
         self.assertIn('caches', body)
         self.assertIn('notificationclick', body)
         self.assertIn('offline', body)
-        self.assertIn('motormind-static-v4', body)
+        self.assertIn('motormind-static-v5', body)
 
     def test_dashboard_exposes_pwa_install_button(self):
         User = get_user_model()
@@ -281,6 +281,63 @@ class AppNotificationViewTests(TestCase):
         self.assertContains(response, 'app-notifications.js')
 
 
+
+    def test_notification_center_lists_notifications_and_marks_one_as_read(self):
+        self.client.force_login(self.user)
+        response = self.client.get('/notificacoes/')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Central de notificações')
+        self.assertContains(response, 'Novo pedido de orçamento pelo site')
+        self.assertContains(response, 'Marcar lida')
+
+        response = self.client.post(f'/notificacoes/{self.notification.pk}/lida/', {'next': '/notificacoes/'})
+        self.assertEqual(response.status_code, 302)
+        self.notification.refresh_from_db()
+        self.assertIsNotNone(self.notification.lida_em)
+
+    def test_notification_open_marks_as_read_and_redirects_to_destination(self):
+        self.client.force_login(self.user)
+        response = self.client.get(f'/notificacoes/{self.notification.pk}/abrir/')
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response['Location'], '/dashboard/')
+        self.notification.refresh_from_db()
+        self.assertIsNotNone(self.notification.lida_em)
+
+    def test_notification_feed_returns_open_url_for_push_click(self):
+        self.client.force_login(self.user)
+        response = self.client.get('/notificacoes/feed/')
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertIn('open_url', payload['notifications'][0])
+        self.assertEqual(payload['notifications'][0]['open_url'], f'/notificacoes/{self.notification.pk}/abrir/')
+
+    def test_bell_opens_notification_center_and_settings_menu_contains_center(self):
+        self.client.force_login(self.user)
+        response = self.client.get('/dashboard/')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'href="/notificacoes/"')
+        self.assertContains(response, 'data-notification-bell')
+        self.assertContains(response, 'Notificações')
+
+    def test_mark_all_notifications_as_read(self):
+        from core.models import AppNotification
+
+        AppNotification.objects.create(
+            usuario=self.user,
+            titulo='Mensagem com erro',
+            mensagem='Falha no envio.',
+            categoria='mensagens',
+        )
+        self.client.force_login(self.user)
+        response = self.client.post('/notificacoes/todas-lidas/', {'next': '/notificacoes/'})
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(AppNotification.objects.filter(usuario=self.user, lida_em__isnull=True).count(), 0)
+
     @override_settings(PWA_ENABLED=False)
     def test_pwa_disabled_in_local_dev_unloads_manifest_and_registers_cleanup(self):
         self.client.force_login(self.user)
@@ -308,5 +365,5 @@ class AppNotificationViewTests(TestCase):
 
         sw_response = self.client.get('/sw.js')
         self.assertEqual(sw_response.status_code, 200)
-        self.assertContains(sw_response, 'motormind-static-v4')
+        self.assertContains(sw_response, 'motormind-static-v5')
         self.assertNotContains(sw_response, 'PWA desabilitado neste ambiente')

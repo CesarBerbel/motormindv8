@@ -10,10 +10,10 @@ from django.conf import settings as dj_settings
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 from django.core.cache import cache
-from django.db.models import Count, Q, Sum
+from django.db.models import Case, Count, IntegerField, Q, Sum, Value, When
 from django.db.models.functions import Lower
 from django.http import JsonResponse
-from django.shortcuts import redirect
+from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse, reverse_lazy
 from django.utils import timezone
 from django.core.paginator import Paginator
@@ -29,6 +29,7 @@ from .services.action_center import (
 )
 from .models import (
     AppNotification,
+    AppNotificationLevel,
     Category,
     CategoryAudience,
     Customer,
@@ -1193,6 +1194,76 @@ class HealthCheckView(View):
         return JsonResponse({'status': 'ok', 'service': 'motormind'})
 
 
+class NotificationCenterView(LoginRequiredMixin, ListView):
+    """Central interna para visualizar e gerenciar notificações do usuário."""
+
+    model = AppNotification
+    template_name = 'core/notification_center.html'
+    context_object_name = 'notifications'
+    paginate_by = 20
+
+    def get_queryset(self):
+        queryset = (
+            AppNotification.objects
+            .filter(usuario=self.request.user)
+            .annotate(read_order=Case(
+                When(lida_em__isnull=True, then=Value(0)),
+                default=Value(1),
+                output_field=IntegerField(),
+            ))
+        )
+
+        q = (self.request.GET.get('q') or '').strip()
+        status = (self.request.GET.get('status') or '').strip()
+        level = (self.request.GET.get('level') or '').strip()
+        category = (self.request.GET.get('category') or '').strip()
+
+        if q:
+            queryset = queryset.filter(
+                Q(titulo__icontains=q) |
+                Q(mensagem__icontains=q) |
+                Q(categoria__icontains=q)
+            )
+        if status == 'unread':
+            queryset = queryset.filter(lida_em__isnull=True)
+        elif status == 'read':
+            queryset = queryset.filter(lida_em__isnull=False)
+        if level:
+            queryset = queryset.filter(nivel=level)
+        if category:
+            queryset = queryset.filter(categoria=category)
+
+        return queryset.order_by('read_order', '-criado_em', '-pk')
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        base_queryset = AppNotification.objects.filter(usuario=self.request.user)
+        params = self.request.GET.copy()
+        params.pop('page', None)
+
+        context.update({
+            'filters': {
+                'q': self.request.GET.get('q', ''),
+                'status': self.request.GET.get('status', ''),
+                'level': self.request.GET.get('level', ''),
+                'category': self.request.GET.get('category', ''),
+            },
+            'querystring': params.urlencode(),
+            'has_active_filters': any(self.request.GET.get(key) for key in ('q', 'status', 'level', 'category')),
+            'total_count': base_queryset.count(),
+            'unread_count': base_queryset.filter(lida_em__isnull=True).count(),
+            'read_count': base_queryset.filter(lida_em__isnull=False).count(),
+            'level_choices': AppNotificationLevel.choices,
+            'category_choices': (
+                base_queryset.exclude(categoria='')
+                .values_list('categoria', flat=True)
+                .distinct()
+                .order_by('categoria')
+            ),
+        })
+        return context
+
+
 class NotificationFeedView(LoginRequiredMixin, View):
     """Retorna notificações internas pendentes para exibição no navegador."""
 
@@ -1209,6 +1280,7 @@ class NotificationFeedView(LoginRequiredMixin, View):
                 'title': notification.titulo,
                 'message': notification.mensagem,
                 'url': notification.url,
+                'open_url': reverse('notification_open', kwargs={'pk': notification.pk}),
                 'level': notification.nivel,
                 'category': notification.categoria,
                 'created_at': notification.criado_em.isoformat(),
@@ -1222,10 +1294,33 @@ class NotificationReadView(LoginRequiredMixin, View):
     """Marca uma notificação interna como lida."""
 
     def post(self, request, *args, **kwargs):
-        try:
-            notification = AppNotification.objects.get(pk=kwargs['pk'], usuario=request.user)
-        except AppNotification.DoesNotExist:
-            return JsonResponse({'ok': False, 'error': 'Notificação não encontrada.'}, status=404)
+        notification = get_object_or_404(AppNotification, pk=kwargs['pk'], usuario=request.user)
         notification.mark_read()
         unread_count = AppNotification.objects.filter(usuario=request.user, lida_em__isnull=True).count()
-        return JsonResponse({'ok': True, 'unread_count': unread_count})
+        next_url = request.POST.get('next')
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or not next_url:
+            return JsonResponse({'ok': True, 'unread_count': unread_count})
+        messages.success(request, 'Notificação marcada como lida.')
+        return redirect(next_url)
+
+
+class NotificationOpenView(LoginRequiredMixin, View):
+    """Marca uma notificação como lida e redireciona para o destino dela."""
+
+    def get(self, request, *args, **kwargs):
+        notification = get_object_or_404(AppNotification, pk=kwargs['pk'], usuario=request.user)
+        notification.mark_read()
+        return redirect(notification.url or reverse('notification_center'))
+
+
+class NotificationMarkAllReadView(LoginRequiredMixin, View):
+    """Marca todas as notificações do usuário como lidas."""
+
+    def post(self, request, *args, **kwargs):
+        now = timezone.now()
+        updated = AppNotification.objects.filter(usuario=request.user, lida_em__isnull=True).update(lida_em=now)
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({'ok': True, 'unread_count': 0, 'updated': updated})
+        if updated:
+            messages.success(request, f'{updated} notificação(ões) marcada(s) como lida(s).')
+        return redirect(request.POST.get('next') or reverse('notification_center'))

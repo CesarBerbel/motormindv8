@@ -6,6 +6,7 @@
   const readUrlTemplate = root.dataset.notificationReadUrl || '';
   const permissionButton = document.querySelector('[data-notification-permission]');
   const badge = document.querySelector('[data-notification-badge]');
+  const notificationBell = document.querySelector('[data-notification-bell]');
   const toastContainerSelector = '[data-toast-container]';
   const pollInterval = Number.parseInt(root.dataset.notificationPollInterval || '45000', 10);
   const pwaConfig = window.MotorMindPWA || {};
@@ -74,7 +75,7 @@
     toast.dataset.toastDuration = '12000';
     toast.setAttribute('role', 'alert');
 
-    const url = notification.url || '#';
+    const url = notification.open_url || notification.url || '#';
     toast.innerHTML = `
       <div class="min-w-0 flex-1">
         <p class="font-semibold">${escapeHtml(notification.title || 'Nova notificação')}</p>
@@ -110,7 +111,7 @@
       tag: `motormind-notification-${notification.id}`,
       icon: '/static/img/pwa/icon-192.png',
       badge: '/static/img/pwa/icon-192.png',
-      data: { url: notification.url || '/', id: notification.id },
+      data: { url: notification.open_url || notification.url || '/', id: notification.id },
       renotify: false
     };
 
@@ -128,8 +129,8 @@
       const browserNotification = new Notification(notification.title || 'MotorMind', options);
       browserNotification.onclick = function () {
         window.focus();
-        markRead(notification.id);
-        if (notification.url) window.location.href = notification.url;
+        if (notification.open_url || notification.url) window.location.href = notification.open_url || notification.url;
+        else markRead(notification.id);
       };
     } catch (error) {
       console.warn('Falha ao exibir notificação do navegador:', error);
@@ -141,8 +142,16 @@
     if (count > 0) {
       badge.textContent = count > 99 ? '99+' : String(count);
       badge.classList.remove('hidden');
+      if (notificationBell) {
+        notificationBell.title = `${count} notificação(ões) não lida(s)`;
+        notificationBell.setAttribute('aria-label', `${count} notificação(ões) não lida(s). Abrir central de notificações`);
+      }
     } else {
       badge.classList.add('hidden');
+      if (notificationBell) {
+        notificationBell.title = 'Central de notificações';
+        notificationBell.setAttribute('aria-label', 'Abrir central de notificações');
+      }
     }
   }
 

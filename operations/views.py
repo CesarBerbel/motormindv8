@@ -94,6 +94,95 @@ def build_customer_vehicle_access_url(access, request=None):
     return path
 
 
+
+WORK_ORDER_STATUS_TIMELINE_STEPS = (
+    {
+        'key': 'entrada',
+        'label': 'Entrada',
+        'statuses': (WorkOrderStatus.ABERTA,),
+        'use_opening_date': True,
+    },
+    {
+        'key': 'diagnostico_pronto',
+        'label': 'Diagnóstico pronto',
+        'statuses': (WorkOrderStatus.ORCAMENTO,),
+    },
+    {
+        'key': 'orcamento_aprovado',
+        'label': 'Orçamento aprovado',
+        'statuses': (WorkOrderStatus.APROVADA,),
+    },
+    {
+        'key': 'em_execucao',
+        'label': 'Em execução',
+        'statuses': (WorkOrderStatus.EM_EXECUCAO,),
+    },
+    {
+        'key': 'finalizado',
+        'label': 'Finalizado',
+        'statuses': (WorkOrderStatus.EM_TESTE,),
+    },
+    {
+        'key': 'testado',
+        'label': 'Testado',
+        'statuses': (WorkOrderStatus.PRONTA,),
+    },
+    {
+        'key': 'cliente_avisado',
+        'label': 'Cliente avisado',
+        'statuses': (WorkOrderStatus.PRONTO_PARA_RETIRAR,),
+    },
+    {
+        'key': 'veiculo_retirado',
+        'label': 'Veículo retirado',
+        'statuses': (WorkOrderStatus.ENTREGUE,),
+    },
+)
+
+
+def build_work_order_status_timeline(order):
+    """Return the OS status entries used by the detail timeline.
+
+    The timeline intentionally records actual status entries instead of filling
+    previous steps by inference. This preserves skipped states and matches the
+    legacy visual model in which each circle turns green only when the OS has
+    entered that state.
+    """
+    transitions = list(order.transicoes_status.all())
+    transitions.sort(key=lambda item: (item.criado_em, item.pk or 0))
+
+    latest_transition_by_status = {}
+    for transition in transitions:
+        latest_transition_by_status[transition.status_novo] = transition
+
+    entries = []
+    for index, step in enumerate(WORK_ORDER_STATUS_TIMELINE_STEPS, start=1):
+        statuses = tuple(step['statuses'])
+        transition = next(
+            (latest_transition_by_status.get(status) for status in statuses if latest_transition_by_status.get(status)),
+            None,
+        )
+        completed_at = transition.criado_em if transition else None
+        completed_by = transition.criado_por if transition else None
+
+        if step.get('use_opening_date') and order.data_abertura:
+            completed_at = order.data_abertura
+            completed_by = None
+
+        entries.append({
+            'number': index,
+            'key': step['key'],
+            'label': step['label'],
+            'statuses': statuses,
+            'completed': bool(completed_at),
+            'completed_at': completed_at,
+            'completed_by': completed_by,
+            'is_current': order.status in statuses,
+        })
+
+    return entries
+
+
 def send_customer_vehicle_access_email(access, request=None):
     from communications.models import MessageType, RecipientKind
     from communications.services import Recipient, send_logged_email
@@ -1131,6 +1220,7 @@ class WorkOrderDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailVie
             {'value': status.value, 'label': status.label}
             for status in available_transitions
         ]
+        context['status_timeline_entries'] = build_work_order_status_timeline(self.object)
         context['status_history'] = self.object.transicoes_status.select_related('criado_por').all()[:20]
         context['purchase_orders'] = self.object.pedidos_compra.select_related('fornecedor').prefetch_related('itens').all()
         context['can_view_purchase_orders'] = self.request.user.has_perm('stock.view_purchaseorder')
@@ -2134,6 +2224,7 @@ class MechanicWorkOrderItemsView(TechnicianRequiredMixin, WorkOrderFormsetMixin,
         context['stock_requirements'] = self.object.get_stock_requirements()
         context['stock_shortages'] = self.object.get_stock_shortages()
         context['current_approval_budget'] = self.object.get_current_approval_budget()
+        context['status_timeline_entries'] = build_work_order_status_timeline(self.object)
         context['status_history'] = self.object.transicoes_status.select_related('criado_por').all()[:10]
         return context
 
@@ -2216,6 +2307,7 @@ class MechanicWorkOrderDetailView(TechnicianRequiredMixin, WorkOrderFormsetMixin
         context['stock_shortages'] = self.object.get_stock_shortages()
         context['can_adjust_stock_requirements'] = not self.object.estoque_baixado and not self.object.has_locked_approval
         context['can_start_service'] = self.object.status in {WorkOrderStatus.APROVADA, WorkOrderStatus.AGUARDANDO_PECA}
+        context['status_timeline_entries'] = build_work_order_status_timeline(self.object)
         context['status_history'] = self.object.transicoes_status.select_related('criado_por').all()[:10]
         return context
 

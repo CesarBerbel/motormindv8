@@ -6,7 +6,10 @@ urlpatterns = [
     path('sw.js', views.ServiceWorkerView.as_view(), name='service_worker'),
     path('dashboard/', views.DashboardView.as_view(), name='dashboard'),
     path('dashboard/acoes/', views.ActionCenterView.as_view(), name='action_center'),
+    path('notificacoes/', views.NotificationCenterView.as_view(), name='notification_center'),
     path('notificacoes/feed/', views.NotificationFeedView.as_view(), name='notification_feed'),
+    path('notificacoes/todas-lidas/', views.NotificationMarkAllReadView.as_view(), name='notification_mark_all_read'),
+    path('notificacoes/<int:pk>/abrir/', views.NotificationOpenView.as_view(), name='notification_open'),
     path('notificacoes/<int:pk>/lida/', views.NotificationReadView.as_view(), name='notification_read'),
 
     path('clientes/', views.CustomerListView.as_view(), name='customer_list'),

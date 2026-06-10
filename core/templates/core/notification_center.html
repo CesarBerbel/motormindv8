@@ -1,0 +1,202 @@
+{% extends 'base.html' %}
+
+{% block title %}Central de notificações | MotorMind{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+  <div class="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+    <div>
+      <div class="flex flex-wrap items-center gap-2">
+        <h1 class="page-title">Central de notificações</h1>
+        <span class="badge badge-primary badge-outline">Notificações internas</span>
+      </div>
+      <p class="text-sm text-base-content/65">Acompanhe os avisos do sistema e marque como lidas as notificações já tratadas.</p>
+    </div>
+    <div class="flex flex-wrap gap-2">
+      <button type="button" class="btn btn-outline btn-sm" data-notification-permission>
+        <span aria-hidden="true" data-notification-icon>🔔</span>
+        <span>Ativar notificações</span>
+      </button>
+      {% if unread_count %}
+        <form method="post" action="{% url 'notification_mark_all_read' %}">
+          {% csrf_token %}
+          <input type="hidden" name="next" value="{{ request.get_full_path }}">
+          <button type="submit" class="btn btn-primary btn-sm">Marcar todas como lidas</button>
+        </form>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="grid gap-3 sm:grid-cols-3">
+    <div class="card border border-base-300 bg-base-100 shadow-sm">
+      <div class="card-body gap-1 p-4">
+        <p class="text-xs font-semibold uppercase tracking-wide text-base-content/55">Total</p>
+        <p class="text-2xl font-bold">{{ total_count }}</p>
+      </div>
+    </div>
+    <div class="card border {% if unread_count %}border-warning/30 bg-warning/5{% else %}border-base-300 bg-base-100{% endif %} shadow-sm">
+      <div class="card-body gap-1 p-4">
+        <p class="text-xs font-semibold uppercase tracking-wide text-base-content/55">Não lidas</p>
+        <p class="text-2xl font-bold">{{ unread_count }}</p>
+      </div>
+    </div>
+    <div class="card border border-base-300 bg-base-100 shadow-sm">
+      <div class="card-body gap-1 p-4">
+        <p class="text-xs font-semibold uppercase tracking-wide text-base-content/55">Lidas</p>
+        <p class="text-2xl font-bold">{{ read_count }}</p>
+      </div>
+    </div>
+  </div>
+
+  <section class="card responsive-filter-panel {% if has_active_filters %}is-open{% endif %} border-base-300 bg-base-100 shadow-sm">
+    <div class="responsive-filter-panel__header">
+      <div>
+        <p class="font-semibold">Filtros</p>
+        <p class="text-xs text-base-content/55">Busque por título, mensagem, origem, nível ou situação.</p>
+      </div>
+      <button type="button" class="btn btn-outline btn-sm" data-responsive-filter-toggle>{% if has_active_filters %}Ocultar{% else %}Mostrar{% endif %}</button>
+    </div>
+    <form method="get" class="card-body grid gap-3 md:grid-cols-4">
+      <label class="form-control md:col-span-2">
+        <span class="label-text">Busca</span>
+        <input type="search" name="q" value="{{ filters.q }}" class="input input-bordered" placeholder="Título, mensagem ou categoria...">
+      </label>
+      <label class="form-control">
+        <span class="label-text">Situação</span>
+        <select name="status" class="select select-bordered">
+          <option value="">Todas</option>
+          <option value="unread" {% if filters.status == 'unread' %}selected{% endif %}>Não lidas</option>
+          <option value="read" {% if filters.status == 'read' %}selected{% endif %}>Lidas</option>
+        </select>
+      </label>
+      <label class="form-control">
+        <span class="label-text">Nível</span>
+        <select name="level" class="select select-bordered">
+          <option value="">Todos</option>
+          {% for value,label in level_choices %}
+            <option value="{{ value }}" {% if filters.level == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label class="form-control md:col-span-2">
+        <span class="label-text">Categoria</span>
+        <select name="category" class="select select-bordered">
+          <option value="">Todas</option>
+          {% for category in category_choices %}
+            <option value="{{ category }}" {% if filters.category == category %}selected{% endif %}>{{ category }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <div class="flex flex-col gap-2 md:col-span-2 md:flex-row md:items-end md:justify-end">
+        {% if has_active_filters %}<a href="{% url 'notification_center' %}" class="btn btn-ghost">Limpar</a>{% endif %}
+        <button type="submit" class="btn btn-primary">Filtrar notificações</button>
+      </div>
+    </form>
+  </section>
+
+  <section class="space-y-3" data-responsive-list>
+    <div class="hidden md:block responsive-list-shell responsive-list-shell--enhanced">
+      <table class="table table-sm">
+        <thead>
+          <tr>
+            <th data-sort="text">Notificação</th>
+            <th data-sort="text">Categoria</th>
+            <th data-sort="text">Nível</th>
+            <th data-sort="date">Criada em</th>
+            <th data-sort="text">Situação</th>
+            <th class="text-right">Ações</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for notification in notifications %}
+            <tr class="{% if not notification.is_read %}bg-primary/5{% endif %}">
+              <td class="min-w-80">
+                <p class="font-semibold">{{ notification.titulo }}</p>
+                {% if notification.mensagem %}<p class="mt-1 line-clamp-2 max-w-xl text-xs text-base-content/60">{{ notification.mensagem }}</p>{% endif %}
+              </td>
+              <td><span class="badge badge-outline badge-sm">{{ notification.categoria|default:'Geral' }}</span></td>
+              <td><span class="badge badge-sm {% if notification.nivel == 'success' %}badge-success{% elif notification.nivel == 'warning' %}badge-warning{% elif notification.nivel == 'error' %}badge-error{% else %}badge-info{% endif %}">{{ notification.get_nivel_display }}</span></td>
+              <td class="whitespace-nowrap">{{ notification.criado_em|date:'d/m/Y H:i' }}</td>
+              <td>
+                {% if notification.is_read %}
+                  <span class="badge badge-ghost badge-sm">Lida</span>
+                {% else %}
+                  <span class="badge badge-primary badge-sm">Não lida</span>
+                {% endif %}
+              </td>
+              <td class="text-right">
+                <div class="flex justify-end gap-2">
+                  {% if notification.url %}
+                    <a href="{% url 'notification_open' notification.pk %}" class="btn btn-primary btn-sm whitespace-nowrap">Abrir</a>
+                  {% endif %}
+                  {% if not notification.is_read %}
+                    <form method="post" action="{% url 'notification_read' notification.pk %}">
+                      {% csrf_token %}
+                      <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                      <button type="submit" class="btn btn-outline btn-sm whitespace-nowrap">Marcar lida</button>
+                    </form>
+                  {% endif %}
+                </div>
+              </td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="6" class="text-base-content/60">Nenhuma notificação encontrada.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="responsive-card-list md:hidden">
+      {% for notification in notifications %}
+        <article class="responsive-row-card {% if not notification.is_read %}border-primary/30 bg-primary/5{% endif %}">
+          <div class="responsive-row-card__header">
+            <div class="min-w-0">
+              <p class="responsive-row-card__title">{{ notification.titulo }}</p>
+              {% if notification.mensagem %}<p class="responsive-row-card__subtitle line-clamp-3">{{ notification.mensagem }}</p>{% endif %}
+            </div>
+            <div class="responsive-row-card__status">
+              {% if notification.is_read %}<span class="badge badge-ghost badge-sm">Lida</span>{% else %}<span class="badge badge-primary badge-sm">Não lida</span>{% endif %}
+              <span class="badge badge-outline badge-sm">{{ notification.categoria|default:'Geral' }}</span>
+            </div>
+          </div>
+          <dl class="responsive-row-card__meta">
+            <div class="responsive-row-card__meta-item"><dt>Nível</dt><dd>{{ notification.get_nivel_display }}</dd></div>
+            <div class="responsive-row-card__meta-item"><dt>Criada em</dt><dd>{{ notification.criado_em|date:'d/m H:i' }}</dd></div>
+            {% if notification.lida_em %}<div class="responsive-row-card__meta-item"><dt>Lida em</dt><dd>{{ notification.lida_em|date:'d/m H:i' }}</dd></div>{% endif %}
+          </dl>
+          <div class="responsive-row-card__actions">
+            {% if notification.url %}
+              <a href="{% url 'notification_open' notification.pk %}" class="btn btn-primary flex-1">Abrir</a>
+            {% endif %}
+            {% if not notification.is_read %}
+              <form method="post" action="{% url 'notification_read' notification.pk %}" class="flex-1">
+                {% csrf_token %}
+                <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                <button type="submit" class="btn btn-outline w-full">Marcar lida</button>
+              </form>
+            {% endif %}
+          </div>
+        </article>
+      {% empty %}
+        <div class="responsive-list-empty">Nenhuma notificação encontrada.</div>
+      {% endfor %}
+    </div>
+  </section>
+
+  {% if page_obj.has_other_pages %}
+    <div class="join flex justify-center">
+      {% if page_obj.has_previous %}
+        <a href="?{% if querystring %}{{ querystring }}&{% endif %}page={{ page_obj.previous_page_number }}" class="btn join-item">Anterior</a>
+      {% else %}
+        <button class="btn join-item" disabled>Anterior</button>
+      {% endif %}
+      <button class="btn join-item" disabled>Página {{ page_obj.number }} de {{ paginator.num_pages }}</button>
+      {% if page_obj.has_next %}
+        <a href="?{% if querystring %}{{ querystring }}&{% endif %}page={{ page_obj.next_page_number }}" class="btn join-item">Próxima</a>
+      {% else %}
+        <button class="btn join-item" disabled>Próxima</button>
+      {% endif %}
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

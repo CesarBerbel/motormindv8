@@ -1,0 +1,56 @@
+<div class="mb-6 card bg-base-100 shadow">
+  <div class="card-body">
+    <div class="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+      <div>
+        <h2 class="card-title">Entradas de estados</h2>
+        <p class="text-sm text-base-content/60">Cada etapa fica marcada quando a OS entra no respectivo estado.</p>
+      </div>
+      <span class="badge {{ order.status_badge_class }} w-fit whitespace-nowrap">Atual: {{ order.get_status_display }}</span>
+    </div>
+
+    <div class="mt-5 hidden overflow-x-auto md:block">
+      <ol class="grid min-w-[64rem] grid-cols-8 pb-1">
+        {% for entry in status_timeline_entries %}
+          <li class="relative flex flex-col items-center px-2 text-center">
+            <p class="mb-3 flex min-h-10 items-end justify-center text-sm font-medium leading-tight text-base-content">{{ entry.label }}</p>
+            <div class="relative flex w-full items-center justify-center">
+              {% if not forloop.first %}<span class="absolute left-0 top-1/2 h-px w-1/2 -translate-y-1/2 bg-base-300"></span>{% endif %}
+              {% if not forloop.last %}<span class="absolute right-0 top-1/2 h-px w-1/2 -translate-y-1/2 bg-base-300"></span>{% endif %}
+              <span class="relative z-10 flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold shadow-sm {% if entry.completed %}bg-success text-success-content{% else %}bg-base-300 text-base-content/70{% endif %}"{% if entry.completed_by %} title="Registrado por {{ entry.completed_by.email }}"{% endif %}>
+                {% if entry.completed %}✓{% else %}{{ entry.number }}{% endif %}
+              </span>
+            </div>
+            <p class="mt-3 min-h-10 text-xs leading-relaxed text-base-content/80">
+              {% if entry.completed_at %}
+                {{ entry.completed_at|date:'d/m/y' }}<br>{{ entry.completed_at|date:'H:i' }}
+              {% else %}
+                <span class="opacity-0">00/00/00<br>00:00</span>
+              {% endif %}
+            </p>
+          </li>
+        {% endfor %}
+      </ol>
+    </div>
+
+    <div class="mt-4 space-y-3 md:hidden">
+      {% for entry in status_timeline_entries %}
+        <div class="flex gap-3 rounded-box border border-base-300 p-3">
+          <span class="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-bold {% if entry.completed %}bg-success text-success-content{% else %}bg-base-300 text-base-content/70{% endif %}">
+            {% if entry.completed %}✓{% else %}{{ entry.number }}{% endif %}
+          </span>
+          <div class="min-w-0 flex-1">
+            <div class="flex flex-wrap items-center gap-2">
+              <p class="font-medium leading-tight">{{ entry.label }}</p>
+              {% if entry.is_current %}<span class="badge badge-sm badge-outline">Atual</span>{% endif %}
+            </div>
+            {% if entry.completed_at %}
+              <p class="text-sm text-base-content/70">{{ entry.completed_at|date:'d/m/y' }} às {{ entry.completed_at|date:'H:i' }}{% if entry.completed_by %} · {{ entry.completed_by.email }}{% endif %}</p>
+            {% else %}
+              <p class="text-sm text-base-content/50">Ainda não registrado</p>
+            {% endif %}
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>

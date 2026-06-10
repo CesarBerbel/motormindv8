@@ -161,6 +161,7 @@
                   <summary class="whitespace-nowrap">Configurações</summary>
                   <ul>
                     <li><a href="{% url 'action_center' %}" class="whitespace-nowrap">Ações</a></li>
+                  <li><a href="{% url 'notification_center' %}" class="whitespace-nowrap">Notificações</a></li>
                     {% if perms.core.view_category or perms.stock.view_stockcategory or perms.operations.view_servicecategory %}
                       <li>
                         <details data-menu-nested>
@@ -332,6 +333,7 @@
                 <summary class="whitespace-nowrap">Configurações</summary>
                 <ul class="z-50 w-56 rounded-box bg-base-100 p-2 shadow">
                   <li><a href="{% url 'action_center' %}" class="whitespace-nowrap">Ações</a></li>
+                  <li><a href="{% url 'notification_center' %}" class="whitespace-nowrap">Notificações</a></li>
                   {% if perms.core.view_category or perms.stock.view_stockcategory or perms.operations.view_servicecategory %}
                     <li>
                       <details data-menu-nested>
@@ -396,12 +398,13 @@
           data-app-notifications
           data-notification-feed-url="{% url 'notification_feed' %}"
           data-notification-read-url="{% url 'notification_read' 0 %}"
+          data-notification-center-url="{% url 'notification_center' %}"
           data-notification-poll-interval="45000"
         >
-          <button type="button" class="btn btn-ghost btn-sm btn-circle relative" data-notification-permission aria-label="Ativar notificações do navegador">
+          <a href="{% url 'notification_center' %}" class="btn btn-ghost btn-sm btn-circle relative" data-notification-bell aria-label="Abrir central de notificações" title="Central de notificações">
             <span data-notification-icon aria-hidden="true">🔔</span>
             <span class="badge badge-error badge-xs absolute -right-1 -top-1 hidden min-w-5 px-1 text-[0.62rem] text-error-content" data-notification-badge></span>
-          </button>
+          </a>
         </div>
         <details class="dropdown dropdown-end" data-menu-root>
           <summary class="btn btn-ghost btn-sm list-none whitespace-nowrap">
