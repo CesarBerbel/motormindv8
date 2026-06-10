@@ -1,7 +1,8 @@
 from django import forms
 
 from core.forms import BASE_CHECKBOX_CLASS, BASE_INPUT_CLASS, BASE_SELECT_CLASS, format_phone
-from .models import BlogPost, Lead, PublicService, SiteSettings
+from core.models import only_digits
+from .models import BlogPost, Lead, LeadStatus, PublicService, SiteSettings
 
 BASE_TEXTAREA_CLASS = 'textarea textarea-bordered min-h-32 w-full'
 BASE_FILE_CLASS = 'file-input file-input-bordered w-full'
@@ -13,8 +14,18 @@ class LeadForm(forms.ModelForm):
         fields = ['nome', 'telefone', 'email', 'veiculo', 'placa', 'servico', 'mensagem']
         widgets = {
             'nome': forms.TextInput(attrs={'class': BASE_INPUT_CLASS, 'placeholder': 'Seu nome'}),
-            'telefone': forms.TextInput(attrs={'class': BASE_INPUT_CLASS, 'placeholder': '(11) 90000-0000'}),
-            'email': forms.EmailInput(attrs={'class': BASE_INPUT_CLASS, 'placeholder': 'seu@email.com (opcional)'}),
+            'telefone': forms.TextInput(attrs={
+                'class': BASE_INPUT_CLASS,
+                'placeholder': '(11) 90000-0000',
+                'autocomplete': 'tel',
+                'inputmode': 'tel',
+            }),
+            'email': forms.EmailInput(attrs={
+                'class': BASE_INPUT_CLASS,
+                'placeholder': 'seu@email.com',
+                'autocomplete': 'email',
+                'inputmode': 'email',
+            }),
             'veiculo': forms.TextInput(attrs={'class': BASE_INPUT_CLASS, 'placeholder': 'Ex.: Fiat Uno 2015'}),
             'placa': forms.TextInput(attrs={'class': BASE_INPUT_CLASS, 'placeholder': 'ABC1D23 (opcional)'}),
             'servico': forms.Select(attrs={'class': BASE_SELECT_CLASS}),
@@ -28,7 +39,7 @@ class LeadForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.fields['servico'].queryset = PublicService.objects.filter(ativo=True).order_by('ordem', 'titulo')
         self.fields['servico'].empty_label = 'Não sei / outro'
-        self.fields['email'].required = False
+        self.fields['email'].required = True
         self.fields['veiculo'].required = False
         self.fields['placa'].required = False
         self.fields['servico'].required = False
@@ -36,10 +47,61 @@ class LeadForm(forms.ModelForm):
 
     def clean_telefone(self):
         telefone = (self.cleaned_data.get('telefone') or '').strip()
-        return format_phone(telefone) or telefone
+        digits = only_digits(telefone)
+
+        # Aceita entrada com codigo do Brasil (+55/55) e armazena no padrao local.
+        if len(digits) in (12, 13) and digits.startswith('55'):
+            digits = digits[2:]
+
+        if len(digits) not in (10, 11):
+            raise forms.ValidationError('Informe um telefone/WhatsApp valido com DDD.')
+
+        ddd = int(digits[:2])
+        subscriber = digits[2:]
+        if ddd < 11 or subscriber.startswith('0') or len(set(digits)) == 1:
+            raise forms.ValidationError('Informe um telefone/WhatsApp valido.')
+
+        return format_phone(digits)
 
     def clean_placa(self):
         return (self.cleaned_data.get('placa') or '').strip().upper()
+
+
+class LeadStatusForm(forms.ModelForm):
+    class Meta:
+        model = Lead
+        fields = ['status']
+        widgets = {
+            'status': forms.Select(attrs={'class': BASE_SELECT_CLASS}),
+        }
+
+
+class LeadFilterForm(forms.Form):
+    q = forms.CharField(
+        label='Busca',
+        required=False,
+        widget=forms.TextInput(attrs={
+            'class': BASE_INPUT_CLASS,
+            'placeholder': 'Nome, telefone, e-mail, veículo, placa ou mensagem',
+        }),
+    )
+    status = forms.ChoiceField(
+        label='Status',
+        required=False,
+        choices=[('', 'Todos os status')] + list(LeadStatus.choices),
+        widget=forms.Select(attrs={'class': BASE_SELECT_CLASS}),
+    )
+    servico = forms.ModelChoiceField(
+        label='Serviço',
+        required=False,
+        queryset=PublicService.objects.none(),
+        empty_label='Todos os serviços',
+        widget=forms.Select(attrs={'class': BASE_SELECT_CLASS}),
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['servico'].queryset = PublicService.objects.order_by('ordem', 'titulo')
 
 
 class BlogPostForm(forms.ModelForm):
@@ -79,7 +141,7 @@ class SiteSettingsForm(forms.ModelForm):
         fields = [
             'nome_fantasia', 'slogan', 'sobre', 'logo',
             'hero_titulo', 'hero_subtitulo',
-            'telefone_principal', 'telefone_secundario', 'whatsapp', 'email_contato',
+            'telefone_principal', 'telefone_secundario', 'whatsapp', 'email_contato', 'email_oficina',
             'endereco', 'bairro', 'cidade', 'uf', 'cep', 'google_maps_embed',
             'horario_semana', 'horario_sabado', 'horario_domingo',
             'instagram_url', 'facebook_url',
@@ -95,6 +157,7 @@ class SiteSettingsForm(forms.ModelForm):
             'telefone_secundario': forms.TextInput(attrs={'class': BASE_INPUT_CLASS, 'placeholder': '(11) 90000-0000'}),
             'whatsapp': forms.TextInput(attrs={'class': BASE_INPUT_CLASS, 'placeholder': '5511900000000'}),
             'email_contato': forms.EmailInput(attrs={'class': BASE_INPUT_CLASS, 'placeholder': 'contato@oficina.com'}),
+            'email_oficina': forms.EmailInput(attrs={'class': BASE_INPUT_CLASS, 'placeholder': 'orcamentos@oficina.com'}),
             'endereco': forms.TextInput(attrs={'class': BASE_INPUT_CLASS}),
             'bairro': forms.TextInput(attrs={'class': BASE_INPUT_CLASS}),
             'cidade': forms.TextInput(attrs={'class': BASE_INPUT_CLASS}),

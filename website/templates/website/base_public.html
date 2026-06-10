@@ -1,6 +1,6 @@
 {% load static %}
 <!doctype html>
-<html lang="pt-br" data-theme="bandeirantes" data-theme-light="bandeirantes" data-theme-dark="bandeirantes-dark">
+<html lang="pt-br" data-theme="bandeirantes" data-theme-light="bandeirantes" data-theme-dark="bandeirantes-dark" data-pwa-enabled="{{ pwa_enabled|yesno:'true,false' }}" data-pwa-debug="{{ pwa_debug_mode|yesno:'true,false' }}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -22,12 +22,14 @@
   <meta name="description" content="{% block meta_description %}{{ site.slogan }} — {{ site.nome_fantasia }}{% endblock %}">
   <link rel="stylesheet" href="{% static 'css/styles.css' %}">
 
-  <link rel="manifest" href="{% static 'manifest.webmanifest' %}">
   <meta name="theme-color" content="#1f2937">
-  <link rel="apple-touch-icon" href="{% static 'img/pwa/apple-touch-icon.png' %}">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="MotorMind">
+  {% if pwa_enabled %}
+    <link rel="manifest" href="{% static 'manifest.webmanifest' %}">
+    <link rel="apple-touch-icon" href="{% static 'img/pwa/apple-touch-icon.png' %}">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="MotorMind">
+  {% endif %}
 </head>
 <body class="min-h-screen bg-base-100 flex flex-col">
   <header class="navbar sticky top-0 z-50 bg-base-100/95 backdrop-blur shadow-sm">
@@ -155,6 +157,14 @@
 
   <script src="{% static 'js/toasts.js' %}"></script>
   <script src="{% static 'js/theme-toggle.js' %}"></script>
+  <script>
+    window.MotorMindPWA = {
+      enabled: {{ pwa_enabled|yesno:'true,false' }},
+      debug: {{ pwa_debug_mode|yesno:'true,false' }},
+      serviceWorkerUrl: "{% url 'service_worker' %}",
+      scope: "/"
+    };
+  </script>
   <script src="{% static 'js/pwa.js' %}"></script>
   {% block extra_js %}{% endblock %}
 </body>

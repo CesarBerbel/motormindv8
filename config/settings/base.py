@@ -84,6 +84,7 @@ TEMPLATES = [
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
                 'website.context_processors.site_settings',
+                'core.context_processors.pwa_settings',
             ],
         },
     },
@@ -150,6 +151,12 @@ USE_TZ = True
 STATIC_URL = '/static/'
 STATICFILES_DIRS = [BASE_DIR / 'static']
 STATIC_ROOT = BASE_DIR / 'staticfiles'
+
+# PWA. Em desenvolvimento o service worker fica desligado por padrao para nao
+# manter CSS/JS antigos em cache durante o uso do runserver. Para testar o PWA
+# localmente, defina PWA_ENABLED=True e acesse por http://localhost:8000 ou HTTPS.
+PWA_ENABLED = env_bool('PWA_ENABLED', False)
+PWA_CACHE_PREFIX = os.getenv('PWA_CACHE_PREFIX', 'motormind')
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'

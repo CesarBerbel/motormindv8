@@ -1,6 +1,6 @@
 {% load static %}
 <!doctype html>
-<html lang="pt-br" data-theme="light" data-theme-light="light" data-theme-dark="dark">
+<html lang="pt-br" data-theme="light" data-theme-light="light" data-theme-dark="dark" data-pwa-enabled="{{ pwa_enabled|yesno:'true,false' }}" data-pwa-debug="{{ pwa_debug_mode|yesno:'true,false' }}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -21,12 +21,14 @@
   <title>{% block title %}MotorMind{% endblock %}</title>
   <link rel="stylesheet" href="{% static 'css/styles.css' %}">
 
-  <link rel="manifest" href="{% static 'manifest.webmanifest' %}">
   <meta name="theme-color" content="#1f2937">
-  <link rel="apple-touch-icon" href="{% static 'img/pwa/apple-touch-icon.png' %}">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="MotorMind">
+  {% if pwa_enabled %}
+    <link rel="manifest" href="{% static 'manifest.webmanifest' %}">
+    <link rel="apple-touch-icon" href="{% static 'img/pwa/apple-touch-icon.png' %}">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="MotorMind">
+  {% endif %}
 </head>
 <body class="min-h-screen bg-base-200">
   {% if request.user.is_authenticated %}
@@ -135,12 +137,17 @@
               </li>
             {% endif %}
 
-            {% if perms.website.view_blogpost %}
+            {% if perms.website.view_blogpost or perms.website.view_lead %}
               <li>
                 <details data-menu-nested>
                   <summary class="whitespace-nowrap">Site</summary>
                   <ul>
-                    <li><a href="{% url 'blog_manage_list' %}" class="whitespace-nowrap">Artigos do blog</a></li>
+                    {% if perms.website.view_lead %}
+                      <li><a href="{% url 'site_lead_list' %}" class="whitespace-nowrap">Pedidos de orçamento</a></li>
+                    {% endif %}
+                    {% if perms.website.view_blogpost %}
+                      <li><a href="{% url 'blog_manage_list' %}" class="whitespace-nowrap">Artigos do blog</a></li>
+                    {% endif %}
                     <li><a href="{% url 'public_home' %}" target="_blank" rel="noopener" class="whitespace-nowrap">Ver site público</a></li>
                   </ul>
                 </details>
@@ -300,12 +307,17 @@
             </li>
           {% endif %}
 
-          {% if perms.website.view_blogpost %}
+          {% if perms.website.view_blogpost or perms.website.view_lead %}
             <li>
               <details data-menu-root>
                 <summary class="whitespace-nowrap">Site</summary>
                 <ul class="z-50 w-56 rounded-box bg-base-100 p-2 shadow">
-                  <li><a href="{% url 'blog_manage_list' %}" class="whitespace-nowrap">Artigos do blog</a></li>
+                  {% if perms.website.view_lead %}
+                    <li><a href="{% url 'site_lead_list' %}" class="whitespace-nowrap">Pedidos de orçamento</a></li>
+                  {% endif %}
+                  {% if perms.website.view_blogpost %}
+                    <li><a href="{% url 'blog_manage_list' %}" class="whitespace-nowrap">Artigos do blog</a></li>
+                  {% endif %}
                   <li><a href="{% url 'public_home' %}" target="_blank" rel="noopener" class="whitespace-nowrap">Ver site público</a></li>
                 </ul>
               </details>
@@ -373,6 +385,21 @@
         <span data-theme-icon>🌙</span>
       </button>
       {% if request.user.is_authenticated %}
+        <button type="button" class="btn btn-outline btn-sm whitespace-nowrap" data-pwa-install hidden>
+          <span aria-hidden="true">⬇️</span>
+          <span>Instalar app</span>
+        </button>
+        <div
+          data-app-notifications
+          data-notification-feed-url="{% url 'notification_feed' %}"
+          data-notification-read-url="{% url 'notification_read' 0 %}"
+          data-notification-poll-interval="45000"
+        >
+          <button type="button" class="btn btn-ghost btn-sm btn-circle relative" data-notification-permission aria-label="Ativar notificações do navegador">
+            <span data-notification-icon aria-hidden="true">🔔</span>
+            <span class="badge badge-error badge-xs absolute -right-1 -top-1 hidden min-w-5 px-1 text-[0.62rem] text-error-content" data-notification-badge></span>
+          </button>
+        </div>
         <details class="dropdown dropdown-end" data-menu-root>
           <summary class="btn btn-ghost btn-sm list-none whitespace-nowrap">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-4 w-4">
@@ -420,9 +447,18 @@
   <script src="{% static 'js/money.js' %}"></script>
   <script src="{% static 'js/floating-dropdown.js' %}"></script>
   <script src="{% static 'js/theme-toggle.js' %}"></script>
+  <script>
+    window.MotorMindPWA = {
+      enabled: {{ pwa_enabled|yesno:'true,false' }},
+      debug: {{ pwa_debug_mode|yesno:'true,false' }},
+      serviceWorkerUrl: "{% url 'service_worker' %}",
+      scope: "/"
+    };
+  </script>
   <script src="{% static 'js/pwa.js' %}"></script>
   {% if request.user.is_authenticated %}
     <script src="{% static 'js/company-watermark.js' %}"></script>
+    <script src="{% static 'js/app-notifications.js' %}"></script>
   {% endif %}
   {% block extra_js %}{% endblock %}
 </body>

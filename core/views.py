@@ -5,6 +5,7 @@ from urllib.parse import quote
 from urllib.request import Request, urlopen
 import json
 
+from django.apps import apps
 from django.conf import settings as dj_settings
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
@@ -19,6 +20,7 @@ from django.views.generic import CreateView, DeleteView, DetailView, ListView, T
 
 from .forms import CategoryForm, CustomerForm, SupplierForm, VehicleForm, format_cep, format_cnpj, format_cpf, format_phone
 from .models import (
+    AppNotification,
     Category,
     CategoryAudience,
     Customer,
@@ -32,6 +34,44 @@ from .models import (
     only_alnum_upper,
     only_digits,
 )
+
+
+class ServiceWorkerView(TemplateView):
+    template_name = 'pwa/sw.js'
+    content_type = 'application/javascript'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['pwa_enabled'] = bool(getattr(dj_settings, 'PWA_ENABLED', False))
+        context['pwa_cache_prefix'] = getattr(dj_settings, 'PWA_CACHE_PREFIX', 'motormind')
+        return context
+
+    def render_to_response(self, context, **response_kwargs):
+        response = super().render_to_response(context, **response_kwargs)
+        response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+        response['Pragma'] = 'no-cache'
+        response['Expires'] = '0'
+        response['Service-Worker-Allowed'] = '/'
+        return response
+
+
+def get_website_lead_from_request(request):
+    lead_id = request.GET.get('lead')
+    if not (lead_id and lead_id.isdigit()):
+        return None
+
+    Lead = apps.get_model('website', 'Lead')
+    return Lead.objects.filter(pk=int(lead_id)).first()
+
+
+def split_vehicle_description(description):
+    parts = (description or '').strip().split()
+    if not parts:
+        return '', ''
+    if len(parts) == 1:
+        return parts[0], ''
+    return parts[0], ' '.join(parts[1:])
+
 
 
 class DashboardView(LoginRequiredMixin, TemplateView):
@@ -545,6 +585,25 @@ class CustomerCreateView(LoginRequiredMixin, PermissionRequiredMixin, FormTitleM
     permission_required = 'core.add_customer'
     title = 'Novo cliente'
 
+    def get_initial(self):
+        initial = super().get_initial()
+        lead = get_website_lead_from_request(self.request)
+        if lead:
+            initial.setdefault('nome_razao_social', lead.nome)
+            initial.setdefault('email', lead.email)
+            initial.setdefault('whatsapp', lead.telefone)
+
+        query_initial_map = {
+            'nome': 'nome_razao_social',
+            'email': 'email',
+            'whatsapp': 'whatsapp',
+        }
+        for query_name, field_name in query_initial_map.items():
+            value = (self.request.GET.get(query_name) or '').strip()
+            if value:
+                initial[field_name] = value
+        return initial
+
     def form_valid(self, form):
         messages.success(self.request, 'Cliente cadastrado com sucesso.')
         return super().form_valid(form)
@@ -817,9 +876,28 @@ class VehicleCreateView(LoginRequiredMixin, PermissionRequiredMixin, FormTitleMi
 
     def get_initial(self):
         initial = super().get_initial()
+        lead = get_website_lead_from_request(self.request)
+        if lead:
+            marca, modelo = split_vehicle_description(lead.veiculo)
+            initial.setdefault('placa', format_plate(lead.placa))
+            if marca:
+                initial.setdefault('marca', marca)
+            if modelo:
+                initial.setdefault('modelo', modelo)
+
         cliente = self.request.GET.get('cliente')
         if cliente and cliente.isdigit():
             initial['cliente'] = int(cliente)
+
+        query_initial_map = {
+            'placa': 'placa',
+            'marca': 'marca',
+            'modelo': 'modelo',
+        }
+        for query_name, field_name in query_initial_map.items():
+            value = (self.request.GET.get(query_name) or '').strip()
+            if value:
+                initial[field_name] = format_plate(value) if field_name == 'placa' else value
         return initial
 
     def form_valid(self, form):
@@ -1061,3 +1139,41 @@ class CategoryDeleteView(LoginRequiredMixin, PermissionRequiredMixin, FormTitleM
 class HealthCheckView(View):
     def get(self, request, *args, **kwargs):
         return JsonResponse({'status': 'ok', 'service': 'motormind'})
+
+
+class NotificationFeedView(LoginRequiredMixin, View):
+    """Retorna notificações internas pendentes para exibição no navegador."""
+
+    def get(self, request, *args, **kwargs):
+        notifications = list(
+            AppNotification.objects.filter(usuario=request.user, lida_em__isnull=True, exibida_em__isnull=True)
+            .order_by('criado_em', 'pk')[:5]
+        )
+        unread_count = AppNotification.objects.filter(usuario=request.user, lida_em__isnull=True).count()
+        payload = []
+        for notification in notifications:
+            payload.append({
+                'id': notification.pk,
+                'title': notification.titulo,
+                'message': notification.mensagem,
+                'url': notification.url,
+                'level': notification.nivel,
+                'category': notification.categoria,
+                'created_at': notification.criado_em.isoformat(),
+            })
+            notification.mark_displayed()
+
+        return JsonResponse({'ok': True, 'unread_count': unread_count, 'notifications': payload})
+
+
+class NotificationReadView(LoginRequiredMixin, View):
+    """Marca uma notificação interna como lida."""
+
+    def post(self, request, *args, **kwargs):
+        try:
+            notification = AppNotification.objects.get(pk=kwargs['pk'], usuario=request.user)
+        except AppNotification.DoesNotExist:
+            return JsonResponse({'ok': False, 'error': 'Notificação não encontrada.'}, status=404)
+        notification.mark_read()
+        unread_count = AppNotification.objects.filter(usuario=request.user, lida_em__isnull=True).count()
+        return JsonResponse({'ok': True, 'unread_count': unread_count})

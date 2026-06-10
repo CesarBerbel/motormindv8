@@ -27,3 +27,6 @@ CACHES = {
 }
 
 EMAIL_BACKEND = 'django.core.mail.backends.locmem.EmailBackend'
+
+# Mantém o PWA ativo nos testes automatizados, salvo override_settings.
+PWA_ENABLED = env_bool('PWA_ENABLED', True)

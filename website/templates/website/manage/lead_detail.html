@@ -1,0 +1,162 @@
+{% extends 'base.html' %}
+
+{% block title %}Pedido de orçamento #{{ lead.pk }} | MotorMind{% endblock %}
+
+{% block content %}
+<div class="mb-6 flex flex-wrap items-start justify-between gap-4">
+  <div>
+    <div class="breadcrumbs text-sm">
+      <ul>
+        <li><a href="{% url 'site_lead_list' %}">Pedidos de orçamento</a></li>
+        <li>Pedido #{{ lead.pk }}</li>
+      </ul>
+    </div>
+    <h1 class="page-title">Pedido de orçamento</h1>
+    <p class="text-base-content/70">Recebido em {{ lead.criado_em|date:'d/m/Y H:i' }} pelo site público.</p>
+  </div>
+  <a href="{% url 'site_lead_list' %}" class="btn btn-ghost btn-sm whitespace-nowrap">Voltar</a>
+</div>
+
+<div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
+  <section class="space-y-6">
+    <div class="card border border-base-300 bg-base-100 shadow-sm">
+      <div class="card-body gap-4">
+        <div class="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 class="card-title">{{ lead.nome }}</h2>
+            <p class="text-sm text-base-content/60">Origem: {{ lead.origem|default:'site' }}</p>
+          </div>
+          {% if lead.status == 'novo' %}
+            <span class="badge badge-info badge-outline">{{ lead.get_status_display }}</span>
+          {% elif lead.status == 'em_contato' %}
+            <span class="badge badge-warning badge-outline">{{ lead.get_status_display }}</span>
+          {% elif lead.status == 'concluido' %}
+            <span class="badge badge-success badge-outline">{{ lead.get_status_display }}</span>
+          {% else %}
+            <span class="badge badge-ghost">{{ lead.get_status_display }}</span>
+          {% endif %}
+        </div>
+
+        <div class="grid gap-3 md:grid-cols-2">
+          <div class="rounded-box border border-base-200 bg-base-200/40 p-3">
+            <p class="text-xs font-semibold uppercase tracking-wide text-base-content/50">Telefone / WhatsApp</p>
+            <p class="mt-1 font-medium">{{ lead.telefone }}</p>
+          </div>
+          <div class="rounded-box border border-base-200 bg-base-200/40 p-3">
+            <p class="text-xs font-semibold uppercase tracking-wide text-base-content/50">E-mail</p>
+            <p class="mt-1 break-all font-medium">{{ lead.email|default:'-' }}</p>
+          </div>
+          <div class="rounded-box border border-base-200 bg-base-200/40 p-3">
+            <p class="text-xs font-semibold uppercase tracking-wide text-base-content/50">Veículo</p>
+            <p class="mt-1 font-medium">{{ lead.veiculo|default:'-' }}</p>
+          </div>
+          <div class="rounded-box border border-base-200 bg-base-200/40 p-3">
+            <p class="text-xs font-semibold uppercase tracking-wide text-base-content/50">Placa</p>
+            <p class="mt-1 font-mono font-medium">{{ lead.placa|default:'-' }}</p>
+          </div>
+          <div class="rounded-box border border-base-200 bg-base-200/40 p-3 md:col-span-2">
+            <p class="text-xs font-semibold uppercase tracking-wide text-base-content/50">Serviço de interesse</p>
+            <p class="mt-1 font-medium">{{ lead.servico.titulo|default:'Não informado' }}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card border border-base-300 bg-base-100 shadow-sm">
+      <div class="card-body">
+        <h2 class="card-title text-lg">Mensagem do cliente</h2>
+        {% if lead.mensagem %}
+          <div class="prose max-w-none whitespace-pre-wrap rounded-box bg-base-200/60 p-4 text-base-content">{{ lead.mensagem }}</div>
+        {% else %}
+          <p class="text-base-content/60">O cliente não adicionou mensagem.</p>
+        {% endif %}
+      </div>
+    </div>
+  </section>
+
+  <aside class="space-y-6">
+    <div class="card border border-base-300 bg-base-100 shadow-sm">
+      <div class="card-body gap-4">
+        <h2 class="card-title text-lg">Acompanhamento</h2>
+        {% if perms.website.change_lead %}
+          <form method="post" class="space-y-3">
+            {% csrf_token %}
+            <div class="form-control">
+              <label class="label" for="{{ status_form.status.id_for_label }}"><span class="label-text">Status</span></label>
+              {{ status_form.status }}
+              {% for error in status_form.status.errors %}<span class="label-text-alt text-error">{{ error }}</span>{% endfor %}
+            </div>
+            <button type="submit" class="btn btn-primary w-full whitespace-nowrap">Atualizar status</button>
+          </form>
+        {% else %}
+          <p class="text-sm text-base-content/60">Você pode visualizar este pedido, mas não tem permissão para alterar o status.</p>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="card border border-base-300 bg-base-100 shadow-sm">
+      <div class="card-body gap-4">
+        <div>
+          <h2 class="card-title text-lg">Ações rápidas</h2>
+          <p class="text-sm text-base-content/60">Converta o pedido do site em cadastro operacional.</p>
+        </div>
+
+        <div class="space-y-2">
+          {% if matched_customer %}
+            <button type="button" class="btn btn-outline btn-sm w-full justify-start whitespace-normal text-left" disabled>
+              Cliente existe: {{ matched_customer.nome_razao_social }}
+            </button>
+          {% elif perms.core.add_customer %}
+            <a href="{{ customer_create_url }}" class="btn btn-primary btn-sm w-full justify-start whitespace-nowrap">Cadastrar cliente</a>
+          {% else %}
+            <button type="button" class="btn btn-outline btn-sm w-full justify-start whitespace-normal text-left" disabled>
+              Sem permissão para cadastrar cliente
+            </button>
+          {% endif %}
+
+          {% if matched_vehicle %}
+            <button type="button" class="btn btn-outline btn-sm w-full justify-start whitespace-normal text-left" disabled>
+              Veículo existe: {{ matched_vehicle.placa }}
+            </button>
+          {% elif perms.core.add_vehicle %}
+            <a href="{{ vehicle_create_url }}" class="btn btn-secondary btn-sm w-full justify-start whitespace-nowrap">Cadastrar veículo</a>
+          {% else %}
+            <button type="button" class="btn btn-outline btn-sm w-full justify-start whitespace-normal text-left" disabled>
+              Sem permissão para cadastrar veículo
+            </button>
+          {% endif %}
+
+          {% if customer_vehicle_match and perms.operations.add_workorder %}
+            <a href="{{ work_order_create_url }}" class="btn btn-success btn-sm w-full justify-start whitespace-nowrap">Abrir OS</a>
+          {% elif vehicle_customer_mismatch %}
+            <button type="button" class="btn btn-warning btn-outline btn-sm w-full justify-start whitespace-normal text-left" disabled>
+              Cliente e veículo cadastrados em registros diferentes
+            </button>
+          {% elif matched_customer and matched_vehicle %}
+            <button type="button" class="btn btn-outline btn-sm w-full justify-start whitespace-normal text-left" disabled>
+              Sem permissão para abrir OS
+            </button>
+          {% else %}
+            <button type="button" class="btn btn-outline btn-sm w-full justify-start whitespace-normal text-left" disabled>
+              Abrir OS disponível após localizar cliente e veículo
+            </button>
+          {% endif %}
+        </div>
+
+        {% if vehicle_customer_mismatch %}
+          <div class="alert alert-warning py-2 text-xs">
+            <span>Revise o cadastro: a placa localizada pertence a {{ matched_vehicle.cliente.nome_razao_social }}.</span>
+          </div>
+        {% endif %}
+
+        <a href="{% url 'public_home' %}" target="_blank" rel="noopener" class="btn btn-ghost btn-sm justify-start whitespace-nowrap">Ver site público</a>
+      </div>
+    </div>
+
+    <div class="rounded-box border border-base-300 bg-base-100 p-4 text-sm text-base-content/70 shadow-sm">
+      <p><span class="font-medium text-base-content">Criado em:</span> {{ lead.criado_em|date:'d/m/Y H:i' }}</p>
+      <p><span class="font-medium text-base-content">Atualizado em:</span> {{ lead.atualizado_em|date:'d/m/Y H:i' }}</p>
+    </div>
+  </aside>
+</div>
+{% endblock %}

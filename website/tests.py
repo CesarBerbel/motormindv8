@@ -4,6 +4,9 @@ from django.core import mail
 from django.test import TestCase
 from django.urls import reverse
 
+from accounts.models import EmployeeRole
+from core.models import AppNotification, Customer, PessoaTipo, Vehicle
+
 from .models import BlogPost, Lead, LeadStatus, PublicService, SiteSettings, Testimonial
 from .services import notify_new_lead
 
@@ -124,8 +127,15 @@ class PublicPagesTests(TestCase):
 class LeadSubmissionTests(TestCase):
     def setUp(self):
         site = SiteSettings.get_solo()
-        site.email_contato = 'oficina@example.com'
+        site.email_contato = 'contato@example.com'
+        site.email_oficina = 'orcamentos@example.com'
         site.save()
+        self.admin_user = get_user_model().objects.create_user(
+            email='adm.leads@example.com',
+            password='senha-forte-123',
+            nome_razao_social='ADM Leads',
+            role=EmployeeRole.ADM,
+        )
         self.servico = PublicService.objects.create(titulo='Freios', ativo=True)
 
     def test_valid_submission_creates_lead_and_redirects(self):
@@ -145,15 +155,42 @@ class LeadSubmissionTests(TestCase):
         self.assertEqual(lead.status, LeadStatus.NOVO)
         self.assertEqual(len(mail.outbox), 1)
         self.assertIn('Cliente Teste', mail.outbox[0].body)
+        self.assertEqual(mail.outbox[0].to, ['orcamentos@example.com'])
+        notification = AppNotification.objects.get(usuario=self.admin_user)
+        self.assertEqual(notification.categoria, 'lead_site')
+        self.assertIn('Cliente Teste', notification.mensagem)
 
     def test_missing_required_fields_does_not_create_lead(self):
         response = self.client.post(reverse('public_contact'), {'nome': '', 'telefone': ''})
         self.assertEqual(response.status_code, 200)
         self.assertEqual(Lead.objects.count(), 0)
 
+    def test_missing_email_does_not_create_lead(self):
+        response = self.client.post(reverse('public_contact'), {
+            'nome': 'Cliente Sem Email',
+            'telefone': '11988212625',
+            'email': '',
+            'mensagem': 'Preciso de orçamento',
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Este campo é obrigatório')
+        self.assertEqual(Lead.objects.count(), 0)
+
+    def test_invalid_phone_does_not_create_lead(self):
+        response = self.client.post(reverse('public_contact'), {
+            'nome': 'Cliente Telefone Invalido',
+            'telefone': '12345',
+            'email': 'cliente@example.com',
+            'mensagem': 'Preciso de orçamento',
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Informe um telefone/WhatsApp valido com DDD.')
+        self.assertEqual(Lead.objects.count(), 0)
+
     def test_notify_new_lead_without_email_returns_false(self):
         site = SiteSettings.get_solo()
         site.email_contato = ''
+        site.email_oficina = ''
         site.save()
         # Sem e-mail configurado e sem DEFAULT_FROM_EMAIL útil, não deve falhar.
         lead = Lead.objects.create(nome='X', telefone='11999999999')
@@ -346,3 +383,170 @@ class SiteSettingsManageTests(TestCase):
         # Sempre singleton (pk=1).
         self.assertEqual(site.pk, 1)
         self.assertEqual(SiteSettings.objects.count(), 1)
+
+
+class LeadManageViewTests(TestCase):
+    def setUp(self):
+        User = get_user_model()
+        self.viewer = User.objects.create_user(
+            email='leads-viewer@example.com',
+            password='senha-forte-123',
+            nome_razao_social='Leads Viewer',
+        )
+        self.viewer.user_permissions.add(Permission.objects.get(content_type__app_label='website', codename='view_lead'))
+        self.manager = User.objects.create_user(
+            email='leads-manager@example.com',
+            password='senha-forte-123',
+            nome_razao_social='Leads Manager',
+        )
+        self.manager.user_permissions.add(Permission.objects.get(content_type__app_label='website', codename='view_lead'))
+        self.manager.user_permissions.add(Permission.objects.get(content_type__app_label='website', codename='change_lead'))
+        self.outsider = User.objects.create_user(
+            email='sem-leads@example.com',
+            password='senha-forte-123',
+            nome_razao_social='Sem Leads',
+        )
+        self.servico = PublicService.objects.create(titulo='Diagnóstico eletrônico', ativo=True)
+        self.lead = Lead.objects.create(
+            nome='Cliente Lead',
+            telefone='11999990000',
+            email='cliente@example.com',
+            veiculo='Honda Civic 2020',
+            placa='ABC1D23',
+            servico=self.servico,
+            mensagem='Luz da injeção acesa',
+        )
+        Lead.objects.create(
+            nome='Outro Cliente',
+            telefone='11888880000',
+            status=LeadStatus.CONCLUIDO,
+        )
+
+    def test_lead_list_requires_login(self):
+        response = self.client.get(reverse('site_lead_list'))
+        self.assertEqual(response.status_code, 302)
+        self.assertIn('/login/', response['Location'])
+
+    def test_user_without_permission_is_forbidden(self):
+        self.client.force_login(self.outsider)
+        response = self.client.get(reverse('site_lead_list'))
+        self.assertEqual(response.status_code, 403)
+
+    def test_viewer_can_list_site_leads_from_site_menu(self):
+        self.client.force_login(self.viewer)
+        response = self.client.get(reverse('site_lead_list'))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Pedidos de orçamento')
+        self.assertContains(response, 'Cliente Lead')
+        self.assertContains(response, 'Diagnóstico eletrônico')
+
+    def test_filter_leads_by_status_and_query(self):
+        self.client.force_login(self.viewer)
+        response = self.client.get(reverse('site_lead_list'), {'status': LeadStatus.NOVO, 'q': 'Civic'})
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Cliente Lead')
+        self.assertNotContains(response, 'Outro Cliente')
+
+    def test_viewer_can_open_lead_detail(self):
+        self.client.force_login(self.viewer)
+        response = self.client.get(reverse('site_lead_detail', kwargs={'pk': self.lead.pk}))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Luz da injeção acesa')
+        self.assertContains(response, 'Você pode visualizar este pedido')
+
+    def test_manager_can_update_lead_status(self):
+        self.client.force_login(self.manager)
+        response = self.client.post(reverse('site_lead_detail', kwargs={'pk': self.lead.pk}), {
+            'status': LeadStatus.EM_CONTATO,
+        })
+        self.assertRedirects(response, reverse('site_lead_detail', kwargs={'pk': self.lead.pk}))
+        self.lead.refresh_from_db()
+        self.assertEqual(self.lead.status, LeadStatus.EM_CONTATO)
+
+
+    def grant_operational_quick_action_permissions(self):
+        for app_label, codename in (
+            ('core', 'add_customer'),
+            ('core', 'add_vehicle'),
+            ('operations', 'add_workorder'),
+        ):
+            self.manager.user_permissions.add(Permission.objects.get(content_type__app_label=app_label, codename=codename))
+
+    def test_detail_quick_actions_offer_registration_when_records_do_not_exist(self):
+        self.grant_operational_quick_action_permissions()
+        self.client.force_login(self.manager)
+        response = self.client.get(reverse('site_lead_detail', kwargs={'pk': self.lead.pk}))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Cadastrar cliente')
+        self.assertContains(response, 'Cadastrar veículo')
+        self.assertContains(response, 'Abrir OS disponível após localizar cliente e veículo')
+        self.assertContains(response, 'Ver site público')
+        self.assertNotContains(response, 'Ligar para o cliente')
+        self.assertNotContains(response, 'Enviar e-mail')
+
+    def test_detail_quick_actions_lock_existing_customer_and_vehicle_and_open_order(self):
+        self.grant_operational_quick_action_permissions()
+        customer = Customer.objects.create(
+            tipo_pessoa=PessoaTipo.FISICA,
+            nome_razao_social='Cliente Lead',
+            email='cliente@example.com',
+            whatsapp='(11) 99999-0000',
+        )
+        vehicle = Vehicle.objects.create(
+            cliente=customer,
+            placa='ABC1D23',
+            marca='Honda',
+            modelo='Civic',
+            km=45000,
+        )
+        self.client.force_login(self.manager)
+        response = self.client.get(reverse('site_lead_detail', kwargs={'pk': self.lead.pk}))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context['matched_customer'], customer)
+        self.assertEqual(response.context['matched_vehicle'], vehicle)
+        self.assertTrue(response.context['customer_vehicle_match'])
+        self.assertContains(response, 'Cliente existe: Cliente Lead')
+        self.assertContains(response, 'Veículo existe: ABC1D23')
+        self.assertContains(response, 'Abrir OS')
+        self.assertIn(f'cliente={customer.pk}', response.context['work_order_create_url'])
+        self.assertIn(f'veiculo={vehicle.pk}', response.context['work_order_create_url'])
+
+    def test_detail_quick_actions_block_order_when_customer_and_vehicle_mismatch(self):
+        self.grant_operational_quick_action_permissions()
+        customer = Customer.objects.create(
+            tipo_pessoa=PessoaTipo.FISICA,
+            nome_razao_social='Cliente Lead',
+            email='cliente@example.com',
+            whatsapp='(11) 99999-0000',
+        )
+        other_customer = Customer.objects.create(
+            tipo_pessoa=PessoaTipo.FISICA,
+            nome_razao_social='Outro Dono',
+            email='outro@example.com',
+            whatsapp='(11) 98888-0000',
+        )
+        Vehicle.objects.create(
+            cliente=other_customer,
+            placa='ABC1D23',
+            marca='Honda',
+            modelo='Civic',
+            km=45000,
+        )
+        self.client.force_login(self.manager)
+        response = self.client.get(reverse('site_lead_detail', kwargs={'pk': self.lead.pk}))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context['matched_customer'], customer)
+        self.assertTrue(response.context['vehicle_customer_mismatch'])
+        self.assertContains(response, 'Cliente e veículo cadastrados em registros diferentes')
+        self.assertNotContains(response, 'class="btn btn-success btn-sm w-full justify-start whitespace-nowrap">Abrir OS</a>', html=False)
+
+    def test_notification_points_to_internal_lead_detail(self):
+        site = SiteSettings.get_solo()
+        site.email_oficina = 'orcamentos@example.com'
+        site.save()
+        self.manager.role = EmployeeRole.ADM
+        self.manager.save()
+        notify_new_lead(self.lead)
+        notification = AppNotification.objects.filter(categoria='lead_site').first()
+        self.assertIsNotNone(notification)
+        self.assertEqual(notification.url, reverse('site_lead_detail', kwargs={'pk': self.lead.pk}))

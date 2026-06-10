@@ -5,12 +5,12 @@ from .models import BlogPost, Lead, PublicService, SiteSettings, Testimonial
 
 @admin.register(SiteSettings)
 class SiteSettingsAdmin(admin.ModelAdmin):
-    list_display = ('nome_fantasia', 'telefone_principal', 'whatsapp', 'cidade', 'atualizado_em')
+    list_display = ('nome_fantasia', 'telefone_principal', 'whatsapp', 'email_oficina', 'cidade', 'atualizado_em')
     readonly_fields = ('atualizado_em',)
     fieldsets = (
         ('Identidade', {'fields': ('nome_fantasia', 'slogan', 'logo', 'sobre')}),
         ('Hero (topo da home)', {'fields': ('hero_titulo', 'hero_subtitulo')}),
-        ('Contato', {'fields': ('telefone_principal', 'telefone_secundario', 'whatsapp', 'email_contato')}),
+        ('Contato', {'fields': ('telefone_principal', 'telefone_secundario', 'whatsapp', 'email_contato', 'email_oficina')}),
         ('Endereço', {'fields': ('endereco', 'bairro', 'cidade', 'uf', 'cep', 'google_maps_embed')}),
         ('Horário', {'fields': ('horario_semana', 'horario_sabado', 'horario_domingo')}),
         ('Redes sociais', {'fields': ('instagram_url', 'facebook_url')}),

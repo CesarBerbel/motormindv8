@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Category, Customer, Supplier, Vehicle
+from .models import AppNotification, Category, Customer, Supplier, Vehicle
 
 
 @admin.register(Category)
@@ -77,3 +77,15 @@ class VehicleAdmin(admin.ModelAdmin):
 
     def get_queryset(self, request):
         return Vehicle.all_objects.select_related('cliente')
+
+
+
+@admin.register(AppNotification)
+class AppNotificationAdmin(admin.ModelAdmin):
+    list_display = ('criado_em', 'usuario', 'titulo', 'nivel', 'categoria', 'lida_em', 'exibida_em')
+    list_filter = ('nivel', 'categoria', 'lida_em', 'exibida_em', 'criado_em')
+    search_fields = ('titulo', 'mensagem', 'usuario__email', 'usuario__nome_razao_social')
+    readonly_fields = ('usuario', 'titulo', 'mensagem', 'url', 'nivel', 'categoria', 'criado_em', 'lida_em', 'exibida_em')
+
+    def has_add_permission(self, request):
+        return False

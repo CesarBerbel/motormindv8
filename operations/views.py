@@ -1334,6 +1334,38 @@ class WorkOrderCreateView(LoginRequiredMixin, PermissionRequiredMixin, WorkOrder
     permission_required = 'operations.add_workorder'
     title = 'Nova OS'
 
+    def get_initial(self):
+        initial = super().get_initial()
+        cliente = self.request.GET.get('cliente')
+        veiculo = self.request.GET.get('veiculo')
+        if cliente and cliente.isdigit():
+            initial['cliente'] = int(cliente)
+        if veiculo and veiculo.isdigit():
+            initial['veiculo'] = int(veiculo)
+
+        lead_id = self.request.GET.get('lead')
+        if lead_id and lead_id.isdigit():
+            try:
+                from django.apps import apps
+
+                Lead = apps.get_model('website', 'Lead')
+                lead = Lead.objects.select_related('servico').filter(pk=int(lead_id)).first()
+            except LookupError:
+                lead = None
+
+            if lead:
+                if lead.mensagem:
+                    initial.setdefault('problema_relatado', lead.mensagem)
+                notes = [f'Origem: pedido de orçamento do site #{lead.pk}.']
+                if lead.servico_id:
+                    notes.append(f'Serviço solicitado no site: {lead.servico.titulo}.')
+                if lead.veiculo:
+                    notes.append(f'Veículo informado no pedido: {lead.veiculo}.')
+                if lead.placa:
+                    notes.append(f'Placa informada no pedido: {lead.placa}.')
+                initial.setdefault('observacao', '\n'.join(notes))
+        return initial
+
     def form_valid(self, form):
         response = super().form_valid(form)
         messages.success(self.request, 'Ordem de serviço cadastrada com sucesso.')

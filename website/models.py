@@ -39,7 +39,12 @@ class SiteSettings(models.Model):
         default='5511988212625',
         help_text='Número usado nos botões de WhatsApp. Ex.: 5511988212625.',
     )
-    email_contato = models.EmailField('E-mail de contato', blank=True)
+    email_contato = models.EmailField('E-mail público de contato', blank=True)
+    email_oficina = models.EmailField(
+        'E-mail da oficina',
+        blank=True,
+        help_text='E-mail interno que receberá pedidos de orçamento enviados pelo site.',
+    )
 
     endereco = models.CharField('Endereço', max_length=200, blank=True)
     bairro = models.CharField('Bairro', max_length=120, blank=True)

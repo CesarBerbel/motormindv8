@@ -5,7 +5,7 @@ from unittest import mock
 from django import forms
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
-from django.test import SimpleTestCase, TestCase
+from django.test import SimpleTestCase, TestCase, override_settings
 
 from core.money import MoneyField, format_money_br, normalize_money
 from core.views import FipeProxyBaseView
@@ -104,6 +104,24 @@ class PWAServiceWorkerTests(TestCase):
         body = response.content.decode('utf-8').lower()
         self.assertIn('addeventlistener', body)
         self.assertIn('caches', body)
+        self.assertIn('notificationclick', body)
+        self.assertIn('offline', body)
+        self.assertIn('motormind-static-v3', body)
+
+    def test_dashboard_exposes_pwa_install_button(self):
+        User = get_user_model()
+        user = User.objects.create_user(
+            email='pwa.dashboard@example.com',
+            password='segredo-forte-123',
+            nome_razao_social='PWA Dashboard',
+        )
+        self.client.force_login(user)
+
+        response = self.client.get('/dashboard/')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'data-pwa-install')
+        self.assertContains(response, 'Instalar app')
 
 
 class DashboardViewTests(TestCase):
@@ -159,3 +177,87 @@ class DashboardViewTests(TestCase):
         self.assertContains(response, 'data-company-watermark')
         self.assertContains(response, 'Oficina Premium Teste')
         self.assertContains(response, 'company-watermark.js')
+
+
+class AppNotificationViewTests(TestCase):
+    def setUp(self):
+        from core.models import AppNotification
+
+        User = get_user_model()
+        self.user = User.objects.create_user(
+            email='notifications@example.com',
+            password='segredo-forte-123',
+            nome_razao_social='Notifications User',
+            role='adm',
+        )
+        self.notification = AppNotification.objects.create(
+            usuario=self.user,
+            titulo='Novo pedido de orçamento pelo site',
+            mensagem='Cliente solicitou orçamento.',
+            url='/dashboard/',
+            categoria='lead_site',
+        )
+
+    def test_authenticated_feed_returns_pending_notifications_and_marks_displayed(self):
+        response = self.client.get('/notificacoes/feed/')
+        self.assertEqual(response.status_code, 302)
+
+        self.client.force_login(self.user)
+        response = self.client.get('/notificacoes/feed/')
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertTrue(payload['ok'])
+        self.assertEqual(payload['unread_count'], 1)
+        self.assertEqual(payload['notifications'][0]['title'], 'Novo pedido de orçamento pelo site')
+
+        self.notification.refresh_from_db()
+        self.assertIsNotNone(self.notification.exibida_em)
+        self.assertIsNone(self.notification.lida_em)
+
+    def test_mark_notification_as_read(self):
+        self.client.force_login(self.user)
+        response = self.client.post(f'/notificacoes/{self.notification.pk}/lida/')
+
+        self.assertEqual(response.status_code, 200)
+        self.notification.refresh_from_db()
+        self.assertIsNotNone(self.notification.lida_em)
+
+    def test_base_template_loads_notification_assets_for_authenticated_user(self):
+        self.client.force_login(self.user)
+        response = self.client.get('/dashboard/')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'data-app-notifications')
+        self.assertContains(response, 'app-notifications.js')
+
+
+    @override_settings(PWA_ENABLED=False)
+    def test_pwa_disabled_in_local_dev_unloads_manifest_and_registers_cleanup(self):
+        self.client.force_login(self.user)
+        response = self.client.get('/dashboard/')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'data-pwa-enabled="false"')
+        self.assertNotContains(response, 'rel="manifest"')
+        self.assertContains(response, 'pwa.js')
+
+        sw_response = self.client.get('/sw.js')
+        self.assertEqual(sw_response.status_code, 200)
+        self.assertEqual(sw_response['Cache-Control'], 'no-cache, no-store, must-revalidate')
+        self.assertContains(sw_response, 'PWA desabilitado neste ambiente')
+        self.assertContains(sw_response, 'self.registration.unregister')
+
+    @override_settings(PWA_ENABLED=True)
+    def test_pwa_enabled_renders_manifest_and_active_service_worker(self):
+        self.client.force_login(self.user)
+        response = self.client.get('/dashboard/')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'data-pwa-enabled="true"')
+        self.assertContains(response, 'rel="manifest"')
+
+        sw_response = self.client.get('/sw.js')
+        self.assertEqual(sw_response.status_code, 200)
+        self.assertContains(sw_response, 'motormind-static-v3')
+        self.assertNotContains(sw_response, 'PWA desabilitado neste ambiente')

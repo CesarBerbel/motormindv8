@@ -13,6 +13,8 @@ urlpatterns = [
 
     # Área restrita: gestão do conteúdo do site.
     path('painel/oficina/', views.SiteSettingsView.as_view(), name='site_settings'),
+    path('painel/orcamentos/', views.LeadManageListView.as_view(), name='site_lead_list'),
+    path('painel/orcamentos/<int:pk>/', views.LeadManageDetailView.as_view(), name='site_lead_detail'),
     path('painel/artigos/', views.BlogPostManageListView.as_view(), name='blog_manage_list'),
     path('painel/artigos/gerar-ia/', views.BlogArticleGenerateView.as_view(), name='blog_generate_ai'),
     path('painel/artigos/novo/', views.BlogPostCreateView.as_view(), name='blog_manage_create'),

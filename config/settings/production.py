@@ -28,3 +28,6 @@ if ALLOWED_HOSTS == ['127.0.0.1', 'localhost']:  # noqa: F405
         'Defina ALLOWED_HOSTS no .env.',
         RuntimeWarning,
     )
+
+# Em produção o sistema deve ser instalável como PWA por padrão.
+PWA_ENABLED = env_bool('PWA_ENABLED', True)

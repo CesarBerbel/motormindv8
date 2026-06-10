@@ -326,3 +326,55 @@ class Vehicle(models.Model):
 
     def get_absolute_url(self):
         return reverse('vehicle_detail', kwargs={'pk': self.pk})
+
+
+class AppNotificationLevel(models.TextChoices):
+    INFO = 'info', 'Informação'
+    SUCCESS = 'success', 'Sucesso'
+    WARNING = 'warning', 'Atenção'
+    ERROR = 'error', 'Erro'
+
+
+class AppNotification(models.Model):
+    """Notificação interna exibida na interface autenticada do sistema."""
+
+    usuario = models.ForeignKey(
+        'accounts.User',
+        verbose_name='Usuário',
+        on_delete=models.CASCADE,
+        related_name='notificacoes_app',
+    )
+    titulo = models.CharField('Título', max_length=160)
+    mensagem = models.TextField('Mensagem', blank=True)
+    url = models.CharField('URL de destino', max_length=300, blank=True)
+    nivel = models.CharField('Nível', max_length=20, choices=AppNotificationLevel.choices, default=AppNotificationLevel.INFO)
+    categoria = models.CharField('Categoria', max_length=60, blank=True, db_index=True)
+    lida_em = models.DateTimeField('Lida em', blank=True, null=True, db_index=True)
+    exibida_em = models.DateTimeField('Exibida em', blank=True, null=True, db_index=True)
+    criado_em = models.DateTimeField('Criada em', auto_now_add=True, db_index=True)
+
+    class Meta:
+        verbose_name = 'Notificação interna'
+        verbose_name_plural = 'Notificações internas'
+        ordering = ['-criado_em', '-pk']
+        indexes = [
+            models.Index(fields=['usuario', 'lida_em', '-criado_em']),
+            models.Index(fields=['usuario', 'exibida_em', '-criado_em']),
+        ]
+
+    @property
+    def is_read(self):
+        return self.lida_em is not None
+
+    def mark_displayed(self):
+        if self.exibida_em is None:
+            self.exibida_em = timezone.now()
+            self.save(update_fields=['exibida_em'])
+
+    def mark_read(self):
+        if self.lida_em is None:
+            self.lida_em = timezone.now()
+            self.save(update_fields=['lida_em'])
+
+    def __str__(self):
+        return f'{self.titulo} - {self.usuario}'
